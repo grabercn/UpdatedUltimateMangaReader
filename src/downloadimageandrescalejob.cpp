@@ -1,5 +1,7 @@
 #include "downloadimageandrescalejob.h"
 
+#include <QTransform>
+
 DownloadScaledImageJob::DownloadScaledImageJob(
     QNetworkAccessManager *networkManager, const QString &url, const QString &path, QSize screenSize,
     Settings *settings, const QList<std::tuple<const char *, const char *>> &customHeaders,
@@ -70,19 +72,39 @@ bool DownloadScaledImageJob::processImage(QByteArray &&array)
     //    qDebug() << "Image processing decrypt:" << t.elapsed();
     QImage pimg;
 
-    if (isJpeg(array) || isPng(array))
+    bool useDither = !settings->colorMode && settings->ditheringMode >= SWDithering;
+
+    if (settings->colorMode)
+    {
+        // Color mode: skip greyscale conversion, just resize
+        QImage img;
+        if (img.loadFromData(array))
+        {
+            auto rot90 = calcRotationInfo(img.size(), screenSize, settings->doublePageMode);
+            if (rot90 != 0)
+                img = img.transformed(QTransform().rotate(rot90));
+            auto rescaleSize = calcRescaleSize(img.size(), screenSize, rot90 != 0, settings->manhwaMode);
+            pimg = img.scaled(rescaleSize.width(), rescaleSize.height(),
+                              Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            pimg.save(filepath, nullptr, 85);
+        }
+    }
+    else if (isJpeg(array) || isPng(array))
+    {
         pimg = processImageN(array, filepath, screenSize, settings->doublePageMode, settings->trimPages,
-                             settings->manhwaMode, settings->ditheringMode >= SWDithering);
+                             settings->manhwaMode, useDither);
+    }
+
     if (!pimg.isNull())
     {
         resultImage.reset(new QImage(pimg));
     }
-    else
+    else if (!settings->colorMode)
     {
         qDebug() << "Fast decoding failed, using fallback!";
 
         pimg = processImageQt(array, filepath, screenSize, settings->doublePageMode, settings->trimPages,
-                              settings->manhwaMode, settings->ditheringMode >= SWDithering);
+                              settings->manhwaMode, useDither);
 
         if (!pimg.isNull())
             resultImage.reset(new QImage(pimg));

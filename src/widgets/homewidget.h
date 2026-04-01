@@ -1,6 +1,7 @@
 #ifndef HOMEWIDGET_H
 #define HOMEWIDGET_H
 
+#include <QLabel>
 #include <QScrollBar>
 #include <QSet>
 #include <QStandardItemModel>
@@ -82,6 +83,7 @@ private:
 
     AniList *aniList = nullptr;
     SpinnerWidget *searchSpinner = nullptr;
+    QLabel *altNamesLabel = nullptr;
     class FavoritesManager *favManager = nullptr;
 
     // Home view item types stored in Qt::UserRole

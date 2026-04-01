@@ -14,6 +14,11 @@ Settings::Settings()
       trimPages(true),
       manhwaMode(true),
       ditheringMode(SWDithering),
+#ifdef DESKTOP
+      colorMode(true),
+#else
+      colorMode(false),
+#endif
       offlineMode(false),
       autoSuspendMinutes(15),
       wifiAutoDisconnect(true),

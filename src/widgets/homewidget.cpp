@@ -24,6 +24,27 @@ HomeWidget::HomeWidget(QWidget *parent)
     ui->listViewSources->setSelectionMode(QAbstractItemView::NoSelection);
     ui->listViewMangas->setModel(new QStringListModel(this));
 
+    // Alt names label between search bar and results
+    altNamesLabel = new QLabel(this);
+    altNamesLabel->setStyleSheet("color: #888; font-size: 8pt; padding: 1px 12px;");
+    altNamesLabel->setWordWrap(false);
+    altNamesLabel->hide();
+    // Insert into the layout between search bar and list
+    auto *mainLayout = qobject_cast<QVBoxLayout *>(this->layout());
+    if (mainLayout)
+    {
+        // Find listViewMangas index and insert before it
+        for (int i = 0; i < mainLayout->count(); i++)
+        {
+            auto *item = mainLayout->itemAt(i);
+            if (item && item->widget() == ui->listViewMangas)
+            {
+                mainLayout->insertWidget(i, altNamesLabel);
+                break;
+            }
+        }
+    }
+
     QObject::connect(ui->lineEditFilter, &CLineEdit::returnPressed, this,
                      &HomeWidget::on_pushButtonFilter_clicked);
 
@@ -344,6 +365,8 @@ void HomeWidget::on_pushButtonFilterClear_clicked()
 
     searchResults.clear();
     searchActive = false;
+    if (altNamesLabel)
+        altNamesLabel->hide();
     refreshMangaListView();
 }
 
@@ -361,7 +384,7 @@ void HomeWidget::refreshMangaListView()
     QStringList displayList;
     searchListOffset = 0;
 
-    // Collect unique alt names that were found
+    // Show alt names in the label under search bar
     QStringList altNames;
     QSet<QString> altSeen;
     for (const auto &sr : searchResults)
@@ -372,13 +395,17 @@ void HomeWidget::refreshMangaListView()
             altNames.append(sr.altTitle);
         }
     }
-    if (!altNames.isEmpty())
+    if (!altNames.isEmpty() && altNamesLabel)
     {
-        QString altLine = "Also searched: " + altNames.join(", ");
-        if (altLine.length() > 70)
-            altLine = altLine.left(67) + "...";
-        displayList.append(altLine);
-        searchListOffset = 1;
+        QString text = "Also: " + altNames.join(", ");
+        if (text.length() > 60)
+            text = text.left(57) + "...";
+        altNamesLabel->setText(text);
+        altNamesLabel->show();
+    }
+    else if (altNamesLabel)
+    {
+        altNamesLabel->hide();
     }
 
     for (const auto &sr : searchResults)

@@ -234,6 +234,43 @@ void SettingsDialog::adjustUI()
     ui->checkBoxManhwaMode->setText("Manhwa mode (vertical scroll)");
     ui->checkBoxHideErrorMessages->setText("Hide error messages");
 
+    // Color mode checkbox - add after dithering
+    auto *displayLabel = new QLabel("<b>Display</b>", this);
+    displayLabel->setStyleSheet("font-weight: bold; font-size: 11pt; padding-top: 8px;");
+    auto *colorCheck = new QCheckBox("Color mode (disable greyscale)", this);
+    colorCheck->setChecked(settings->colorMode);
+    connect(colorCheck, &QCheckBox::toggled, this, [this](bool checked)
+    {
+        if (!internalChange)
+        {
+            this->settings->colorMode = checked;
+            this->settings->scheduleSerialize();
+        }
+    });
+    // Insert into scroll area layout
+    auto *sLayout = ui->scrollArea->widget()->layout();
+    // Find the dithering combo and insert after it
+    if (sLayout)
+    {
+        // Add at the position after checkBoxHideErrorMessages
+        auto *vl = qobject_cast<QVBoxLayout *>(sLayout);
+        if (vl)
+        {
+            int idx = -1;
+            for (int i = 0; i < vl->count(); i++)
+            {
+                auto *item = vl->itemAt(i);
+                if (item && item->widget() == ui->checkBoxHideErrorMessages)
+                { idx = i + 1; break; }
+            }
+            if (idx >= 0)
+            {
+                vl->insertWidget(idx, displayLabel);
+                vl->insertWidget(idx + 1, colorCheck);
+            }
+        }
+    }
+
     // Set all combo boxes to touch-friendly height
     for (auto *combo : this->findChildren<QComboBox *>())
         combo->setMinimumHeight(36);

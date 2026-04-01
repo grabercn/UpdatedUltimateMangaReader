@@ -32,6 +32,7 @@ public:
     bool trimPages;
     bool manhwaMode;
     DitheringMode ditheringMode;
+    bool colorMode;  // true = keep color images (for color e-readers or desktop)
 
     QString aniListToken;
     bool offlineMode;

@@ -42,40 +42,29 @@ void FavoritesWidget::adjustUI()
 
 void FavoritesWidget::showFavoritesList()
 {
-    bool res = favoritesManager->loadInfos();
-
-    //    if (res)
+    favoritesManager->loadInfos();
     favoritesManager->updateInfos();
 
-    bool updateNeeded = ui->tableWidget->rowCount() != favoritesManager->favorites.count();
-    if (!updateNeeded)
-        for (int i = 0; i < ui->tableWidget->rowCount(); i++)
-            if (ui->tableWidget->cellWidget(i, 0)->property("ptext").toString() !=
-                favoritesManager->favoriteinfos.at(i)->title)
-            {
-                updateNeeded = true;
-                break;
-            }
-
-    if (!updateNeeded)
-    {
-        for (int i = 0; i < ui->tableWidget->rowCount(); i++)
-            updateStatus(i);
-
-        return;
-    }
-
+    // Always rebuild the table to stay in sync
     ui->tableWidget->setRowCount(0);
 
     for (int r = 0; r < favoritesManager->favoriteinfos.count(); r++)
     {
         if (favoritesManager->favoriteinfos[r].isNull())
             continue;
+
         insertRow(favoritesManager->favoriteinfos[r], ui->tableWidget->rowCount());
-        QObject::connect(favoritesManager->favoriteinfos[r].get(), &MangaInfo::updatedSignal, this,
-                         &FavoritesWidget::mangaUpdated);
-        QObject::connect(favoritesManager->favoriteinfos[r].get(), &MangaInfo::coverLoaded, this,
-                         &FavoritesWidget::coverLoaded);
+
+        // Disconnect first to avoid duplicate connections
+        disconnect(favoritesManager->favoriteinfos[r].get(), &MangaInfo::updatedSignal,
+                   this, &FavoritesWidget::mangaUpdated);
+        disconnect(favoritesManager->favoriteinfos[r].get(), &MangaInfo::coverLoaded,
+                   this, &FavoritesWidget::coverLoaded);
+
+        connect(favoritesManager->favoriteinfos[r].get(), &MangaInfo::updatedSignal,
+                this, &FavoritesWidget::mangaUpdated);
+        connect(favoritesManager->favoriteinfos[r].get(), &MangaInfo::coverLoaded,
+                this, &FavoritesWidget::coverLoaded);
     }
 }
 
