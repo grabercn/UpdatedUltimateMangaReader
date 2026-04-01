@@ -19,6 +19,7 @@ class MangaController : public QObject
 
 public:
     MangaController(NetworkManager *networkManager, QObject *parent = nullptr);
+    class Settings *settings = nullptr;
 
     QSharedPointer<MangaInfo> currentManga;
     MangaIndexTraverser currentIndex;

@@ -23,6 +23,7 @@
 #include "updatemangalistsdialog.h"
 #include "virtualkeyboard.h"
 #include "spinnerwidget.h"
+#include "welcomedialog.h"
 #include "wifidialog.h"
 
 #ifdef KOBO
@@ -112,7 +113,10 @@ private:
     DownloadQueueWidget *downloadQueueWidget;
 
     SpinnerWidget *spinner;
+    QToolButton *downloadHeaderBtn;
+    int activeDownloadCount;
     void showLoadingIndicator();
+    void updateDownloadBadge();
     void hideLoadingIndicator();
 
     QIcon wifiIcons[2];

@@ -14,6 +14,7 @@
 #include "staticsettings.h"
 
 class AniList;
+struct AniListEntry;
 
 namespace Ui
 {
@@ -49,6 +50,8 @@ signals:
     void mangaSourceClicked(AbstractMangaSource *source);
     void mangaClicked(const QString &mangaurl, const QString &mangatitle);
     void favoritesCleared();
+    void openHistoryRequested();
+    void openAniListRequested();
 
 private slots:
     void on_listViewSources_clicked(const QModelIndex &index);
@@ -82,6 +85,25 @@ private:
     void loadRecentSearches();
 
     AniList *aniList = nullptr;
+
+    // Cached AniList -> local manga mapping
+    struct LocalMangaMatch
+    {
+        QString source;
+        QString dirName;
+        QString infoPath;
+    };
+    QMap<QString, LocalMangaMatch> aniListLocalMap;  // anilist title -> local match
+    void buildAniListLocalMap();
+
+    // Background matching
+    struct CachedDir { QString source; QString dirName; QString normName; QString path; };
+    QList<CachedDir> cachedDirsForMatching;
+    QList<AniListEntry> pendingMatchEntries;
+    QTimer *bgMatchTimer = nullptr;
+    void startBackgroundMatching();
+    void matchNextBatch();
+    bool tryMatch(const AniListEntry &entry);
     SpinnerWidget *searchSpinner = nullptr;
     QLabel *altNamesLabel = nullptr;
     class FavoritesManager *favManager = nullptr;

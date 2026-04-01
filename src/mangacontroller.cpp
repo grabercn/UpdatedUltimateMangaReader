@@ -1,5 +1,7 @@
 #include "mangacontroller.h"
 
+#include "settings.h"
+
 MangaController::MangaController(NetworkManager *networkManager, QObject *parent)
     : QObject(parent),
       currentIndex(nullptr, 0, 0),
@@ -140,7 +142,10 @@ void MangaController::currentIndexChangedInternal(bool preload)
     serializeProgress();
 
     if (preload && currentManga->mangaSource->contentType != ContentLightNovel)
+    {
+        // Check if preloading is enabled (settings accessed via mangaSource->networkManager)
         QTimer::singleShot(50, this, &MangaController::preloadNeighbours);
+    }
 
     emit activity();
 }
@@ -310,7 +315,10 @@ void MangaController::preloadPopular()
 
 void MangaController::preloadNeighbours()
 {
-    int forward = CONF.forwardPreloads;
+    if (settings && !settings->preloadEnabled)
+        return;
+
+    int forward = settings ? settings->preloadPages : CONF.forwardPreloads;
     int backward = CONF.backwardPreloads;
 
     MangaIndexTraverser forwardindex(currentIndex);
@@ -321,28 +329,33 @@ void MangaController::preloadNeighbours()
         if (i < forward)
         {
             auto res = forwardindex.increment();
-            if (res.isOk())
-            {
-                if (res.unwrap())
-                    preloadImage(forwardindex);
-            }
-            else
-            {
-                emit error(res.unwrapErr());
-            }
+            if (res.isOk() && res.unwrap())
+                preloadImage(forwardindex);
         }
 
         if (i < backward)
         {
-            auto res = forwardindex.decrement();
-            if (res.isOk())
+            auto res = backwardindex.decrement();
+            if (res.isOk() && res.unwrap())
+                preloadImage(backwardindex);
+        }
+    }
+
+    // Auto-download: pre-fetch page lists for next N chapters
+    int chaptersAhead = settings ? settings->preloadChapters : 2;
+    if (currentManga && currentManga->mangaSource &&
+        currentManga->mangaSource->contentType != ContentLightNovel)
+    {
+        for (int c = currentIndex.chapter + 1;
+             c <= currentIndex.chapter + chaptersAhead && c < currentManga->chapters.count(); c++)
+        {
+            if (!currentManga->chapters[c].pagesLoaded)
             {
-                if (res.unwrap())
-                    preloadImage(backwardindex);
-            }
-            else
-            {
-                emit error(res.unwrapErr());
+                try
+                {
+                    currentManga->mangaSource->updatePageList(currentManga, c);
+                }
+                catch (...) {}
             }
         }
     }

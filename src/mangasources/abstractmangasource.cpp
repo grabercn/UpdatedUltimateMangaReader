@@ -330,8 +330,17 @@ void AbstractMangaSource::reorderChapterPages(QSharedPointer<MangaInfo> info,
 
 void AbstractMangaSource::downloadCoverAsync(QSharedPointer<MangaInfo> mangainfo, bool updateCover)
 {
-    if (mangainfo->coverUrl == "")
+    if (mangainfo->coverUrl.isEmpty() || mangainfo->coverUrl == "/")
         return;
+
+    // Fix relative URLs
+    if (!mangainfo->coverUrl.startsWith("http") && !mangainfo->coverUrl.startsWith("//"))
+    {
+        if (mangainfo->coverUrl.startsWith("/"))
+            mangainfo->coverUrl = baseUrl + mangainfo->coverUrl;
+        else
+            mangainfo->coverUrl = baseUrl + "/" + mangainfo->coverUrl;
+    }
 
     if (mangainfo->coverPath == "")
     {

@@ -267,7 +267,19 @@ void AniList::updateProgress(int mediaId, int chapters, int status)
 
     auto job = graphqlRequest(query, vars);
     if (!job->await(10000))
-        return;
+    {
+        // Offline or failed - queue for later sync
+        PendingSync ps;
+        ps.mediaId = mediaId;
+        ps.progress = chapters;
+        ps.status = status;
+        ps.score = 0;
+        ps.timestamp = QDateTime::currentMSecsSinceEpoch();
+        offlineQueue.append(ps);
+        saveOfflineQueue();
+        qDebug() << "AniList update queued for offline sync:" << mediaId << chapters;
+        // Still update local cache
+    }
 
     // Update local cache
     for (auto &e : m_entries)
@@ -474,6 +486,93 @@ void AniList::deserialize()
     }
 
     file.close();
+
+    loadOfflineQueue();
+
     if (!authToken.isEmpty() && userId > 0)
         emit loginStatusChanged(true);
+}
+
+void AniList::saveOfflineQueue()
+{
+    QFile file(QString(CONF.cacheDir) + "/anilist_queue.dat");
+    if (!file.open(QIODevice::WriteOnly))
+        return;
+    QDataStream out(&file);
+    out << (int)offlineQueue.size();
+    for (const auto &ps : offlineQueue)
+        out << ps.mediaId << ps.progress << ps.status << ps.score << ps.timestamp;
+    file.close();
+}
+
+void AniList::loadOfflineQueue()
+{
+    QFile file(QString(CONF.cacheDir) + "/anilist_queue.dat");
+    if (!file.open(QIODevice::ReadOnly))
+        return;
+    try
+    {
+        QDataStream in(&file);
+        int count;
+        in >> count;
+        count = qBound(0, count, 1000);
+        for (int i = 0; i < count && !in.atEnd(); i++)
+        {
+            PendingSync ps;
+            in >> ps.mediaId >> ps.progress >> ps.status >> ps.score >> ps.timestamp;
+            if (in.status() == QDataStream::Ok)
+                offlineQueue.append(ps);
+        }
+    }
+    catch (...) {}
+    file.close();
+}
+
+void AniList::flushOfflineQueue()
+{
+    if (offlineQueue.isEmpty() || !isLoggedIn())
+        return;
+
+    qDebug() << "Flushing" << offlineQueue.size() << "offline AniList updates";
+
+    // Deduplicate: for same mediaId, keep the one with latest timestamp
+    QMap<int, PendingSync> latest;
+    for (const auto &ps : offlineQueue)
+    {
+        if (!latest.contains(ps.mediaId) || ps.timestamp > latest[ps.mediaId].timestamp)
+            latest[ps.mediaId] = ps;
+    }
+
+    offlineQueue.clear();
+
+    for (const auto &ps : latest)
+    {
+        // Check online progress first - use latest wins
+        auto entry = findByTitle("");  // won't match, just for structure
+        for (const auto &e : m_entries)
+        {
+            if (e.mediaId == ps.mediaId)
+            {
+                // Local timestamp is newer - push our data
+                updateProgress(ps.mediaId, ps.progress, ps.status);
+                if (ps.score > 0)
+                    updateScore(ps.mediaId, ps.score);
+                break;
+            }
+        }
+    }
+
+    // Clear the queue file
+    QFile::remove(QString(CONF.cacheDir) + "/anilist_queue.dat");
+}
+
+void AniList::syncOfflineChanges()
+{
+    if (!isLoggedIn())
+        return;
+
+    flushOfflineQueue();
+
+    // Also refresh the list from server
+    fetchMangaList();
 }

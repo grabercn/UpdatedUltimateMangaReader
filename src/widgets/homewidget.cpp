@@ -280,7 +280,8 @@ void HomeWidget::doLiveSearch(const QString &query)
                     if (w.contains(qw) || qw.contains(w)) { overlap++; break; }
 
             if (queryNormWords.size() > 0)
-                s += (overlap * 40) / queryNormWords.size();
+                if (queryNormWords.size() > 0)
+                    s += (overlap * 40) / queryNormWords.size();
 
             return s;
         };
@@ -486,10 +487,28 @@ void HomeWidget::on_listViewMangas_clicked(const QModelIndex &index)
 
         case AniListItem:
         {
-            // Search for this title
             auto title = index.data(Qt::UserRole + 1).toString();
-            if (!title.isEmpty())
+            if (title == "__open_anilist__")
             {
+                emit openAniListRequested();
+            }
+            else if (!title.isEmpty())
+            {
+                // Try direct open from local cache first
+                if (aniListLocalMap.contains(title))
+                {
+                    auto &match = aniListLocalMap[title];
+                    for (auto *ms : allSources)
+                    {
+                        if (ms->name == match.source)
+                        {
+                            emit mangaSourceClicked(ms);
+                            emit mangaClicked(match.infoPath, match.dirName);
+                            return;
+                        }
+                    }
+                }
+                // Fallback: search
                 ui->lineEditFilter->setText(title);
                 on_pushButtonFilter_clicked();
             }
@@ -499,7 +518,11 @@ void HomeWidget::on_listViewMangas_clicked(const QModelIndex &index)
         case SearchItem:
         {
             auto query = index.data(Qt::UserRole + 1).toString();
-            if (!query.isEmpty())
+            if (query == "__open_history__")
+            {
+                emit openHistoryRequested();
+            }
+            else if (!query.isEmpty())
             {
                 ui->lineEditFilter->setText(query);
                 on_pushButtonFilter_clicked();
@@ -547,8 +570,16 @@ void HomeWidget::setAniList(AniList *al)
     aniList = al;
     if (aniList)
     {
-        connect(aniList, &AniList::mangaListUpdated, this, &HomeWidget::refreshHomeView);
-        connect(aniList, &AniList::loginStatusChanged, this, [this](bool) { refreshHomeView(); });
+        connect(aniList, &AniList::mangaListUpdated, this, [this]()
+        {
+            buildAniListLocalMap();
+            refreshHomeView();
+        });
+        connect(aniList, &AniList::loginStatusChanged, this, [this](bool)
+        {
+            buildAniListLocalMap();
+            refreshHomeView();
+        });
     }
 }
 
@@ -631,24 +662,13 @@ void HomeWidget::refreshHomeView()
         }
     }
 
+    // === CONTINUE READING ===
     if (!downloaded.isEmpty())
     {
-        addHeader("DOWNLOADED");
+        addHeader("CONTINUE READING");
         for (const auto &d : downloaded)
         {
-            QString star = "";
-            if (favManager)
-            {
-                auto titleClean = d.title.toLower().replace("-", " ");
-                for (const auto &fav : favManager->favorites)
-                    if (fav.title.toLower().replace("-", " ") == titleClean ||
-                        fav.title.toLower().contains(titleClean) ||
-                        titleClean.contains(fav.title.toLower()))
-                    { star = " *"; break; }
-            }
-
-            QString text = "  " + d.title + star;
-            text += "  (" + QString::number(d.chapters) + " ch";
+            QString text = "  " + d.title + "  (" + QString::number(d.chapters) + " ch";
             if (d.progressCh > 0 || d.progressPg > 0)
                 text += ", Ch." + QString::number(d.progressCh + 1) +
                         " Pg." + QString::number(d.progressPg + 1);
@@ -662,20 +682,30 @@ void HomeWidget::refreshHomeView()
         }
     }
 
-    // Recent searches
+    // === RECENT SEARCHES (top 3) ===
     if (!recentSearches.isEmpty())
     {
         addHeader("RECENT SEARCHES");
-        for (const auto &s : recentSearches)
+        int shown = qMin(3, recentSearches.size());
+        for (int i = 0; i < shown; i++)
         {
-            auto *item = new QStandardItem("  " + s);
+            auto *item = new QStandardItem("  " + recentSearches[i]);
             item->setData(SearchItem, Qt::UserRole);
-            item->setData(s, Qt::UserRole + 1);
+            item->setData(recentSearches[i], Qt::UserRole + 1);
             model->appendRow(item);
+        }
+        {
+            auto *seeAll = new QStandardItem("  View history...");
+            seeAll->setData(SearchItem, Qt::UserRole);
+            seeAll->setData("__open_history__", Qt::UserRole + 1);
+            auto f = seeAll->font();
+            f.setItalic(true);
+            seeAll->setFont(f);
+            model->appendRow(seeAll);
         }
     }
 
-    // AniList - Reading only, cached
+    // === READING ON ANILIST (top 3) ===
     if (aniList && aniList->isLoggedIn())
     {
         if (!aniListCacheValid)
@@ -685,8 +715,7 @@ void HomeWidget::refreshHomeView()
             for (const auto &e : reading)
             {
                 QString info = e.title + "  Ch." + QString::number(e.progress);
-                if (e.totalChapters > 0)
-                    info += "/" + QString::number(e.totalChapters);
+                if (e.totalChapters > 0) info += "/" + QString::number(e.totalChapters);
                 cachedAniListReading.append(info);
             }
             aniListCacheValid = true;
@@ -694,18 +723,28 @@ void HomeWidget::refreshHomeView()
 
         if (!cachedAniListReading.isEmpty())
         {
-            addHeader("READING (tap to search)");
+            addHeader("READING ON ANILIST");
             auto reading = aniList->entriesByStatus(1);
-            for (const auto &e : reading)
+            int shown = qMin(3, reading.size());
+            for (int i = 0; i < shown; i++)
             {
+                const auto &e = reading[i];
                 QString text = "  " + e.title + "  Ch." + QString::number(e.progress);
-                if (e.totalChapters > 0)
-                    text += "/" + QString::number(e.totalChapters);
+                if (e.totalChapters > 0) text += "/" + QString::number(e.totalChapters);
 
                 auto *item = new QStandardItem(text);
                 item->setData(AniListItem, Qt::UserRole);
                 item->setData(e.title, Qt::UserRole + 1);
                 model->appendRow(item);
+            }
+            {
+                auto *seeAll = new QStandardItem("  View all on AniList...");
+                seeAll->setData(AniListItem, Qt::UserRole);
+                seeAll->setData("__open_anilist__", Qt::UserRole + 1);
+                auto f = seeAll->font();
+                f.setItalic(true);
+                seeAll->setFont(f);
+                model->appendRow(seeAll);
             }
         }
     }
@@ -762,6 +801,152 @@ void HomeWidget::showOfflineReads()
         display.append("No offline content available.");
 
     model->setStringList(display);
+}
+
+static QString normalizeName(const QString &s)
+{
+    return s.toLower().trimmed()
+        .remove(QRegularExpression(R"([!?.,;:'\"\-])"))
+        .replace("-", " ").replace("_", " ")
+        .replace(QRegularExpression(R"(\s+)"), " ").trimmed();
+}
+
+bool HomeWidget::tryMatch(const AniListEntry &entry)
+{
+    if (aniListLocalMap.contains(entry.title))
+        return true;
+
+    auto normTitle = normalizeName(entry.title);
+    auto normRomaji = normalizeName(entry.titleRomaji);
+
+    for (const auto &c : cachedDirsForMatching)
+    {
+        // Exact normalized match
+        if (c.normName == normTitle || (!normRomaji.isEmpty() && c.normName == normRomaji))
+        {
+            aniListLocalMap[entry.title] = {c.source, c.dirName, c.path};
+            return true;
+        }
+
+        // Substring match (both directions)
+        if ((!normTitle.isEmpty() && (c.normName.contains(normTitle) || normTitle.contains(c.normName))) ||
+            (!normRomaji.isEmpty() && (c.normName.contains(normRomaji) || normRomaji.contains(c.normName))))
+        {
+            aniListLocalMap[entry.title] = {c.source, c.dirName, c.path};
+            return true;
+        }
+
+        // Word overlap >= 50%
+        auto dirWords = c.normName.split(' ', Qt::SkipEmptyParts).toSet();
+        auto titleWords = normTitle.split(' ', Qt::SkipEmptyParts).toSet();
+        if (dirWords.size() >= 2 && titleWords.size() >= 2)
+        {
+            auto common = dirWords & titleWords;
+            int minSz = qMin(dirWords.size(), titleWords.size());
+            if (minSz > 0 && common.size() * 100 / minSz >= 50)
+            {
+                aniListLocalMap[entry.title] = {c.source, c.dirName, c.path};
+                return true;
+            }
+        }
+
+        // Also try romaji word overlap
+        if (!normRomaji.isEmpty())
+        {
+            auto romajiWords = normRomaji.split(' ', Qt::SkipEmptyParts).toSet();
+            if (dirWords.size() >= 2 && romajiWords.size() >= 2)
+            {
+                auto common = dirWords & romajiWords;
+                int minSz = qMin(dirWords.size(), romajiWords.size());
+                if (minSz > 0 && common.size() * 100 / minSz >= 50)
+                {
+                    aniListLocalMap[entry.title] = {c.source, c.dirName, c.path};
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+void HomeWidget::buildAniListLocalMap()
+{
+    aniListLocalMap.clear();
+    if (!aniList || !aniList->isLoggedIn())
+        return;
+
+    // Build cached directories list (done once)
+    cachedDirsForMatching.clear();
+    QDir cacheDir(CONF.cacheDir);
+    for (const auto &sourceDir : cacheDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot))
+    {
+        if (sourceDir == "mangalists") continue;
+        QDir source(CONF.cacheDir + sourceDir);
+        for (const auto &mangaDir : source.entryList(QDir::Dirs | QDir::NoDotAndDotDot))
+        {
+            auto infoPath = source.absolutePath() + "/" + mangaDir + "/mangainfo.dat";
+            if (QFile::exists(infoPath))
+                cachedDirsForMatching.append({sourceDir, mangaDir, normalizeName(mangaDir), infoPath});
+        }
+    }
+
+    if (cachedDirsForMatching.isEmpty())
+        return;
+
+    // Phase 1: Match Reading entries immediately (fast, priority)
+    auto reading = aniList->entriesByStatus(1);
+    for (const auto &e : reading)
+        tryMatch(e);
+
+    // Phase 2: Queue remaining entries for background matching
+    startBackgroundMatching();
+}
+
+void HomeWidget::startBackgroundMatching()
+{
+    pendingMatchEntries.clear();
+
+    // Queue all non-Reading entries
+    int statuses[] = {2, 5, 3, 4, 6};  // Planning, Paused, Completed, Dropped, Repeating
+    for (int s : statuses)
+    {
+        auto entries = aniList->entriesByStatus(s);
+        for (const auto &e : entries)
+        {
+            if (!aniListLocalMap.contains(e.title))
+                pendingMatchEntries.append(e);
+        }
+    }
+
+    if (pendingMatchEntries.isEmpty())
+        return;
+
+    // Process in small batches via timer to not block UI
+    if (!bgMatchTimer)
+    {
+        bgMatchTimer = new QTimer(this);
+        bgMatchTimer->setInterval(100);  // 100ms between batches
+        connect(bgMatchTimer, &QTimer::timeout, this, &HomeWidget::matchNextBatch);
+    }
+    bgMatchTimer->start();
+}
+
+void HomeWidget::matchNextBatch()
+{
+    if (pendingMatchEntries.isEmpty())
+    {
+        if (bgMatchTimer)
+            bgMatchTimer->stop();
+        return;
+    }
+
+    // Process 5 entries per batch
+    int batch = qMin(5, pendingMatchEntries.size());
+    for (int i = 0; i < batch; i++)
+    {
+        auto entry = pendingMatchEntries.takeFirst();
+        tryMatch(entry);
+    }
 }
 
 void HomeWidget::saveRecentSearches()

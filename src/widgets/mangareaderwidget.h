@@ -57,6 +57,7 @@ signals:
     void back();
     void frontlightchanged(int light, int comflight);
     void gotoIndex(const MangaIndex &mangaIndex);
+    void bookmarkRequested();
 
 private slots:
     void on_pushButtonReaderHome_clicked();

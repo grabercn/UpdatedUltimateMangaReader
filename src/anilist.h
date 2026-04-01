@@ -44,6 +44,7 @@ public:
 
     void serialize();
     void deserialize();
+    void syncOfflineChanges();  // call when coming back online
 
     QList<AniListEntry> entriesByStatus(int status) const;
     QList<AniListEntry> allEntries() const { return m_entries; }
@@ -70,6 +71,20 @@ private:
     QTimer *trackDebounceTimer;
     QString pendingTrackTitle;
     int pendingTrackChapter;
+
+    // Offline queue: pending updates to sync when back online
+    struct PendingSync
+    {
+        int mediaId;
+        int progress;
+        int status;
+        int score;
+        qint64 timestamp;  // ms since epoch
+    };
+    QList<PendingSync> offlineQueue;
+    void saveOfflineQueue();
+    void loadOfflineQueue();
+    void flushOfflineQueue();
 };
 
 #endif  // ANILIST_H

@@ -121,8 +121,24 @@ void MangaInfoWidget::updateInfos()
 
     QStringList list;
 
+    // Check which chapters have downloaded images
+    auto imgDir = CONF.mangaimagesdir(currentmanga->hostname, currentmanga->title);
+    QSet<int> downloadedChapters;
+    if (QDir(imgDir).exists())
+    {
+        for (const auto &f : QDir(imgDir).entryList(QDir::Files))
+        {
+            auto parts = f.split('_');
+            if (!parts.isEmpty())
+                downloadedChapters.insert(parts[0].toInt());
+        }
+    }
+
     for (int i = 0; i < currentmanga->chapters.size(); i++)
-        list.insert(0, QString("%1: %2").arg(i + 1).arg(currentmanga->chapters[i].chapterTitle));
+    {
+        QString prefix = downloadedChapters.contains(i) ? "[DL] " : "";
+        list.insert(0, QString("%1: %2%3").arg(i + 1).arg(prefix).arg(currentmanga->chapters[i].chapterTitle));
+    }
 
     QStringListModel *model = new QStringListModel(this);
     model->setStringList(list);
@@ -136,22 +152,31 @@ void MangaInfoWidget::updateInfos()
 
     updateLabel(ui->labelMangaInfoLabelAuthor, ui->labelMangaInfoLabelAuthorContent, currentmanga->author);
     updateLabel(ui->labelMangaInfoLabelArtist, ui->labelMangaInfoLabelArtistContent, currentmanga->artist);
-    // Truncate long genres with "more..."
+    // Keep genres very compact
     QString genres = currentmanga->genres;
-    if (genres.length() > 60)
-        genres = genres.left(57) + "...";
+    if (genres.length() > 40)
+        genres = genres.left(37) + "...";
     updateLabel(ui->labelMangaInfoLabelGenres, ui->labelMangaInfoLabelGenresContent, genres);
     updateLabel(ui->labelMangaInfoLabelStaus, ui->labelMangaInfoLabelStausContent, currentmanga->status);
 
-    // Truncate long summary - show first ~150 chars with "more" option
-    QString summary = currentmanga->summary;
-    if (summary.length() > 150)
+    // Hide artist row if same as author or empty to save space
+    if (currentmanga->artist.isEmpty() || currentmanga->artist == currentmanga->author)
     {
-        QString truncated = summary.left(147) + "...";
-        ui->labelMangaInfoLabelSummaryContent->setText(truncated);
+        ui->labelMangaInfoLabelArtist->hide();
+        ui->labelMangaInfoLabelArtistContent->hide();
+    }
+    else
+    {
+        ui->labelMangaInfoLabelArtist->show();
+        ui->labelMangaInfoLabelArtistContent->show();
+    }
+
+    // Compact summary - 2 lines max, tap to expand
+    QString summary = currentmanga->summary;
+    if (summary.length() > 100)
+    {
+        ui->labelMangaInfoLabelSummaryContent->setText(summary.left(97) + "...");
         ui->labelMangaInfoLabelSummaryContent->setCursor(Qt::PointingHandCursor);
-        // Toggle full/short on click
-        disconnect(ui->labelMangaInfoLabelSummaryContent, &QLabel::linkActivated, nullptr, nullptr);
         ui->labelMangaInfoLabelSummaryContent->installEventFilter(this);
     }
     else
@@ -159,8 +184,11 @@ void MangaInfoWidget::updateInfos()
         ui->labelMangaInfoLabelSummaryContent->setText(summary);
     }
 
-    // Cap the summary scroll area height - keep compact
-    ui->scrollAreaMangaInfoSummary->setMaximumHeight(60);
+    // Very compact - just enough for 2 lines
+    ui->scrollAreaMangaInfoSummary->setMaximumHeight(45);
+
+    // Limit cover height so it doesn't push everything down
+    ui->labelMangaInfoCover->setMaximumHeight(SIZES.coverHeight);
 
     updateAniListTracking();
 
@@ -265,15 +293,15 @@ bool MangaInfoWidget::eventFilter(QObject *obj, QEvent *event)
         if (summaryExpanded)
         {
             ui->labelMangaInfoLabelSummaryContent->setText(currentmanga->summary);
-            ui->scrollAreaMangaInfoSummary->setMaximumHeight(150);
+            ui->scrollAreaMangaInfoSummary->setMaximumHeight(120);
         }
         else
         {
             QString s = currentmanga->summary;
-            if (s.length() > 150)
-                s = s.left(147) + "...";
+            if (s.length() > 100)
+                s = s.left(97) + "...";
             ui->labelMangaInfoLabelSummaryContent->setText(s);
-            ui->scrollAreaMangaInfoSummary->setMaximumHeight(60);
+            ui->scrollAreaMangaInfoSummary->setMaximumHeight(45);
         }
         return true;
     }
@@ -292,47 +320,47 @@ void MangaInfoWidget::setupAniListUI()
 
     aniListFrame = new QFrame(this);
     aniListFrame->setStyleSheet(
-        "QFrame#aniListFrame { border-top: 1px solid #ccc; background: #f8f8f8; "
-        "padding: 2px 8px; margin: 0; }");
+        "QFrame#aniListFrame { border-top: 1px solid #ccc; background: #f5f5f5; "
+        "padding: 1px 6px; margin: 0; }");
     aniListFrame->setObjectName("aniListFrame");
-    aniListFrame->setFixedHeight(42);
+    aniListFrame->setFixedHeight(34);
 
     auto *row = new QHBoxLayout(aniListFrame);
-    row->setSpacing(4);
-    row->setContentsMargins(0, 2, 0, 2);
+    row->setSpacing(3);
+    row->setContentsMargins(0, 0, 0, 0);
 
-    aniListLabel = new QLabel("AL:", aniListFrame);
-    aniListLabel->setStyleSheet("font-weight: bold; font-size: 9pt; border: none; background: transparent;");
-    aniListLabel->setFixedWidth(24);
+    aniListLabel = new QLabel("AL", aniListFrame);
+    aniListLabel->setStyleSheet("font-weight: bold; font-size: 8pt; border: none; background: transparent;");
+    aniListLabel->setFixedWidth(18);
     row->addWidget(aniListLabel);
 
     aniListStatusCombo = new QComboBox(aniListFrame);
-    aniListStatusCombo->setStyleSheet("font-size: 8pt; min-height: 0; padding: 2px;");
-    aniListStatusCombo->addItems({"--", "Reading", "Plan", "Done", "Drop", "Pause", "Re-read"});
-    aniListStatusCombo->setFixedHeight(32);
-    row->addWidget(aniListStatusCombo, 1);
+    aniListStatusCombo->setStyleSheet("font-size: 8pt; min-height: 0; padding: 1px 2px;");
+    aniListStatusCombo->addItems({"--", "Reading", "Plan", "Done", "Drop", "Pause", "Re"});
+    aniListStatusCombo->setFixedHeight(28);
+    row->addWidget(aniListStatusCombo);
 
     aniListProgressSpin = new QSpinBox(aniListFrame);
     aniListProgressSpin->setRange(0, 9999);
     aniListProgressSpin->setPrefix("Ch.");
-    aniListProgressSpin->setStyleSheet("font-size: 8pt; min-height: 0; padding: 2px;");
-    aniListProgressSpin->setFixedHeight(32);
-    aniListProgressSpin->setFixedWidth(68);
+    aniListProgressSpin->setStyleSheet("font-size: 8pt; min-height: 0; padding: 1px;");
+    aniListProgressSpin->setFixedHeight(28);
+    aniListProgressSpin->setFixedWidth(62);
     row->addWidget(aniListProgressSpin);
 
     aniListScoreCombo = new QComboBox(aniListFrame);
-    aniListScoreCombo->setStyleSheet("font-size: 8pt; min-height: 0; padding: 2px;");
+    aniListScoreCombo->setStyleSheet("font-size: 8pt; min-height: 0; padding: 1px;");
     aniListScoreCombo->addItem("-", 0);
     for (int i = 1; i <= 10; i++)
         aniListScoreCombo->addItem(QString::number(i), i);
-    aniListScoreCombo->setFixedHeight(32);
-    aniListScoreCombo->setFixedWidth(40);
+    aniListScoreCombo->setFixedHeight(28);
+    aniListScoreCombo->setFixedWidth(36);
     row->addWidget(aniListScoreCombo);
 
     aniListSyncBtn = new QPushButton("Sync", aniListFrame);
-    aniListSyncBtn->setFixedHeight(32);
-    aniListSyncBtn->setFixedWidth(46);
-    aniListSyncBtn->setStyleSheet("font-size: 8pt; min-height: 0; padding: 2px 4px;");
+    aniListSyncBtn->setFixedHeight(28);
+    aniListSyncBtn->setFixedWidth(40);
+    aniListSyncBtn->setStyleSheet("font-size: 8pt; min-height: 0; padding: 1px 3px;");
     row->addWidget(aniListSyncBtn);
 
     connect(aniListSyncBtn, &QPushButton::clicked, this, [this]()

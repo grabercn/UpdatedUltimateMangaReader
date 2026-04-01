@@ -34,6 +34,10 @@ public:
     DitheringMode ditheringMode;
     bool colorMode;  // true = keep color images (for color e-readers or desktop)
 
+    bool preloadEnabled;
+    int preloadPages;       // pages ahead to preload
+    int preloadChapters;    // chapters ahead to pre-fetch page lists
+
     QString aniListToken;
     bool offlineMode;
     int autoSuspendMinutes;  // 0 = disabled

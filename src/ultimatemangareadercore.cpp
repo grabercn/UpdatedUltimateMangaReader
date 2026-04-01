@@ -29,12 +29,14 @@ UltimateMangaReaderCore::UltimateMangaReaderCore(QObject* parent)
     mangaSources.append(QSharedPointer<AbstractMangaSource>(
         new InternetArchive(networkManager, "IANovels", "light novel", ContentLightNovel)));
 
-    currentMangaSource = mangaSources.first().get();
+    currentMangaSource = mangaSources.isEmpty() ? nullptr : mangaSources.first().get();
 
     for (const auto& ms : qAsConst(mangaSources))
         ms->deserializeMangaList();
 
     aniList->deserialize();
+    readingStats.deserialize();
+    bookmarkManager.deserialize();
     loadHistory();
 
     updateActiveScources();

@@ -4,7 +4,9 @@
 #include <QObject>
 
 #include "anilist.h"
+#include "bookmarks.h"
 #include "favoritesmanager.h"
+#include "readingstats.h"
 #include "mangachapterdownloadmanager.h"
 #include "mangacontroller.h"
 #include "mangadex.h"
@@ -36,6 +38,8 @@ public:
     MangaChapterDownloadManager *mangaChapterDownloadManager;
     SuspendManager *suspendManager;
     AniList *aniList;
+    ReadingStats readingStats;
+    BookmarkManager bookmarkManager;
 
     Settings settings;
 

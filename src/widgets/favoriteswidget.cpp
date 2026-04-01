@@ -160,10 +160,14 @@ void FavoritesWidget::insertRow(const QSharedPointer<MangaInfo> &fav, int row)
 
 void FavoritesWidget::moveFavoriteToFront(int i)
 {
+    if (i < 0 || i >= favoritesManager->favoriteinfos.size())
+        return;
+
     favoritesManager->moveFavoriteToFront(i);
 
     ui->tableWidget->removeRow(i);
-    insertRow(favoritesManager->favoriteinfos.at(0), 0);
+    if (!favoritesManager->favoriteinfos.isEmpty())
+        insertRow(favoritesManager->favoriteinfos.at(0), 0);
 
     ui->tableWidget->scrollToTop();
 }
@@ -172,12 +176,11 @@ void FavoritesWidget::mangaUpdated(bool updated)
 {
     if (updated)
     {
-        MangaInfo *mi = static_cast<MangaInfo *>(sender());
+        auto *mi = qobject_cast<MangaInfo *>(sender());
+        if (!mi) return;
 
         int i = favoritesManager->findFavorite(mi->title);
-
-        if (i == -1)
-            return;
+        if (i == -1) return;
 
         moveFavoriteToFront(i);
     }
@@ -185,11 +188,15 @@ void FavoritesWidget::mangaUpdated(bool updated)
 
 void FavoritesWidget::coverLoaded()
 {
-    MangaInfo *mi = static_cast<MangaInfo *>(sender());
+    auto *mi = qobject_cast<MangaInfo *>(sender());
+    if (!mi) return;
 
     int i = favoritesManager->findFavorite(mi->title);
 
-    if (i == -1)
+    if (i == -1 || i >= favoritesManager->favoriteinfos.size())
+        return;
+
+    if (favoritesManager->favoriteinfos.at(i).isNull())
         return;
 
     QWidget *titlewidget = makeIconTextWidget(favoritesManager->favoriteinfos.at(i)->coverThumbnailPath(),
@@ -206,7 +213,9 @@ QWidget *FavoritesWidget::makeIconTextWidget(const QString &path, const QString 
     auto img = QPixmap::fromImage(loadQImageFast(path));
     QLabel *iconlabel = new QLabel(widget);
     iconlabel->setScaledContents(true);
-    iconlabel->setFixedSize(img.width() / qApp->devicePixelRatio(), img.height() / qApp->devicePixelRatio());
+    int w = img.isNull() ? 40 : img.width() / qMax(1.0, qApp->devicePixelRatio());
+    int h = img.isNull() ? 50 : img.height() / qMax(1.0, qApp->devicePixelRatio());
+    iconlabel->setFixedSize(qMax(w, 20), qMax(h, 20));
     iconlabel->setPixmap(img);
 
     QVBoxLayout *vlayout = new QVBoxLayout(widget);
@@ -228,7 +237,17 @@ QWidget *FavoritesWidget::makeIconTextWidget(const QString &path, const QString 
 
 void FavoritesWidget::on_tableWidget_cellClicked(int row, int column)
 {
-    moveFavoriteToFront(row);
+    if (row < 0 || row >= favoritesManager->favoriteinfos.size())
+        return;
 
-    emit favoriteClicked(favoritesManager->favoriteinfos.first(), column >= 2);
+    try
+    {
+        moveFavoriteToFront(row);
+        if (!favoritesManager->favoriteinfos.isEmpty())
+            emit favoriteClicked(favoritesManager->favoriteinfos.first(), column >= 2);
+    }
+    catch (...)
+    {
+        qDebug() << "Error in favorites click handler";
+    }
 }

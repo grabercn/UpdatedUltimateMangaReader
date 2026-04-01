@@ -19,6 +19,9 @@ Settings::Settings()
 #else
       colorMode(false),
 #endif
+      preloadEnabled(true),
+      preloadPages(3),
+      preloadChapters(2),
       offlineMode(false),
       autoSuspendMinutes(15),
       wifiAutoDisconnect(true),

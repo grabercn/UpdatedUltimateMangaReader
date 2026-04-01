@@ -117,6 +117,9 @@ bool NetworkManager::checkInternetConnection()
 
 QString NetworkManager::fixUrl(const QString &url)
 {
+    if (url.isEmpty())
+        return url;
+
     if (url.startsWith("//"))
         return "https:" + url;
 

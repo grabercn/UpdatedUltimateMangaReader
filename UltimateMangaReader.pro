@@ -78,6 +78,7 @@ FORMS += \
 HEADERS += \
     src/aboutinfo.h \
     src/anilist.h \
+    src/bookmarks.h \
     src/downloadbufferjob.h \
     src/downloadfilejob.h \
     src/downloadimageandrescalejob.h \
@@ -110,6 +111,7 @@ HEADERS += \
     src/mangasources/updateprogresstoken.h \
     src/networkmanager.h \
     src/readingprogress.h \
+    src/readingstats.h \
     src/settings.h \
     src/sizes.h \
     src/stacktrace.h \
@@ -139,6 +141,7 @@ HEADERS += \
     src/widgets/settingsdialog.h \
     src/widgets/spinnerwidget.h \
     src/widgets/updatemangalistsdialog.h \
+    src/widgets/welcomedialog.h \
     src/widgets/virtualkeyboard.h \
     src/widgets/wifidialog.h \
     thirdparty/picoproto.h \
@@ -149,6 +152,7 @@ HEADERS += \
 
 SOURCES += \
     src/anilist.cpp \
+    src/bookmarks.cpp \
     src/downloadbufferjob.cpp \
     src/downloadfilejob.cpp \
     src/downloadimageandrescalejob.cpp \
@@ -180,6 +184,7 @@ SOURCES += \
     src/mangasources/updateprogresstoken.cpp \
     src/networkmanager.cpp \
     src/readingprogress.cpp \
+    src/readingstats.cpp \
     src/settings.cpp \
     src/suspendmanager.cpp \
     src/ultimatemangareadercore.cpp \
@@ -205,6 +210,7 @@ SOURCES += \
     src/widgets/screensaverdialog.cpp \
     src/widgets/settingsdialog.cpp \
     src/widgets/updatemangalistsdialog.cpp \
+    src/widgets/welcomedialog.cpp \
     src/widgets/virtualkeyboard.cpp \
     src/widgets/wifidialog.cpp \
     thirdparty/picoproto.cc \

@@ -76,6 +76,19 @@ MangaReaderWidget::MangaReaderWidget(QWidget *parent)
 
     gotodialog = new GotoDialog(this);
 
+    // Add Bookmark button to reader nav bar
+    auto *navLayout = qobject_cast<QHBoxLayout *>(ui->labelReaderChapter->parentWidget()->layout());
+    if (navLayout)
+    {
+        auto *bmBtn = new QPushButton("Bookmark", this);
+        bmBtn->setFixedHeight(SIZES.buttonSize);
+        bmBtn->setProperty("type", "borderless");
+        bmBtn->setFocusPolicy(Qt::NoFocus);
+        bmBtn->setStyleSheet("font-size: 10pt;");
+        connect(bmBtn, &QPushButton::clicked, this, [this]() { emit bookmarkRequested(); });
+        navLayout->addWidget(bmBtn);
+    }
+
     connect(ui->toolButtonLessLight, &QToolButton::clicked,
             [this]() { ui->horizontalSliderLight->setValue(ui->horizontalSliderLight->value() - 1); });
     connect(ui->toolButtonMoreLight, &QToolButton::clicked,
@@ -371,7 +384,7 @@ void MangaReaderWidget::paginateText()
     for (int pos = viewH; pos <= maxScroll; pos += viewH)
         textPageOffsets.append(pos);
 
-    if (textPageOffsets.last() < maxScroll)
+    if (!textPageOffsets.isEmpty() && textPageOffsets.last() < maxScroll)
         textPageOffsets.append(maxScroll);
 
     textGoToPage(0);

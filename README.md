@@ -1,156 +1,143 @@
 # UltimateMangaReader
-A feature-rich online manga streamer and reader for Kobo E-Ink devices, based on Qt5.
 
-## Main features
-* It's **cross-platform**. While the primary targets are Kobo E-Ink devices, it will also run on Windows, Linux and Mac. Qt5.15 (with OpenSSL) and a platform backend being the only hard dependency.
+A feature-rich manga and light novel reader for **Kobo E-Ink devices** and desktop, based on Qt5.
 
-* It comes with a refined, modern design and a GUI that is DPI independent and will look great on various platforms.
+Originally created by [Rain92](https://github.com/Rain92/UltimateMangaReader).  
+Modernized and extended by [grabercn](https://github.com/grabercn).
 
-* It supports **multiple websites** as manga sources with tens of thousands of available mangas.
+---
 
-* It's **fast**. It will stream, prerender and cache mangapages in advance while reading to minimize loading times and to enable the perfect reading experience.
+## Features
 
-* It supports **offline-reading**. Mangas can be downloaded in advance and read later without internet connection.
+### Reading
+- **Manga reader** with tap zones, swipe gestures, and Kobo page button support
+- **Light novel reader** with paginated text display, chapter navigation, and inline image support
+- **Page preloading** — configurable number of pages and chapters preloaded ahead for seamless reading
+- **Auto-download** next chapters in the background while you read
+- **Bookmarks** — save specific pages to return to later
+- **Reading progress** saved automatically and displayed on the Continue button
 
-* It supports **favorites** and bookmarks **reading progress** automatically, so you can pick right up reading where you left off.
+### Sources
+- **MangaDex** — 70,000+ manga via API with multi-language title search
+- **MangaPlus** — official Shueisha/Jump titles via protobuf API
+- **MangaTown** — large HTML-scraped manga directory
+- **Internet Archive (Manga)** — thousands of archived manga (CBZ/PDF)
+- **Internet Archive (Novels)** — archived light novels (EPUB/PDF/TXT)
+- **AllNovel** — light novels with chapter text reader
 
-* It is designed to be ergonomic on E-Readers. It supports configurable gesture inputs, frontlight control and a sleep mode. Custom screensavers can be placed in the screensaver folder and will be picked at random.
+### Search
+- **Live search** across all sources in parallel — no catalog download needed
+- **Multi-language matching** — searches English, Japanese, and Romaji titles simultaneously
+- **Smart ranking** — exact match, substring, word overlap with punctuation normalization
+- **Alt title display** — shows Japanese/Romaji names found during search
 
+### AniList Integration
+- **Login via token** (works on Kobo without a browser)
+- **Auto-tracking** — starts tracking when you begin reading, updates chapter-by-chapter
+- **Progress sync** — AniList progress syncs to local on every manga open
+- **Offline queue** — edits made while offline sync automatically when back online
+- **Fuzzy title matching** — aggressively links AniList entries to cached manga via English, Romaji, and word overlap
+- **Background matching** — Reading entries matched instantly, rest matched in background batches
+- **Management screen** — view all lists, refresh, logout from Menu > AniList
 
-## Install on Kobo devices
-First you will need to install a launcher application. I recomend [KFMon](https://github.com/NiLuJe/kfmon), the latest release along with install instructions can be found [here](https://www.mobileread.com/forums/showthread.php?t=274231).
+### Downloads & Offline
+- **Download chapters** for offline reading with progress tracking
+- **Export to Kobo** — manga as image folders, light novels as HTML files
+- **Download manager** — full-page queue view with progress, cancel, and management
+- **Downloaded content browser** — view cached manga with chapter/page counts, delete with checkboxes
+- **Download indicators** — `[DL]` prefix on downloaded chapters, badge count on header icon
 
-For the application itself just download the latest release [here](https://github.com/Rain92/UltimateMangaReader/releases) and extract the archive into the root directiory of your Kobo device.
+### Favorites & History
+- **Favorites** with smart status (Not started / Reading / Finished) and AniList integration
+- **Browsing history** — tracks all manga you've viewed with timestamps
+- **Reading stats** — chapters read, pages read, total time, reading streak
+- **Recent searches** — last 3 shown on home page with "View history" link
 
-## Build 
-Building the application requires Qt 5.15+ with OpenSSL 1.1.1+. \
-With Qt creator the build process is straight-foreward. \
-Building qor kobo targets the requires a cross compiled Qt and a Kobo platform plugin. \
-See https://github.com/Rain92/qt5-kobo-platform-plugin. \
-Add CONFIG+=kobo to the qmake arguments and put the plugin source in the same parent folder as the app.
+### UI & Design
+- **Modern e-ink optimized theme** — high contrast monochrome, large touch targets
+- **Welcome screen** — multi-page intro on first boot
+- **Sleep screen** — shows current manga cover, reading progress, time, and battery
+- **Loading spinner** — animated indicator when loading manga
+- **Full-screen settings** — with Save/Back bottom bar
+- **Configurable auto-sleep** — 5/10/15/30/60 minutes or never
+- **WiFi auto-disconnect on sleep** — saves battery
+- **Color mode** — disable greyscale conversion for color e-readers or desktop
+- **Frontlight control** — brightness and comfort light sliders (Kobo)
 
+### Platform Support
+- **Kobo Libra H2O** — primary target, optimized for 7" 1264x1680 e-ink touchscreen
+- **Windows** — full desktop build with parallel compilation (jom)
+- **Linux** — native desktop build via qmake
+- **Docker** — Dockerfile for Kobo ARM cross-compilation
 
-## Cross-compile for Kobo
-### Setting up the cross-compile toolchain
-The koxtoolchain is recomendet:  https://github.com/koreader/koxtoolchain \
-Install the dependencies and run:
-```shell
-./gen-tc.sh kobo
+---
+
+## Install on Kobo
+
+1. Install a launcher: [KFMon](https://github.com/NiLuJe/kfmon) ([instructions](https://www.mobileread.com/forums/showthread.php?t=274231))
+2. Download the latest release and extract to the root of your Kobo device
+
+---
+
+## Build
+
+### Requirements
+- Qt 5.15+ with OpenSSL 1.1.1+
+- libjpeg-turbo, libpng
+
+### Windows (Quick Start)
+```powershell
+# One-time setup
+.\setup-windows.ps1
+
+# Build (incremental, uses jom for parallel compilation)
+.\build-win.bat
+
+# Clean rebuild
+.\rebuild-win.bat
+
+# Run
+.\run.bat
 ```
 
-### Cross-compile OpenSSH for Qt
-Download the latest OpenSSL (1.1.1+). \
-Configure, make and install, for example like this:
-
-```shell
-export CROSS=/home/${USER}/x-tools/arm-kobo-linux-gnueabihf/bin/arm-kobo-linux-gnueabihf
-export SYSROOT=/home/${USER}/x-tools/arm-kobo-linux-gnueabihf/arm-kobo-linux-gnueabihf/sysroot
-export AR=${CROSS}-ar
-export AS=${CROSS}-as
-export CC=${CROSS}-gcc
-export CXX=${CROSS}-g++
-export LD=${CROSS}-ld
-export RANLIB=${CROSS}-ranlib
-export CFLAGS="-O3 -march=armv7-a -mfpu=neon -mfloat-abi=hard -D__arm__ -D__ARM_NEON__ -fPIC -fno-omit-frame-pointer -funwind-tables -Wl,--no-merge-exidx-entries"
-./Configure linux-elf no-comp no-asm shared --prefix=${SYSROOT}/usr --openssldir=${SYSROOT}/usr
-make -j5
-make install
+### Linux Desktop
+```bash
+./build.sh desktop
 ```
 
-### Prepare Qt
-Download the latest Qt (5.15+). \
-A descriptor for the kobo platform has to be added. \
-In the source folder of Qt go to qtbase\mkspecs and add a new folder named linux-kobo-gnueabihf-g++ with theese two files: \
-qmake.conf 
-```
-#
-# Kobo qmake configuration
-#
-
-MAKEFILE_GENERATOR      = UNIX
-CONFIG                 += incremental gdb_dwarf_index
-QMAKE_INCREMENTAL_STYLE = sublib
-
-include(../common/linux.conf)
-include(../common/gcc-base-unix.conf)
-include(../common/g++-unix.conf)
-
-
-QMAKE_CFLAGS_RELEASE   = -O3 -march=armv7-a -mfpu=neon -mfloat-abi=hard -D__arm__ -D__ARM_NEON__ -fPIC -fno-omit-frame-pointer -funwind-tables -Wl,--no-merge-exidx-entries
-QMAKE_CFLAGS_RELEASE_WITH_DEBUGINFO = $$QMAKE_CFLAGS_RELEASE_WITH_DEBUGINFO -g
-
-QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CFLAGS_RELEASE
-QMAKE_CXXFLAGS_RELEASE_WITH_DEBUGINFO = $$QMAKE_CFLAGS_RELEASE_WITH_DEBUGINFO
-
-# modifications to g++.conf
-QMAKE_CC                = arm-kobo-linux-gnueabihf-gcc
-QMAKE_CXX               = arm-kobo-linux-gnueabihf-g++
-QMAKE_LINK              = arm-kobo-linux-gnueabihf-g++
-QMAKE_LINK_SHLIB        = arm-kobo-linux-gnueabihf-g++
-
-# modifications to linux.conf
-QMAKE_AR                = arm-kobo-linux-gnueabihf-ar cqs
-QMAKE_OBJCOPY           = arm-kobo-linux-gnueabihf-objcopy
-QMAKE_NM                = arm-kobo-linux-gnueabihf-nm -P
-QMAKE_STRIP             = arm-kobo-linux-gnueabihf-strip
-
-load(qt_config)
+### Kobo (Docker Cross-Compile)
+```bash
+./build.sh kobo
 ```
 
-qplatformdefs.h
-```
-#include "../linux-g++/qplatformdefs.h"
-```
+The Docker build sets up the full ARM cross-compilation toolchain, builds Qt 5.15 for Kobo, and compiles the application. Output binary goes to `output/`.
 
+### Kobo (Manual)
+See the original [cross-compilation guide](https://github.com/Rain92/qt5-kobo-platform-plugin) for manual setup with koxtoolchain.
 
-~As of Qt 5.15.0 there is an open issue that will lead to random artifacts in the gui when using high-dpi scaling with fractional scaling factors. This can be resolved with the following patch~ (Already fixed in Qt 5.15.1):
-```
-diff --git a/src/gui/kernel/qhighdpiscaling_p.h b/src/gui/kernel/qhighdpiscaling_p.h
-index 55ad6df5c9da3d11a8900754eebc27528aec90ec..9c3d0cdba28a1dd51c18d3fcc0350a11f8000ebc 100644
---- a/src/gui/kernel/qhighdpiscaling_p.h
-+++ b/src/gui/kernel/qhighdpiscaling_p.h
-@@ -204,7 +204,7 @@ inline QRegion scale(const QRegion &region, qreal scaleFactor, QPoint origin = Q
- 
-     QRegion scaled;
-     for (const QRect &rect : region)
--        scaled += scale(rect, scaleFactor, origin);
-+        scaled += scale(QRectF(rect), scaleFactor, origin).toRect();
-     return scaled;
- }
- ```
+Add `CONFIG+=kobo` to qmake arguments and place the platform plugin source in the same parent folder.
 
+---
 
-### Cross-compile Qt
-Open a new terminal. Make sure arm-kobo-linux-gnueabihf-gcc is in your path. If in doubt add it with:
+## Architecture
 
-```shell
-export PATH=$PATH:/home/${USER}/x-tools/arm-kobo-linux-gnueabihf/bin/
-```
+| Component | Description |
+|-----------|-------------|
+| Sources | Extend `AbstractMangaSource` with `searchManga()`, `getMangaInfo()`, `getPageList()`, `getChapterText()` |
+| Content Types | `ContentManga` (image pages) and `ContentLightNovel` (text chapters) |
+| Network | `NetworkManager` with custom headers, cookies, timeout handling, and offline mode |
+| AniList | GraphQL API with Bearer token auth, debounced tracking, offline queue |
+| Settings | Binary QDataStream serialization with backwards-compatible optional fields |
+| UI | Qt Widgets with e-ink optimized QSS stylesheet, touch-friendly sizing |
 
+---
 
-Configure, make and install Qt:
-```shell
-export QTDIR=qt-linux-5.15.2-kobo
-export SYSROOT=/home/${USER}/x-tools/arm-kobo-linux-gnueabihf/arm-kobo-linux-gnueabihf/sysroot
-./configure --recheck-all -opensource -confirm-license -release -verbose \
- -prefix /mnt/onboard/.adds/${QTDIR} \
- -extprefix /home/${USER}/qt-bin/${QTDIR} \
- -xplatform linux-kobo-gnueabihf-g++ \
- -sysroot ${SYSROOT} \
- -openssl-linked OPENSSL_PREFIX="${SYSROOT}/usr" \
- -qt-libjpeg -qt-zlib -qt-libpng -qt-freetype -qt-harfbuzz -qt-pcre -sql-sqlite -linuxfb \
- -no-sse2 -no-xcb -no-xcb-xlib -no-tslib -no-icu -no-iconv -no-dbus \
- -nomake tests -nomake examples -no-compile-examples -no-opengl \
- -skip qtx11extras -skip qtwayland -skip qtwinextras -skip qtmacextras -skip qtandroidextras \
- -skip qttools -skip qtdoc -skip qtlocation -skip qtremoteobjects -skip qtconnectivity -skip qtgamepad \
- -skip qt3d -skip qtquick3d -skip qtquickcontrols -skip qtsensors -skip qtspeech -skip qtdatavis3d \
- -skip qtpurchasing -skip qtserialbus -skip qtserialport -skip multimedia -skip qtquicktimeline -skip qtlottie \
- -skip activeqt -skip qtscript -skip qtxmlpatterns -skip qtscxml -skip qtvirtualkeyboard \
- -skip qtwebengine -skip qtwebview -skip qtwebglplugin \
- -no-cups -no-pch -no-libproxy \
- -no-sql-db2 -no-sql-ibase -no-sql-mysql -no-sql-oci -no-sql-odbc -no-sql-psql -no-sql-sqlite2 -no-sql-tds \
- -no-feature-printdialog -no-feature-printer -no-feature-printpreviewdialog -no-feature-printpreviewwidget
+## Credits
 
-make -j5
-make install
-```
+- **Original Author:** [Rain92](https://github.com/Rain92)
+- **Modernized & Extended:** [grabercn](https://github.com/grabercn)
+- **Third-party:** rapidjson, picoproto, simdimageresize
+
+## License
+
+See [LICENSE](LICENSE) for details.

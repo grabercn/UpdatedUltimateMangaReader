@@ -1,6 +1,7 @@
 #include "settingsdialog.h"
 
 #include <QScrollBar>
+#include <QSpinBox>
 
 #include "anilist.h"
 
@@ -267,6 +268,36 @@ void SettingsDialog::adjustUI()
             {
                 vl->insertWidget(idx, displayLabel);
                 vl->insertWidget(idx + 1, colorCheck);
+
+                // Preload settings
+                auto *preloadLabel = new QLabel("<b>Preloading</b>", this);
+                preloadLabel->setStyleSheet("font-weight: bold; font-size: 11pt; padding-top: 8px;");
+                vl->insertWidget(idx + 2, preloadLabel);
+
+                auto *preloadCheck = new QCheckBox("Enable page preloading", this);
+                preloadCheck->setChecked(settings->preloadEnabled);
+                connect(preloadCheck, &QCheckBox::toggled, this, [this](bool c)
+                { if (!internalChange) { settings->preloadEnabled = c; settings->scheduleSerialize(); } });
+                vl->insertWidget(idx + 3, preloadCheck);
+
+                auto *pagesRow = new QHBoxLayout();
+                pagesRow->addWidget(new QLabel("Pages ahead:", this));
+                auto *pagesSpin = new QSpinBox(this);
+                pagesSpin->setRange(1, 10);
+                pagesSpin->setValue(settings->preloadPages);
+                pagesSpin->setFixedHeight(36);
+                connect(pagesSpin, QOverload<int>::of(&QSpinBox::valueChanged),
+                        this, [this](int v) { if (!internalChange) { settings->preloadPages = v; settings->scheduleSerialize(); } });
+                pagesRow->addWidget(pagesSpin);
+                pagesRow->addWidget(new QLabel("Ch ahead:", this));
+                auto *chSpin = new QSpinBox(this);
+                chSpin->setRange(0, 5);
+                chSpin->setValue(settings->preloadChapters);
+                chSpin->setFixedHeight(36);
+                connect(chSpin, QOverload<int>::of(&QSpinBox::valueChanged),
+                        this, [this](int v) { if (!internalChange) { settings->preloadChapters = v; settings->scheduleSerialize(); } });
+                pagesRow->addWidget(chSpin);
+                vl->insertLayout(idx + 4, pagesRow);
             }
         }
     }

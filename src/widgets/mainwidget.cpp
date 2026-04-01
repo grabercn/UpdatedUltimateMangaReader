@@ -60,15 +60,16 @@ MainWidget::MainWidget(QWidget *parent)
                 }
             });
 
-    // Add download button to header bar
-    auto *downloadBtn = new QToolButton(this);
-    downloadBtn->setIcon(QIcon(":/images/icons/download.png"));
-    downloadBtn->setIconSize(QSize(SIZES.wifiIconSize, SIZES.wifiIconSize));
-    downloadBtn->setMinimumSize(QSize(40, 40));
-    downloadBtn->setFocusPolicy(Qt::NoFocus);
-    downloadBtn->setToolTip("Downloads");
-    ui->horizontalLayout_5->insertWidget(3, downloadBtn);
-    connect(downloadBtn, &QToolButton::clicked, this,
+    // Add download button with badge to header bar
+    activeDownloadCount = 0;
+    downloadHeaderBtn = new QToolButton(this);
+    downloadHeaderBtn->setIcon(QIcon(":/images/icons/download.png"));
+    downloadHeaderBtn->setIconSize(QSize(SIZES.wifiIconSize, SIZES.wifiIconSize));
+    downloadHeaderBtn->setMinimumSize(QSize(40, 40));
+    downloadHeaderBtn->setFocusPolicy(Qt::NoFocus);
+    downloadHeaderBtn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    ui->horizontalLayout_5->insertWidget(3, downloadHeaderBtn);
+    connect(downloadHeaderBtn, &QToolButton::clicked, this,
             [this]() { setWidgetTab(DownloadsTab); });
     ui->batteryIcon->updateIcon();
     setupVirtualKeyboard();
@@ -107,7 +108,10 @@ MainWidget::MainWidget(QWidget *parent)
                          bool isLN = m->mangaSource && m->mangaSource->contentType == ContentLightNovel;
                          downloadQueueWidget->addJob(m->title, m->hostname, f, t, false, isLN);
                          core->mangaChapterDownloadManager->downloadMangaChapters(m, f, t);
-                         setWidgetTab(DownloadsTab);
+                         activeDownloadCount++;
+                         updateDownloadBadge();
+                         // Brief confirmation
+                         showErrorMessage("Downloading - check Downloads page");
                      });
 
     // Export to Kobo device
@@ -116,6 +120,8 @@ MainWidget::MainWidget(QWidget *parent)
                      {
                          bool isLN = m->mangaSource && m->mangaSource->contentType == ContentLightNovel;
                          downloadQueueWidget->addJob(m->title, m->hostname, f, t, true, isLN);
+                         activeDownloadCount++;
+                         updateDownloadBadge();
 
                          showLoadingIndicator();
                          bool success;
@@ -123,18 +129,21 @@ MainWidget::MainWidget(QWidget *parent)
                              success = core->exportNovelAsEPUB(m, f, t);
                          else
                          {
-                             // First download chapters to cache, then export
                              core->mangaChapterDownloadManager->downloadMangaChapters(m, f, t);
-                             success = true;  // CBZ export happens after download completes
+                             success = true;
                          }
                          hideLoadingIndicator();
 
                          if (success)
+                         {
                              downloadQueueWidget->jobCompleted(m->title);
+                             activeDownloadCount = qMax(0, activeDownloadCount - 1);
+                             updateDownloadBadge();
+                         }
                          else
                              downloadQueueWidget->jobFailed(m->title, "Export failed");
 
-                         setWidgetTab(DownloadsTab);
+                         showErrorMessage("Exporting - check Downloads page");
                      });
 
     QObject::connect(downloadStatusDialog, &DownloadStatusDialog::abortDownloads,
@@ -204,6 +213,8 @@ MainWidget::MainWidget(QWidget *parent)
                          if (core->mangaController->currentManga)
                              downloadQueueWidget->jobCompleted(
                                  core->mangaController->currentManga->title);
+                         activeDownloadCount = qMax(0, activeDownloadCount - 1);
+                         updateDownloadBadge();
                      });
 
     // Core
@@ -214,6 +225,11 @@ MainWidget::MainWidget(QWidget *parent)
     // AniList + Favorites
     ui->homeWidget->setAniList(core->aniList);
     ui->homeWidget->setFavoritesManager(core->favoritesManager);
+
+    connect(ui->homeWidget, &HomeWidget::openHistoryRequested,
+            this, [this]() { menuDialogButtonPressed(HistoryButton); });
+    connect(ui->homeWidget, &HomeWidget::openAniListRequested,
+            this, [this]() { menuDialogButtonPressed(AniListButton); });
 
     QObject::connect(core, &UltimateMangaReaderCore::activeMangaSourcesChanged, ui->homeWidget,
                      &HomeWidget::updateSourcesList);
@@ -228,6 +244,30 @@ MainWidget::MainWidget(QWidget *parent)
                          ui->mangaInfoWidget->setManga(info);
                          bool state = core->favoritesManager->isFavorite(info);
                          ui->mangaInfoWidget->setFavoriteButtonState(state);
+
+                         // Sync AniList progress to local whenever a manga is opened
+                         if (info && core->aniList && core->aniList->isLoggedIn())
+                         {
+                             try
+                             {
+                                 auto entry = core->aniList->findByTitle(info->title);
+                                 if (entry.mediaId > 0 && entry.progress > 0)
+                                 {
+                                     ReadingProgress localProgress(info->hostname, info->title);
+                                     int aniCh = entry.progress - 1;
+                                     if (aniCh > localProgress.index.chapter)
+                                     {
+                                         localProgress.index.chapter = aniCh;
+                                         localProgress.index.page = 0;
+                                         localProgress.serialize(info->hostname, info->title);
+                                         qDebug() << "Synced AniList progress for" << info->title
+                                                  << "to Ch." << (aniCh + 1);
+                                     }
+                                 }
+                             }
+                             catch (...) {}
+                         }
+
                          setWidgetTab(MangaInfoTab);
                          ui->mangaReaderWidget->clearCache();
                      });
@@ -237,6 +277,19 @@ MainWidget::MainWidget(QWidget *parent)
     QObject::connect(core->mangaController, &MangaController::currentIndexChanged,
                      [this](const ReadingProgress &progress)
                      {
+                         // Track reading stats
+                         if (core->mangaController->currentManga)
+                         {
+                             auto title = core->mangaController->currentManga->title;
+                             core->readingStats.pageRead(title);
+
+                             // Detect chapter completion (page 0 of new chapter = prev chapter done)
+                             static int lastChapter = -1;
+                             if (progress.index.chapter != lastChapter && lastChapter >= 0)
+                                 core->readingStats.chapterCompleted(title);
+                             lastChapter = progress.index.chapter;
+                         }
+
                          if (core->aniList && core->aniList->isLoggedIn() &&
                              core->mangaController->currentManga)
                          {
@@ -351,7 +404,8 @@ MainWidget::MainWidget(QWidget *parent)
                      {
                          setWidgetTab(MangaReaderTab);
                          core->mangaController->setCurrentIndex(index);
-                         QTimer::singleShot(50, core->mangaController, &MangaController::preloadNeighbours);
+                         if (core->settings.preloadEnabled)
+                             QTimer::singleShot(50, core->mangaController, &MangaController::preloadNeighbours);
                      });
 
     QObject::connect(ui->mangaInfoWidget, &MangaInfoWidget::readMangaContinueClicked,
@@ -378,6 +432,7 @@ MainWidget::MainWidget(QWidget *parent)
 
     // MangaReaderWidget
     ui->mangaReaderWidget->setSettings(&core->settings);
+    core->mangaController->settings = &core->settings;
 
     QObject::connect(ui->mangaReaderWidget, &MangaReaderWidget::changeView, this, &MainWidget::setWidgetTab);
 
@@ -394,6 +449,20 @@ MainWidget::MainWidget(QWidget *parent)
 
     QObject::connect(ui->mangaReaderWidget, &MangaReaderWidget::gotoIndex, core->mangaController,
                      &MangaController::setCurrentIndex);
+
+    QObject::connect(ui->mangaReaderWidget, &MangaReaderWidget::bookmarkRequested,
+                     [this]()
+                     {
+                         if (core->mangaController->currentManga)
+                         {
+                             auto manga = core->mangaController->currentManga;
+                             core->bookmarkManager.addBookmark(
+                                 manga->title, manga->hostname,
+                                 core->mangaController->currentIndex.chapter,
+                                 core->mangaController->currentIndex.page);
+                             showErrorMessage("Bookmarked!");
+                         }
+                     });
 
     QObject::connect(
         core->networkManager, &NetworkManager::downloadedImage, ui->mangaReaderWidget,
@@ -473,6 +542,16 @@ void MainWidget::showEvent(QShowEvent *event)
     QWidget::showEvent(event);
     core->updateActiveScources();
     updateDitheringMode();
+
+    // Show welcome screen on first boot
+    if (WelcomeDialog::shouldShow())
+    {
+        QTimer::singleShot(200, this, [this]()
+        {
+            WelcomeDialog welcome(this);
+            welcome.exec();
+        });
+    }
 
     QTimer::singleShot(500, this, &MainWidget::onResume);
 }
@@ -601,6 +680,13 @@ void MainWidget::onResume()
                            setupFrontLight();
                            if (!core->networkManager->connected)
                                wifiDialog->open();
+                           else
+                           {
+                               // Back online - sync any offline AniList changes
+                               if (core->aniList && core->aniList->isLoggedIn())
+                                   QTimer::singleShot(2000, core->aniList,
+                                                      &AniList::syncOfflineChanges);
+                           }
                        });
 }
 
@@ -715,6 +801,7 @@ void MainWidget::setWidgetTab(WidgetTab tab)
 {
     enableVirtualKeyboard(false);
     core->mangaController->cancelAllPreloads();
+    core->readingStats.stopReading();
 
     int currentIdx = ui->stackedWidget->currentIndex();
     if (tab == currentIdx)
@@ -751,6 +838,8 @@ void MainWidget::setWidgetTab(WidgetTab tab)
         case MangaReaderTab:
             ui->navigationBar->setVisible(false);
             ui->frameHeader->setVisible(false);
+            if (core->mangaController->currentManga)
+                core->readingStats.startReading(core->mangaController->currentManga->title);
             break;
         case DownloadsTab:
             ui->navigationBar->setVisible(false);
@@ -836,20 +925,67 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
             break;
         case HistoryButton:
         {
-            // Show history as a simple dialog with list
             QDialog dlg(this);
-            dlg.setWindowFlags(Qt::Popup);
-            dlg.setMaximumSize(this->size());
-            dlg.resize(this->width() - 20, this->height() - 40);
+            dlg.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+            dlg.setGeometry(this->geometry());
 
             auto *layout = new QVBoxLayout(&dlg);
-            auto *title = new QLabel("<b>History</b>", &dlg);
-            title->setAlignment(Qt::AlignCenter);
-            title->setStyleSheet("font-size: 14pt; padding: 8px;");
-            layout->addWidget(title);
+            layout->setContentsMargins(10, 8, 10, 8);
+
+            auto *titleLbl = new QLabel("<b>History & Stats</b>", &dlg);
+            titleLbl->setAlignment(Qt::AlignCenter);
+            titleLbl->setStyleSheet("font-size: 15pt; padding: 6px;");
+            layout->addWidget(titleLbl);
+
+            // Stats summary
+            auto &stats = core->readingStats;
+            QString statsText = QString(
+                "<div style='font-size:10pt; padding:6px; background:#f8f8f8; border:1px solid #ddd; border-radius:4px;'>"
+                "<b>Reading Stats</b><br>"
+                "Chapters: %1 | Pages: %2 | Time: %3 min<br>"
+                "Streak: %4 days (best: %5) | Top: %6"
+                "</div>")
+                .arg(stats.totalChaptersRead()).arg(stats.totalPagesRead())
+                .arg(stats.totalMinutesRead()).arg(stats.currentStreak())
+                .arg(stats.longestStreak())
+                .arg(stats.mostReadManga().isEmpty() ? "N/A" : stats.mostReadManga());
+            auto *statsLabel = new QLabel(statsText, &dlg);
+            statsLabel->setWordWrap(true);
+            layout->addWidget(statsLabel);
+
+            // Bookmarks section
+            auto &bm = core->bookmarkManager;
+            if (!bm.allBookmarks().isEmpty())
+            {
+                auto *bmHeader = new QLabel("<b>Bookmarks</b>", &dlg);
+                bmHeader->setStyleSheet("font-size: 11pt; padding-top: 6px;");
+                layout->addWidget(bmHeader);
+
+                auto *bmList = new QListWidget(&dlg);
+                bmList->setStyleSheet("font-size: 10pt;");
+                bmList->setMaximumHeight(120);
+                activateScroller(bmList);
+
+                for (int i = 0; i < bm.allBookmarks().size(); i++)
+                {
+                    const auto &b = bm.allBookmarks()[i];
+                    auto text = b.mangaTitle + " Ch." + QString::number(b.chapter + 1) +
+                                " Pg." + QString::number(b.page + 1);
+                    if (!b.note.isEmpty())
+                        text += " - " + b.note;
+                    auto *item = new QListWidgetItem(text, bmList);
+                    item->setData(Qt::UserRole, i);
+                }
+                layout->addWidget(bmList);
+            }
+
+            // History list
+            auto *histHeader = new QLabel("<b>Browsing History</b>", &dlg);
+            histHeader->setStyleSheet("font-size: 11pt; padding-top: 6px;");
+            layout->addWidget(histHeader);
 
             auto *list = new QListWidget(&dlg);
-            list->setStyleSheet("font-size: 11pt;");
+            list->setStyleSheet("font-size: 10pt;");
             activateScroller(list);
 
             for (const auto &h : core->browsingHistory)
@@ -859,11 +995,10 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
                     text += "  " + h.timestamp.toString("MM/dd hh:mm");
                 list->addItem(text);
             }
-
             if (core->browsingHistory.isEmpty())
                 list->addItem("No history yet");
 
-            layout->addWidget(list);
+            layout->addWidget(list, 1);
 
             auto *closeBtn = new QPushButton("Close", &dlg);
             closeBtn->setFixedHeight(SIZES.buttonSize);
@@ -1018,6 +1153,14 @@ void MainWidget::showLoadingIndicator()
 void MainWidget::hideLoadingIndicator()
 {
     spinner->stop();
+}
+
+void MainWidget::updateDownloadBadge()
+{
+    if (activeDownloadCount > 0)
+        downloadHeaderBtn->setText(QString::number(activeDownloadCount));
+    else
+        downloadHeaderBtn->setText("");
 }
 
 void MainWidget::on_toolButtonWifiIcon_clicked()
