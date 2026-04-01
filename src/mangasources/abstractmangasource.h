@@ -50,6 +50,9 @@ public:
     // For light novels: get chapter text as HTML
     virtual Result<QString, QString> getChapterText(const QString &chapterUrl);
 
+    // Whether a chapter is download-only (can't be read inline)
+    virtual bool isDownloadOnly(const QString &chapterUrl) { Q_UNUSED(chapterUrl); return false; }
+
 
     Result<QSharedPointer<MangaInfo>, QString> loadMangaInfo(const QString &mangaUrl,
                                                              const QString &mangatitle, bool update = true);

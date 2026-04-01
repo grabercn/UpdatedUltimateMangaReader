@@ -452,11 +452,24 @@ Result<QStringList, QString> MangaDex::getPageList(const QString &chapterUrl)
 
         auto hash = getStringSafe(chapterdoc["chapter"], "hash");
 
-        // Use full quality data (dataSaver often 404s on CDN nodes)
+        // Use full quality data first, with data-saver filenames stored for fallback
         auto pages = chapterdoc["chapter"]["data"].GetArray();
+        auto saverPages = chapterdoc["chapter"]["dataSaver"].GetArray();
 
-        for (const auto &page : pages)
-            imageUrls.append(serverBaseUrl + "/data/" + hash + "/" + page.GetString());
+        for (int i = 0; i < (int)pages.Size(); i++)
+        {
+            // Primary: full quality URL
+            imageUrls.append(serverBaseUrl + "/data/" + hash + "/" + pages[i].GetString());
+        }
+
+        // Store data-saver URLs as fallback metadata (appended with separator)
+        // Format: each full URL has a matching saver URL accessible by replacing /data/ with /data-saver/
+        // and the filename with the saver filename
+        dataSaverHash = hash;
+        dataSaverBaseUrl = serverBaseUrl;
+        dataSaverFilenames.clear();
+        for (int i = 0; i < (int)saverPages.Size(); i++)
+            dataSaverFilenames.append(saverPages[i].GetString());
     }
     catch (QException &)
     {
@@ -464,4 +477,15 @@ Result<QStringList, QString> MangaDex::getPageList(const QString &chapterUrl)
     }
 
     return Ok(imageUrls);
+}
+
+QString MangaDex::getFallbackImageUrl(int pageIndex) const
+{
+    if (pageIndex >= 0 && pageIndex < dataSaverFilenames.size() &&
+        !dataSaverHash.isEmpty() && !dataSaverBaseUrl.isEmpty())
+    {
+        return dataSaverBaseUrl + "/data-saver/" + dataSaverHash + "/" +
+               dataSaverFilenames[pageIndex];
+    }
+    return {};
 }

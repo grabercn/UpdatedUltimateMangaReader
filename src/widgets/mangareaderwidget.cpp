@@ -38,7 +38,7 @@ MangaReaderWidget::MangaReaderWidget(QWidget *parent)
 
     // Bottom bar: progress + page info + menu button
     textBottomBar = new QWidget(this);
-    textBottomBar->setFixedHeight(32);
+    textBottomBar->setFixedHeight(44);
     textBottomBar->hide();
 
     auto *barLayout = new QHBoxLayout(textBottomBar);
@@ -60,14 +60,17 @@ MangaReaderWidget::MangaReaderWidget(QWidget *parent)
     textPageLabel->setAlignment(Qt::AlignCenter);
 
     textMenuBtn = new QPushButton("Menu", textBottomBar);
-    textMenuBtn->setFixedSize(50, 26);
+    textMenuBtn->setFixedSize(70, 36);
     textMenuBtn->setFocusPolicy(Qt::NoFocus);
-    textMenuBtn->setStyleSheet("font-size: 9pt; padding: 2px 6px;");
+    textMenuBtn->setStyleSheet("font-size: 10pt; padding: 4px 8px;");
     connect(textMenuBtn, &QPushButton::clicked, this, [this]()
     {
-        ui->readerNavigationBar->raise();
-        ui->readerFrontLightBar->raise();
+        qDebug() << "Menu button clicked. NavBar visible:" << ui->readerNavigationBar->isVisible()
+                 << "NavBar parent:" << ui->readerNavigationBar->parentWidget()
+                 << "isTextMode:" << isTextMode;
         showMenuBar(!ui->readerNavigationBar->isVisible());
+        qDebug() << "After showMenuBar. NavBar visible:" << ui->readerNavigationBar->isVisible()
+                 << "NavBar geometry:" << ui->readerNavigationBar->geometry();
     });
 
     barLayout->addWidget(textProgressBar, 1);
@@ -231,6 +234,27 @@ bool MangaReaderWidget::gestureEvent(QGestureEvent *event)
         if (gesture->state() != Qt::GestureFinished)
             return true;
 
+        // In text mode, don't intercept taps on the bottom bar - let buttons handle them
+        if (isTextMode)
+        {
+            int bottomBarTop = this->height() - textBottomBar->height();
+            if (pos.y() >= bottomBarTop)
+                return false;  // Let the button get the click
+
+            // In text mode, taps on the nav bar area should dismiss it
+            if (ui->readerNavigationBar->isVisible())
+            {
+                showMenuBar(false);
+                return true;
+            }
+
+            // Taps in text area advance pages: left half = back, right half = forward
+            auto tabSide = pos.x() < this->width() / 2 ? Left : Right;
+            emit advancPageClicked(conditionalReverse(Forward, settings->tabAdvance != tabSide));
+            return true;
+        }
+
+        // Manga mode gesture handling
         if (ui->readerNavigationBar->isVisible())
         {
             if (pos.y() > this->height() * SIZES.readerBottomMenuThreshold * 2)
@@ -300,6 +324,14 @@ void MangaReaderWidget::on_pushButtonReaderFavorites_clicked()
 void MangaReaderWidget::setTextMode(bool textMode)
 {
     isTextMode = textMode;
+
+    // Reparent nav bars to this widget (not mangaImageWidget) so they work in both modes
+    if (ui->readerNavigationBar->parentWidget() != this)
+    {
+        ui->readerNavigationBar->setParent(this);
+        ui->readerFrontLightBar->setParent(this);
+    }
+
     if (textMode)
     {
         ui->mangaImageWidget->hide();
@@ -612,7 +644,27 @@ void MangaReaderWidget::showMenuBar(bool show)
     else if (show && !ui->readerNavigationBar->isVisible())
     {
         updateMenuBar();
+
+        // If bars are reparented to this widget (text mode), position them manually
+        if (isTextMode && ui->readerNavigationBar->parentWidget() == this)
+        {
+            int w = this->width();
+            int h = this->height();
+
+            // Use fixed heights - sizeHint() is unreliable after reparenting
+            int navH = 120;
+            int flH = 160;
+
+            // Nav bar at the bottom (above the text bottom bar)
+            ui->readerNavigationBar->setGeometry(0, h - navH - textBottomBar->height(), w, navH);
+
+            // Front light bar at the top
+            ui->readerFrontLightBar->setGeometry(0, 0, w, flH);
+        }
+
         ui->readerNavigationBar->setVisible(true);
         ui->readerFrontLightBar->setVisible(true);
+        ui->readerNavigationBar->raise();
+        ui->readerFrontLightBar->raise();
     }
 }

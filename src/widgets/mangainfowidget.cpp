@@ -103,14 +103,15 @@ void MangaInfoWidget::updateCover()
     else
     {
         QPixmap img = QPixmap::fromImage(loadQImageFast(currentmanga->coverPath));
-        double r = (double)img.height() / img.width();
-
-        if (r >= ((double)SIZES.coverHeight / SIZES.coverWidth))
-            ui->labelMangaInfoCover->setFixedSize(SIZES.coverHeight / r, SIZES.coverHeight);
-        else
-            ui->labelMangaInfoCover->setFixedSize(SIZES.coverWidth, SIZES.coverWidth * r);
-
-        ui->labelMangaInfoCover->setPixmap(img);
+        if (!img.isNull() && img.width() > 0 && img.height() > 0)
+        {
+            double r = (double)img.height() / img.width();
+            if (r > 0 && r >= ((double)SIZES.coverHeight / qMax(1, SIZES.coverWidth)))
+                ui->labelMangaInfoCover->setFixedSize(SIZES.coverHeight / r, SIZES.coverHeight);
+            else if (r > 0)
+                ui->labelMangaInfoCover->setFixedSize(SIZES.coverWidth, SIZES.coverWidth * r);
+            ui->labelMangaInfoCover->setPixmap(img);
+        }
     }
 }
 
@@ -187,21 +188,70 @@ void MangaInfoWidget::updateInfos()
     // Very compact - just enough for 2 lines
     ui->scrollAreaMangaInfoSummary->setMaximumHeight(45);
 
-    // Limit cover height so it doesn't push everything down
+    // Give cover image breathing room with reasonable max height
     ui->labelMangaInfoCover->setMaximumHeight(SIZES.coverHeight);
+    ui->labelMangaInfoCover->setContentsMargins(4, 8, 4, 8);
 
     updateAniListTracking();
 
     ui->scrollAreaMangaInfoSummary->verticalScrollBar()->setValue(0);
-    ui->listViewChapters->verticalScrollBar()->setValue(0);
 
     bool enable = currentmanga->chapters.count() > 0;
 
-    ui->pushButtonReadContinue->setEnabled(enable);
-    ui->pushButtonReadFirst->setEnabled(enable);
-    ui->pushButtonReadLatest->setEnabled(enable);
+    // Scroll chapter list to current reading position
+    if (enable)
+    {
+        ReadingProgress progress(currentmanga->hostname, currentmanga->title);
+        int currentChapter = progress.index.chapter;
+        // List is reversed (newest first), so convert chapter index
+        int listRow = currentmanga->chapters.size() - 1 - currentChapter;
+        if (listRow >= 0 && listRow < currentmanga->chapters.size())
+        {
+            auto idx = ui->listViewChapters->model()->index(listRow, 0);
+            ui->listViewChapters->scrollTo(idx, QAbstractItemView::PositionAtCenter);
+        }
+    }
+    else
+    {
+        ui->listViewChapters->verticalScrollBar()->setValue(0);
+    }
+
+    // Check if chapters are download-only (e.g. raw PDFs on IA without page images)
+    bool downloadOnly = false;
+    if (enable && currentmanga->mangaSource && !currentmanga->chapters.isEmpty())
+    {
+        downloadOnly = currentmanga->mangaSource->isDownloadOnly(
+            currentmanga->chapters[0].chapterUrl);
+    }
+
+    ui->pushButtonReadContinue->setEnabled(enable && !downloadOnly);
+    ui->pushButtonReadFirst->setEnabled(enable && !downloadOnly);
+    ui->pushButtonReadLatest->setEnabled(enable && !downloadOnly);
     ui->toolButtonDownload->setVisible(enable);
     ui->toolButtonAddFavorites->setVisible(enable);
+
+    isDownloadOnly = downloadOnly;
+
+    if (downloadOnly)
+    {
+        ui->pushButtonReadContinue->setText("Download");
+        ui->pushButtonReadContinue->setEnabled(true);
+        ui->pushButtonReadFirst->hide();
+        ui->pushButtonReadLatest->hide();
+        auto *topFrame = ui->topButtonsFrame;
+        for (auto *child : topFrame->findChildren<QFrame *>())
+            if (child->frameShape() == QFrame::VLine)
+                child->hide();
+    }
+    else
+    {
+        ui->pushButtonReadFirst->show();
+        ui->pushButtonReadLatest->show();
+        auto *topFrame = ui->topButtonsFrame;
+        for (auto *child : topFrame->findChildren<QFrame *>())
+            if (child->frameShape() == QFrame::VLine)
+                child->show();
+    }
 
     // Show reading progress - AniList overrides local if higher
     if (enable)
@@ -233,7 +283,11 @@ void MangaInfoWidget::updateInfos()
             catch (...) {}
         }
 
-        if (localCh > 0 || localPg > 0)
+        if (downloadOnly)
+        {
+            ui->pushButtonReadContinue->setText("Download");
+        }
+        else if (localCh > 0 || localPg > 0)
         {
             QString text = "Continue Ch." + QString::number(localCh + 1);
             if (localPg > 0)
@@ -260,7 +314,17 @@ void MangaInfoWidget::on_toolButtonAddFavorites_clicked()
 
 void MangaInfoWidget::on_listViewChapters_clicked(const QModelIndex &index)
 {
-    emit readMangaClicked({static_cast<int>(currentmanga->chapters.count() - 1 - index.row()), 0});
+    if (currentmanga.isNull())
+        return;
+
+    int chapterIdx = static_cast<int>(currentmanga->chapters.count() - 1 - index.row());
+
+    // Block clicks for download-only chapters
+    if (currentmanga->mangaSource && chapterIdx >= 0 && chapterIdx < currentmanga->chapters.count() &&
+        currentmanga->mangaSource->isDownloadOnly(currentmanga->chapters[chapterIdx].chapterUrl))
+        return;
+
+    emit readMangaClicked({chapterIdx, 0});
 }
 
 void MangaInfoWidget::on_pushButtonReadLatest_clicked()
@@ -270,6 +334,11 @@ void MangaInfoWidget::on_pushButtonReadLatest_clicked()
 
 void MangaInfoWidget::on_pushButtonReadContinue_clicked()
 {
+    if (isDownloadOnly)
+    {
+        emit downloadMangaClicked();
+        return;
+    }
     emit readMangaContinueClicked();
 }
 
@@ -320,48 +389,56 @@ void MangaInfoWidget::setupAniListUI()
 
     aniListFrame = new QFrame(this);
     aniListFrame->setStyleSheet(
-        "QFrame#aniListFrame { border-top: 1px solid #ccc; background: #f5f5f5; "
-        "padding: 1px 6px; margin: 0; }");
+        "QFrame#aniListFrame { border: 1px solid #ccc; background: #f5f5f5; "
+        "padding: 4px 10px; margin: 0; }");
     aniListFrame->setObjectName("aniListFrame");
-    aniListFrame->setFixedHeight(34);
 
-    auto *row = new QHBoxLayout(aniListFrame);
-    row->setSpacing(3);
-    row->setContentsMargins(0, 0, 0, 0);
+    auto *mainLayout = new QVBoxLayout(aniListFrame);
+    mainLayout->setSpacing(6);
+    mainLayout->setContentsMargins(8, 6, 8, 6);
 
-    aniListLabel = new QLabel("AL", aniListFrame);
-    aniListLabel->setStyleSheet("font-weight: bold; font-size: 8pt; border: none; background: transparent;");
-    aniListLabel->setFixedWidth(18);
-    row->addWidget(aniListLabel);
+    // Top row: AniList label + status + score
+    auto *topRow = new QHBoxLayout();
+    topRow->setSpacing(6);
+
+    aniListLabel = new QLabel("AniList", aniListFrame);
+    aniListLabel->setStyleSheet("font-weight: bold; font-size: 10pt; border: none; background: transparent;");
+    topRow->addWidget(aniListLabel);
 
     aniListStatusCombo = new QComboBox(aniListFrame);
-    aniListStatusCombo->setStyleSheet("font-size: 8pt; min-height: 0; padding: 1px 2px;");
+    aniListStatusCombo->setStyleSheet("font-size: 10pt; padding: 4px 6px;");
     aniListStatusCombo->addItems({"--", "Reading", "Plan", "Done", "Drop", "Pause", "Re"});
-    aniListStatusCombo->setFixedHeight(28);
-    row->addWidget(aniListStatusCombo);
+    aniListStatusCombo->setFixedHeight(SIZES.buttonSize);
+    topRow->addWidget(aniListStatusCombo, 1);
+
+    aniListScoreCombo = new QComboBox(aniListFrame);
+    aniListScoreCombo->setStyleSheet("font-size: 10pt; padding: 4px 6px;");
+    aniListScoreCombo->addItem("Score", 0);
+    for (int i = 1; i <= 10; i++)
+        aniListScoreCombo->addItem(QString::number(i) + "/10", i);
+    aniListScoreCombo->setFixedHeight(SIZES.buttonSize);
+    topRow->addWidget(aniListScoreCombo);
+
+    mainLayout->addLayout(topRow);
+
+    // Bottom row: chapter progress + sync button
+    auto *bottomRow = new QHBoxLayout();
+    bottomRow->setSpacing(6);
 
     aniListProgressSpin = new QSpinBox(aniListFrame);
     aniListProgressSpin->setRange(0, 9999);
-    aniListProgressSpin->setPrefix("Ch.");
-    aniListProgressSpin->setStyleSheet("font-size: 8pt; min-height: 0; padding: 1px;");
-    aniListProgressSpin->setFixedHeight(28);
-    aniListProgressSpin->setFixedWidth(62);
-    row->addWidget(aniListProgressSpin);
+    aniListProgressSpin->setPrefix("Ch. ");
+    aniListProgressSpin->setStyleSheet("font-size: 10pt; padding: 4px 6px;");
+    aniListProgressSpin->setFixedHeight(SIZES.buttonSize);
+    bottomRow->addWidget(aniListProgressSpin, 1);
 
-    aniListScoreCombo = new QComboBox(aniListFrame);
-    aniListScoreCombo->setStyleSheet("font-size: 8pt; min-height: 0; padding: 1px;");
-    aniListScoreCombo->addItem("-", 0);
-    for (int i = 1; i <= 10; i++)
-        aniListScoreCombo->addItem(QString::number(i), i);
-    aniListScoreCombo->setFixedHeight(28);
-    aniListScoreCombo->setFixedWidth(36);
-    row->addWidget(aniListScoreCombo);
+    aniListSyncBtn = new QPushButton("Sync to AniList", aniListFrame);
+    aniListSyncBtn->setFixedHeight(SIZES.buttonSize);
+    aniListSyncBtn->setStyleSheet("font-size: 10pt; font-weight: bold; padding: 4px 12px;");
+    aniListSyncBtn->setProperty("type", "borderless");
+    bottomRow->addWidget(aniListSyncBtn, 1);
 
-    aniListSyncBtn = new QPushButton("Sync", aniListFrame);
-    aniListSyncBtn->setFixedHeight(28);
-    aniListSyncBtn->setFixedWidth(40);
-    aniListSyncBtn->setStyleSheet("font-size: 8pt; min-height: 0; padding: 1px 3px;");
-    row->addWidget(aniListSyncBtn);
+    mainLayout->addLayout(bottomRow);
 
     connect(aniListSyncBtn, &QPushButton::clicked, this, [this]()
     {
@@ -377,15 +454,15 @@ void MangaInfoWidget::setupAniListUI()
             aniList->updateProgress(currentAniListMediaId, progress, status);
             if (score > 0)
                 aniList->updateScore(currentAniListMediaId, score);
-            aniListLabel->setText("OK");
-            QTimer::singleShot(2000, this, [this]() { aniListLabel->setText("AL:"); });
+            aniListSyncBtn->setText("Synced!");
+            QTimer::singleShot(2000, this, [this]() { aniListSyncBtn->setText("Sync to AniList"); });
         }
     });
 
-    // Add to summary scroll area (safe - no layout manipulation)
-    auto *scrollContent = ui->scrollAreaMangaInfoSummary->widget();
-    if (scrollContent && scrollContent->layout())
-        scrollContent->layout()->addWidget(aniListFrame);
+    // Insert into main layout: between the cover/info section (index 1) and action buttons (index 2)
+    auto *parentLayout = qobject_cast<QVBoxLayout *>(layout());
+    if (parentLayout)
+        parentLayout->insertWidget(2, aniListFrame);
 }
 
 void MangaInfoWidget::updateAniListTracking()

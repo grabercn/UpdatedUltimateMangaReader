@@ -15,10 +15,13 @@ bool SuspendManager::suspend()
     emit suspending();
     qApp->processEvents();
 
-    if (sleeping == false)
-        qDebug() << QTime::currentTime().toString("hh:mm:ss") << "Going to sleep...";
+    qDebug() << QTime::currentTime().toString("hh:mm:ss") << "Going to sleep...";
 
     sleeping = true;
+
+    // Give e-ink display time to render the screensaver
+    QThread::msleep(200);
+    qApp->processEvents();
 
     timer.start();
 
@@ -82,6 +85,9 @@ bool SuspendManager::suspendInternal()
 
 bool SuspendManager::resume()
 {
+    if (!sleeping)
+        return true;
+
     qDebug() << QTime::currentTime().toString("hh:mm:ss") << "Waking up...";
 
 #ifdef KOBO

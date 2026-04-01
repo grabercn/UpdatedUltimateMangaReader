@@ -32,6 +32,11 @@ MainWidget::MainWidget(QWidget *parent)
     connect(downloadQueueWidget, &DownloadQueueWidget::cancelRequested,
             core->mangaChapterDownloadManager, &MangaChapterDownloadManager::cancelDownloads);
 
+    connect(downloadQueueWidget, &DownloadQueueWidget::resetAniListLinksRequested,
+            ui->homeWidget, &HomeWidget::resetAniListLinks);
+
+    downloadQueueWidget->homeWidget = ui->homeWidget;
+
     connect(downloadQueueWidget, &DownloadQueueWidget::openMangaRequested,
             this, [this](const QString &source, const QString &title)
             {
@@ -74,11 +79,22 @@ MainWidget::MainWidget(QWidget *parent)
     ui->batteryIcon->updateIcon();
     setupVirtualKeyboard();
 
-    QObject::connect(powerButtonTimer, &QTimer::timeout, this, &MainWidget::close);
+    QObject::connect(powerButtonTimer, &QTimer::timeout, this, [this]()
+    {
+        qDebug() << "Long power press - shutting down";
+        core->enableTimers(false);
+        core->mangaController->cancelAllPreloads();
+        core->settings.serialize();
+        core->readingStats.stopReading();
+        core->readingStats.serialize();
+        if (core->aniList) core->aniList->serialize();
+        core->saveHistory();
+        close();
+    });
 
     // Dialogs
     menuDialog = new MenuDialog(this);
-    settingsDialog = new SettingsDialog(&core->settings, core->aniList, this);
+    settingsDialog = new SettingsDialog(&core->settings, core->aniList, core->updater, this);
     updateMangaListsDialog = new UpdateMangaListsDialog(&core->settings, this);
     clearCacheDialog = new ClearCacheDialog(this);
     wifiDialog = new WifiDialog(this, core->networkManager);
@@ -414,8 +430,14 @@ MainWidget::MainWidget(QWidget *parent)
     QObject::connect(ui->mangaInfoWidget, &MangaInfoWidget::downloadMangaClicked,
                      [this]()
                      {
-                         downloadMangaChaptersDialog->show(core->mangaController->currentManga,
-                                                           core->mangaController->currentIndex.chapter);
+                         bool exportOnly = false;
+                         auto manga = core->mangaController->currentManga;
+                         if (manga && manga->mangaSource && !manga->chapters.isEmpty())
+                             exportOnly = manga->mangaSource->isDownloadOnly(manga->chapters[0].chapterUrl);
+
+                         downloadMangaChaptersDialog->show(manga,
+                                                           core->mangaController->currentIndex.chapter,
+                                                           exportOnly);
                      });
 
     // FavoritesWidget
@@ -553,6 +575,90 @@ void MainWidget::showEvent(QShowEvent *event)
         });
     }
 
+    // Auto-check for updates on startup (after welcome dialog)
+    if (core->updater->shouldAutoCheck())
+    {
+        QTimer::singleShot(2000, this, [this]()
+        {
+            core->updater->checkForUpdate();
+
+            if (core->updater->updateAvailable() &&
+                !core->updater->isVersionSkipped(core->updater->latestFullSha()))
+            {
+                // Show update splash dialog
+                QDialog updateDlg(this);
+                updateDlg.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+                updateDlg.setGeometry(this->geometry());
+
+                auto *layout = new QVBoxLayout(&updateDlg);
+                layout->setContentsMargins(20, 15, 20, 15);
+                layout->setSpacing(12);
+
+                auto *titleLbl = new QLabel("<h2 style='text-align:center;'>Update Available</h2>", &updateDlg);
+                titleLbl->setAlignment(Qt::AlignCenter);
+                layout->addWidget(titleLbl);
+
+                auto *versionLbl = new QLabel(
+                    QString("<p style='text-align:center; font-size:11pt; color:#555;'>"
+                            "Version: %1<br>Date: %2</p>")
+                        .arg(core->updater->latestVersion(), core->updater->latestDate()),
+                    &updateDlg);
+                versionLbl->setAlignment(Qt::AlignCenter);
+                layout->addWidget(versionLbl);
+
+                auto *notesLbl = new QLabel(&updateDlg);
+                notesLbl->setWordWrap(true);
+                notesLbl->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+                notesLbl->setStyleSheet(
+                    "font-size: 11pt; padding: 12px; background: #f8f8f8; "
+                    "border: 1px solid #ddd; border-radius: 4px;");
+                QString notes = core->updater->latestNotes();
+                if (notes.length() > 500)
+                    notes = notes.left(497) + "...";
+                notesLbl->setText("<b>What's new:</b><br><br>" + notes.toHtmlEscaped().replace("\n", "<br>"));
+                layout->addWidget(notesLbl, 1);
+
+                auto *btnRow = new QHBoxLayout();
+                btnRow->setSpacing(12);
+
+                auto *skipBtn = new QPushButton("Skip This Version", &updateDlg);
+                skipBtn->setFixedHeight(SIZES.buttonSize);
+                skipBtn->setStyleSheet("font-size: 11pt;");
+                connect(skipBtn, &QPushButton::clicked, &updateDlg, [this, &updateDlg]()
+                {
+                    core->updater->skipVersion(core->updater->latestFullSha());
+                    updateDlg.reject();
+                });
+
+                auto *updateBtn = new QPushButton("Update Now", &updateDlg);
+                updateBtn->setFixedHeight(SIZES.buttonSize);
+                updateBtn->setStyleSheet("font-size: 13pt; font-weight: bold;");
+                connect(updateBtn, &QPushButton::clicked, &updateDlg, [this, &updateDlg, updateBtn, skipBtn, notesLbl]()
+                {
+                    updateBtn->setEnabled(false);
+                    skipBtn->setEnabled(false);
+                    notesLbl->setText("<p style='text-align:center; font-size:12pt;'>"
+                                     "Downloading update...<br>Please wait.</p>");
+#ifdef KOBO
+                    core->updater->downloadAndApply();
+#else
+                    notesLbl->setText("<p style='text-align:center; font-size:11pt;'>"
+                                     "On desktop, please rebuild from source:<br>"
+                                     "<b>git pull && build-win.bat</b></p>");
+                    updateBtn->setEnabled(true);
+                    skipBtn->setEnabled(true);
+#endif
+                });
+
+                btnRow->addWidget(skipBtn);
+                btnRow->addWidget(updateBtn);
+                layout->addLayout(btnRow);
+
+                updateDlg.exec();
+            }
+        });
+    }
+
     QTimer::singleShot(500, this, &MainWidget::onResume);
 }
 
@@ -567,23 +673,24 @@ bool MainWidget::event(QEvent *event)
 
 bool MainWidget::buttonReleaseEvent(QKeyEvent *event)
 {
-    QTime::currentTime().msec();
-
     if (event->key() == POWERBUTTON)
     {
-        qDebug() << "Powerkey release";
+        qDebug() << "Power button release";
         powerButtonTimer->stop();
 
-        if (!core->suspendManager->sleeping)
-            core->suspendManager->suspend();
-        else
+        // Toggle sleep/wake
+        if (core->suspendManager->sleeping)
             core->suspendManager->resume();
+        else
+            core->suspendManager->suspend();
+
+        return true;
     }
     else if (event->key() == SLEEPCOVERBUTTON)
     {
-        qDebug() << "Sleepcover opened";
-        core->suspendManager->resume();
-
+        qDebug() << "Sleep cover opened - resuming";
+        if (core->suspendManager->sleeping)
+            core->suspendManager->resume();
         return true;
     }
 
@@ -594,14 +701,15 @@ bool MainWidget::buttonPressEvent(QKeyEvent *event)
 {
     if (event->key() == POWERBUTTON)
     {
-        qDebug() << "Powerkey press";
+        // Long press (2s) = shutdown
         powerButtonTimer->start(2000);
         return true;
     }
     else if (event->key() == SLEEPCOVERBUTTON)
     {
-        qDebug() << "Sleepcover closed";
-        core->suspendManager->suspend();
+        qDebug() << "Sleep cover closed - suspending";
+        if (!core->suspendManager->sleeping)
+            core->suspendManager->suspend();
         return true;
     }
     // Page buttons scroll lists when not in reader
@@ -631,21 +739,57 @@ bool MainWidget::buttonPressEvent(QKeyEvent *event)
 void MainWidget::timerTick()
 {
 #ifdef KOBO
-    // low battery guard
-    if (KoboPlatformFunctions::getBatteryLevel() < 10)
-        close();
+    int bat = KoboPlatformFunctions::getBatteryLevel();
+    if (bat < 10)
+    {
+        qDebug() << "Low battery:" << bat << "%, saving and suspending";
+        // Save everything before low-battery shutdown
+        core->settings.serialize();
+        core->readingStats.stopReading();
+        core->readingStats.serialize();
+        if (core->aniList) core->aniList->serialize();
+        core->saveHistory();
+
+        if (bat < 5)
+            close();  // critical - shutdown
+        else
+            core->suspendManager->suspend();  // low - just sleep
+        return;
+    }
 #endif
 
     ui->batteryIcon->updateIcon();
     ui->mangaReaderWidget->updateMenuBar();
+
+    // Periodic state save (every tick = every 60s)
+    static int saveCounter = 0;
+    if (++saveCounter >= 5)  // every 5 minutes
+    {
+        saveCounter = 0;
+        core->readingStats.serialize();
+        core->settings.serialize();
+    }
 }
 
 void MainWidget::onSuspend()
 {
+    qDebug() << "Suspending...";
+
+    // Stop all background activity
     core->enableTimers(false);
+    core->mangaController->cancelAllPreloads();
+    core->mangaChapterDownloadManager->cancelDownloads();
     wifiDialog->close();
 
-    // Pass current reading info to sleep screen
+    // Save all state before sleeping
+    core->settings.serialize();
+    core->readingStats.stopReading();
+    core->readingStats.serialize();
+    if (core->aniList)
+        core->aniList->serialize();
+    core->saveHistory();
+
+    // Set sleep screen info
     if (core->mangaController->currentManga)
     {
         screensaverDialog->setCurrentManga(
@@ -670,24 +814,45 @@ void MainWidget::onSuspend()
 
 void MainWidget::onResume()
 {
+    qDebug() << "Resuming...";
+
     screensaverDialog->close();
     core->enableTimers(true);
 
+    // Reconnect WiFi
     wifiDialog->connect();
-    QTimer::singleShot(200, this,
-                       [this]()
-                       {
-                           setupFrontLight();
-                           if (!core->networkManager->connected)
-                               wifiDialog->open();
-                           else
-                           {
-                               // Back online - sync any offline AniList changes
-                               if (core->aniList && core->aniList->isLoggedIn())
-                                   QTimer::singleShot(2000, core->aniList,
-                                                      &AniList::syncOfflineChanges);
-                           }
-                       });
+    QTimer::singleShot(500, this, [this]()
+    {
+        setupFrontLight();
+
+#ifdef KOBO
+        // Check battery on wake - shutdown if critically low
+        int bat = KoboPlatformFunctions::getBatteryLevel();
+        if (bat < 5)
+        {
+            qDebug() << "Critical battery on resume:" << bat << "%, shutting down";
+            core->settings.serialize();
+            core->readingStats.serialize();
+            if (core->aniList) core->aniList->serialize();
+            close();
+            return;
+        }
+#endif
+
+        if (!core->networkManager->connected)
+        {
+            wifiDialog->open();
+        }
+        else
+        {
+            // Back online - sync AniList
+            if (core->aniList && core->aniList->isLoggedIn())
+                QTimer::singleShot(2000, core->aniList, &AniList::syncOfflineChanges);
+        }
+
+        // Update battery icon
+        ui->batteryIcon->updateIcon();
+    });
 }
 
 void MainWidget::setupVirtualKeyboard()
@@ -1010,16 +1175,17 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
         }
         case AniListButton:
         {
-            // Show AniList management dialog
+            // Show AniList management dialog - full screen like history
             QDialog dlg(this);
-            dlg.setWindowFlags(Qt::Popup);
-            dlg.setMaximumSize(this->size());
-            dlg.resize(this->width() - 20, this->height() - 40);
+            dlg.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+            dlg.setGeometry(this->geometry());
 
             auto *layout = new QVBoxLayout(&dlg);
+            layout->setContentsMargins(10, 8, 10, 8);
+
             auto *title = new QLabel("<b>AniList</b>", &dlg);
             title->setAlignment(Qt::AlignCenter);
-            title->setStyleSheet("font-size: 14pt; padding: 8px;");
+            title->setStyleSheet("font-size: 15pt; padding: 6px;");
             layout->addWidget(title);
 
             if (core->aniList->isLoggedIn())

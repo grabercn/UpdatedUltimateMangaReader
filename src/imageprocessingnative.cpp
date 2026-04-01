@@ -3,6 +3,8 @@
 
 QImage loadQImageFast(const QString &path, bool useSWDithering)
 {
+    Q_UNUSED(useSWDithering);
+
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly))
     {
@@ -13,18 +15,15 @@ QImage loadQImageFast(const QString &path, bool useSWDithering)
     auto buffer = file.readAll();
     file.close();
 
-    GreyscaleImage img;
+    // Use greyscale fast decoder (default, faster for e-ink)
+    GreyscaleImage greyImg;
+    greyImg.loadFromEncoded(buffer);
+    if (!greyImg.isNull())
+        return greyImg.toQImage();
 
-    img.loadFromEncoded(buffer);
-
-    if (img.isNull())
-    {
-        QImage ret(path);
-
-        return ret;
-    }
-
-    return img.toQImage();
+    // Fallback to Qt color loader
+    QImage fallback(path);
+    return fallback;
 }
 
 GreyscaleImage loadFromJpegAndRotate(const QByteArray &buffer, QSize screenSize,
@@ -88,6 +87,15 @@ GreyscaleImage loadFromJpegAndRotate(const QByteArray &buffer, QSize screenSize,
 QImage processImageN(const QByteArray &buffer, const QString &filepath, QSize screenSize,
                      DoublePageMode doublePageMode, bool trim, bool manhwaMode, bool useSWDither)
 {
+    // Color mode: try Qt color pipeline, fall back to greyscale if it fails
+    if (!useSWDither)
+    {
+        auto colorResult = processImageQt(buffer, filepath, screenSize, doublePageMode, trim, manhwaMode, false);
+        if (!colorResult.isNull())
+            return colorResult;
+        // Fall through to greyscale pipeline as backup
+    }
+
     GreyscaleImage img;
 
     int rot90 = 0;

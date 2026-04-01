@@ -1,15 +1,18 @@
 #include "settingsdialog.h"
 
+#include <QDir>
 #include <QScrollBar>
 #include <QSpinBox>
+#include <QTextStream>
 
 #include "anilist.h"
+#include "updater.h"
 
 #include "ui_settingsdialog.h"
 
-SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, QWidget *parent)
+SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *updater, QWidget *parent)
     : QDialog(parent), ui(new Ui::SettingsDialog), settings(settings),
-      aniList(aniList), internalChange(false)
+      aniList(aniList), updater(updater), internalChange(false)
 {
     ui->setupUi(this);
     adjustUI();
@@ -66,6 +69,51 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, QWidget *pa
         }
     });
     scrollLayout->addWidget(wifiDisconnect);
+
+#ifdef KOBO
+    auto *autoBootCheck = new QCheckBox("Auto-start on boot", this);
+    autoBootCheck->setChecked(settings->autoBootEnabled);
+    connect(autoBootCheck, &QCheckBox::toggled, this, [this](bool checked)
+    {
+        if (!internalChange)
+        {
+            this->settings->autoBootEnabled = checked;
+            Settings::writeKfmonAutoboot(checked);
+            this->settings->scheduleSerialize();
+        }
+    });
+    scrollLayout->addWidget(autoBootCheck);
+
+    // Detect which launcher is installed
+    bool hasKfmon = QDir("/mnt/onboard/.adds/kfmon/config").exists();
+    bool hasNm = QDir("/mnt/onboard/.adds/nm").exists();
+    QString launcherInfo = "Detected: ";
+    if (hasKfmon && hasNm) launcherInfo += "KFMon + NickelMenu";
+    else if (hasKfmon) launcherInfo += "KFMon";
+    else if (hasNm) launcherInfo += "NickelMenu";
+    else launcherInfo += "None (install KFMon or NickelMenu)";
+    auto *launcherLabel = new QLabel(launcherInfo, this);
+    launcherLabel->setStyleSheet("font-size: 8pt; color: #888; padding-left: 4px;");
+    scrollLayout->addWidget(launcherLabel);
+#endif
+
+    // Internet Archive general books
+    auto *iaBooksCheck = new QCheckBox("Show general books (Internet Archive)", this);
+    iaBooksCheck->setChecked(settings->iaGeneralBooksEnabled);
+    iaBooksCheck->setToolTip("Adds an 'IABooks' source that searches all books on archive.org, not just manga/LN");
+    connect(iaBooksCheck, &QCheckBox::toggled, this, [this](bool checked)
+    {
+        if (!internalChange)
+        {
+            this->settings->iaGeneralBooksEnabled = checked;
+            this->settings->scheduleSerialize();
+        }
+    });
+    scrollLayout->addWidget(iaBooksCheck);
+
+    auto *iaBooksNote = new QLabel("Requires restart to take effect", this);
+    iaBooksNote->setStyleSheet("font-size: 8pt; color: #888; padding-left: 4px;");
+    scrollLayout->addWidget(iaBooksNote);
 
     // Debug / Testing section
 #ifdef DESKTOP
@@ -164,6 +212,59 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, QWidget *pa
             aniListLoginBtn->setText("Logout");
             aniListTokenEdit->hide();
         }
+    }
+
+    // Updates section
+    auto *updateLabel = new QLabel("<b>Updates</b>", this);
+    scrollLayout->addWidget(updateLabel);
+
+    auto *versionLabel = new QLabel("Version: " + Updater::currentVersion, this);
+    versionLabel->setStyleSheet("font-size: 9pt; color: #666;");
+    scrollLayout->addWidget(versionLabel);
+
+    auto *updateStatusLabel = new QLabel("", this);
+    updateStatusLabel->setWordWrap(true);
+    updateStatusLabel->setStyleSheet("font-size: 9pt; padding: 4px;");
+    scrollLayout->addWidget(updateStatusLabel);
+
+    auto *checkUpdateBtn = new QPushButton("Check for Updates", this);
+    checkUpdateBtn->setFixedHeight(SIZES.buttonSize);
+    scrollLayout->addWidget(checkUpdateBtn);
+
+    auto *applyUpdateBtn = new QPushButton("Download & Apply Update", this);
+    applyUpdateBtn->setFixedHeight(SIZES.buttonSize);
+    applyUpdateBtn->hide();
+    scrollLayout->addWidget(applyUpdateBtn);
+
+    if (updater)
+    {
+        connect(checkUpdateBtn, &QPushButton::clicked, this, [this, updateStatusLabel, applyUpdateBtn]()
+        {
+            updateStatusLabel->setText("Checking...");
+            this->updater->checkForUpdate();
+        });
+
+        connect(updater, &Updater::updateLog, this, [updateStatusLabel](const QString &msg)
+        {
+            updateStatusLabel->setText(msg);
+        });
+
+        connect(updater, &Updater::checkCompleted, this,
+                [applyUpdateBtn](bool available)
+        {
+            applyUpdateBtn->setVisible(available);
+        });
+
+        connect(applyUpdateBtn, &QPushButton::clicked, this, [this, updateStatusLabel]()
+        {
+            updateStatusLabel->setText("Downloading update...");
+            this->updater->downloadAndApply();
+        });
+
+        connect(updater, &Updater::error, this, [updateStatusLabel](const QString &msg)
+        {
+            updateStatusLabel->setText("Error: " + msg);
+        });
     }
 }
 

@@ -24,6 +24,8 @@ public:
         QSharedPointer<DownloadStringJob> job, QSharedPointer<MangaInfo> info) override;
     Result<QStringList, QString> getPageList(const QString &chapterUrl) override;
 
+    QString getFallbackImageUrl(int pageIndex) const;
+
 private:
     void login();
     QString apiUrl;
@@ -31,6 +33,11 @@ private:
     QVector<QString> statuses;
     QVector<QString> demographies;
     QMap<int, QString> genreMap;
+
+    // CDN fallback: data-saver URLs when full quality fails
+    mutable QString dataSaverHash;
+    mutable QString dataSaverBaseUrl;
+    mutable QStringList dataSaverFilenames;
 };
 
 #endif  // MANGADEX_H

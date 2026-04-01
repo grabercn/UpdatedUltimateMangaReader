@@ -118,6 +118,7 @@ HEADERS += \
     src/staticsettings.h \
     src/suspendmanager.h \
     src/ultimatemangareadercore.h \
+    src/updater.h \
     src/utils.h \
     src/widgets/aboutdialog.h \
     src/widgets/batteryicon.h \
@@ -188,6 +189,7 @@ SOURCES += \
     src/settings.cpp \
     src/suspendmanager.cpp \
     src/ultimatemangareadercore.cpp \
+    src/updater.cpp \
     src/utils.cpp \
     src/widgets/aboutdialog.cpp \
     src/widgets/batteryicon.cpp \

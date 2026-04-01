@@ -49,6 +49,7 @@ HomeWidget::HomeWidget(QWidget *parent)
                      &HomeWidget::on_pushButtonFilter_clicked);
 
     loadRecentSearches();
+    loadAniListLocalMap();
     showRecentSearches();
 }
 
@@ -82,6 +83,8 @@ void HomeWidget::updateSourcesList(const QList<AbstractMangaSource *> &sources)
     selectedSourceIndices.clear();
 
     auto model = dynamic_cast<QStandardItemModel *>(ui->listViewSources->model());
+    if (!model)
+        return;
     model->clear();
 
     for (auto ms : sources)
@@ -116,6 +119,8 @@ QList<QStandardItem *> HomeWidget::listViewItemfromMangaSource(AbstractMangaSour
 void HomeWidget::refreshSourceHighlights()
 {
     auto model = dynamic_cast<QStandardItemModel *>(ui->listViewSources->model());
+    if (!model)
+        return;
     bool allSelected = selectedSourceIndices.isEmpty();
 
     for (int i = 0; i < model->rowCount(); i++)
@@ -279,9 +284,8 @@ void HomeWidget::doLiveSearch(const QString &query)
                 for (const auto &w : words)
                     if (w.contains(qw) || qw.contains(w)) { overlap++; break; }
 
-            if (queryNormWords.size() > 0)
-                if (queryNormWords.size() > 0)
-                    s += (overlap * 40) / queryNormWords.size();
+            if (!queryNormWords.isEmpty())
+                s += (overlap * 40) / queryNormWords.size();
 
             return s;
         };
@@ -330,10 +334,13 @@ void HomeWidget::doLiveSearch(const QString &query)
     if (searchResults.isEmpty())
     {
         auto model = dynamic_cast<QStringListModel *>(ui->listViewMangas->model());
-        if (failCount > 0 && successCount == 0)
-            model->setStringList({"No results. All sources failed to respond."});
-        else
-            model->setStringList({"No results found for \"" + query + "\""});
+        if (model)
+        {
+            if (failCount > 0 && successCount == 0)
+                model->setStringList({"No results. All sources failed to respond."});
+            else
+                model->setStringList({"No results found for \"" + query + "\""});
+        }
     }
 }
 
@@ -772,6 +779,8 @@ void HomeWidget::showRecentSearches()
         return;
 
     auto model = dynamic_cast<QStringListModel *>(ui->listViewMangas->model());
+    if (!model)
+        return;
     QStringList display;
     display.append("--- Recent Searches ---");
     for (const auto &s : recentSearches)
@@ -782,6 +791,8 @@ void HomeWidget::showRecentSearches()
 void HomeWidget::showOfflineReads()
 {
     auto model = dynamic_cast<QStringListModel *>(ui->listViewMangas->model());
+    if (!model)
+        return;
     QStringList display;
 
     // Scan cache directories for downloaded manga
@@ -898,6 +909,8 @@ void HomeWidget::buildAniListLocalMap()
     for (const auto &e : reading)
         tryMatch(e);
 
+    saveAniListLocalMap();
+
     // Phase 2: Queue remaining entries for background matching
     startBackgroundMatching();
 }
@@ -937,6 +950,7 @@ void HomeWidget::matchNextBatch()
     {
         if (bgMatchTimer)
             bgMatchTimer->stop();
+        saveAniListLocalMap();
         return;
     }
 
@@ -947,6 +961,62 @@ void HomeWidget::matchNextBatch()
         auto entry = pendingMatchEntries.takeFirst();
         tryMatch(entry);
     }
+}
+
+void HomeWidget::saveAniListLocalMap()
+{
+    QFile file(CONF.cacheDir + "anilist_links.dat");
+    if (!file.open(QIODevice::WriteOnly))
+        return;
+    QDataStream out(&file);
+    out << (int)aniListLocalMap.size();
+    for (auto it = aniListLocalMap.begin(); it != aniListLocalMap.end(); ++it)
+        out << it.key() << it.value().source << it.value().dirName << it.value().infoPath;
+    file.close();
+}
+
+void HomeWidget::loadAniListLocalMap()
+{
+    QFile file(CONF.cacheDir + "anilist_links.dat");
+    if (!file.open(QIODevice::ReadOnly))
+        return;
+    try
+    {
+        QDataStream in(&file);
+        int count;
+        in >> count;
+        count = qBound(0, count, 5000);
+        for (int i = 0; i < count && !in.atEnd(); i++)
+        {
+            QString key, source, dirName, path;
+            in >> key >> source >> dirName >> path;
+            if (in.status() == QDataStream::Ok && !key.isEmpty())
+                aniListLocalMap[key] = {source, dirName, path};
+        }
+    }
+    catch (...) {}
+    file.close();
+}
+
+void HomeWidget::clearAniListLocalMap()
+{
+    aniListLocalMap.clear();
+    QFile::remove(CONF.cacheDir + "anilist_links.dat");
+}
+
+void HomeWidget::resetAniListLinks()
+{
+    clearAniListLocalMap();
+    buildAniListLocalMap();
+    refreshHomeView();
+}
+
+QStringList HomeWidget::aniListLinkDescriptions() const
+{
+    QStringList result;
+    for (auto it = aniListLocalMap.begin(); it != aniListLocalMap.end(); ++it)
+        result.append(it.key() + " -> " + it.value().dirName);
+    return result;
 }
 
 void HomeWidget::saveRecentSearches()

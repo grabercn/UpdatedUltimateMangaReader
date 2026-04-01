@@ -1,7 +1,9 @@
 #include "downloadqueuewidget.h"
 
 #include <QDirIterator>
+#include <QMessageBox>
 
+#include "homewidget.h"
 #include "staticsettings.h"
 
 DownloadQueueWidget::DownloadQueueWidget(QWidget *parent)
@@ -106,6 +108,25 @@ DownloadQueueWidget::DownloadQueueWidget(QWidget *parent)
     deleteSelectedBtn->hide();
     connect(deleteSelectedBtn, &QPushButton::clicked, this, [this]()
     {
+        // Count selected items
+        int count = 0;
+        for (int i = 0; i < jobList->count(); i++)
+            if (jobList->item(i)->checkState() == Qt::Checked)
+                count++;
+
+        if (count == 0)
+            return;
+
+        // Confirm deletion
+        QMessageBox confirm(this);
+        confirm.setWindowTitle("Delete");
+        confirm.setText(QString("Delete %1 selected item%2?\n\nThis cannot be undone.")
+                            .arg(count).arg(count > 1 ? "s" : ""));
+        confirm.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+        confirm.setDefaultButton(QMessageBox::No);
+        if (confirm.exec() != QMessageBox::Yes)
+            return;
+
         // Delete all checked items
         for (int i = jobList->count() - 1; i >= 0; i--)
         {
@@ -421,7 +442,42 @@ void DownloadQueueWidget::refreshCachedList()
         }
     }
 
-    if (cached.isEmpty())
+    // AniList cached links section
+    if (homeWidget)
+    {
+        int linkCount = homeWidget->aniListLinkCount();
+        if (linkCount > 0)
+        {
+            // Calculate approximate cache file size
+            QFileInfo linkFile(CONF.cacheDir + "anilist_links.dat");
+            qint64 linkSize = linkFile.exists() ? linkFile.size() / 1024 : 0;
+
+            auto *linkHeader = new QListWidgetItem(
+                "-- AniList Links (" + QString::number(linkCount) + " entries, " +
+                QString::number(linkSize) + " KB) --", jobList);
+            linkHeader->setForeground(QColor(80, 80, 80));
+            linkHeader->setFlags(linkHeader->flags() & ~Qt::ItemIsUserCheckable);
+
+            // Show individual links
+            for (const auto &desc : homeWidget->aniListLinkDescriptions())
+            {
+                auto *item = new QListWidgetItem("  " + desc, jobList);
+                item->setForeground(QColor(120, 120, 120));
+                item->setFlags(item->flags() & ~Qt::ItemIsUserCheckable);
+            }
+
+            // Reset button as a list item
+            auto *resetItem = new QListWidgetItem("  Clear all links (will re-match)", jobList);
+            resetItem->setData(Qt::UserRole, "__reset_anilist_links__");
+            resetItem->setForeground(QColor(160, 60, 60));
+            auto f = resetItem->font();
+            f.setItalic(true);
+            resetItem->setFont(f);
+            resetItem->setFlags(resetItem->flags() & ~Qt::ItemIsUserCheckable);
+        }
+    }
+
+    if (cached.isEmpty() && (!homeWidget || homeWidget->aniListLinkCount() == 0))
         jobList->addItem("No downloaded content");
 
     headerLabel->setText(QString("Downloaded (%1)").arg(cached.size()));
@@ -434,8 +490,24 @@ void DownloadQueueWidget::refreshCachedList()
         // Checkbox was toggled - do nothing else, just let the check state change
     });
 
-    // Only open on double-click (single click = checkbox toggle)
+    // Handle clicks
     disconnect(jobList, &QListWidget::itemDoubleClicked, nullptr, nullptr);
+    disconnect(jobList, &QListWidget::itemClicked, nullptr, nullptr);
+
+    // Single click for reset links action
+    connect(jobList, &QListWidget::itemClicked, this, [this](QListWidgetItem *item)
+    {
+        if (!showingCached || !item)
+            return;
+
+        if (item->data(Qt::UserRole).toString() == "__reset_anilist_links__")
+        {
+            emit resetAniListLinksRequested();
+            refreshCachedList();
+        }
+    });
+
+    // Double-click to open manga
     connect(jobList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *item)
     {
         if (!showingCached || !item)

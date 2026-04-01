@@ -100,25 +100,29 @@ bool FavoritesManager::loadInfos()
     for (int i = 0; i < favorites.length(); i++)
     {
         auto &fav = favorites[i];
-        if (mangasources.contains(fav.hostname) &&
-            mangasources[fav.hostname]->mangaList.titles.contains(fav.title))
+        if (mangasources.contains(fav.hostname))
         {
-            auto mi = mangasources[fav.hostname]->loadMangaInfo(fav.mangaUrl, fav.title, false);
-
-            if (mi.isOk())
+            try
             {
-                favoriteinfos.append(mi.unwrap());
+                auto mi = mangasources[fav.hostname]->loadMangaInfo(fav.mangaUrl, fav.title, false);
+                if (mi.isOk())
+                    favoriteinfos.append(mi.unwrap());
+                else
+                {
+                    res = false;
+                    favoriteinfos.append(QSharedPointer<MangaInfo>(nullptr));
+                }
             }
-            else
+            catch (...)
             {
                 res = false;
                 favoriteinfos.append(QSharedPointer<MangaInfo>(nullptr));
-                emit error(mi.unwrapErr());
             }
         }
         else
         {
-            favorites.removeAt(i--);
+            // Source not available - keep favorite but add null info
+            favoriteinfos.append(QSharedPointer<MangaInfo>(nullptr));
         }
     }
     return res;

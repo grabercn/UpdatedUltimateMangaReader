@@ -5,6 +5,7 @@
 
 #include "anilist.h"
 #include "bookmarks.h"
+#include "updater.h"
 #include "favoritesmanager.h"
 #include "readingstats.h"
 #include "mangachapterdownloadmanager.h"
@@ -38,6 +39,7 @@ public:
     MangaChapterDownloadManager *mangaChapterDownloadManager;
     SuspendManager *suspendManager;
     AniList *aniList;
+    Updater *updater;
     ReadingStats readingStats;
     BookmarkManager bookmarkManager;
 

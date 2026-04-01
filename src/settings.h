@@ -35,15 +35,19 @@ public:
     bool colorMode;  // true = keep color images (for color e-readers or desktop)
 
     bool preloadEnabled;
-    int preloadPages;       // pages ahead to preload
-    int preloadChapters;    // chapters ahead to pre-fetch page lists
+    int preloadPages;
+    int preloadChapters;
+    bool autoBootEnabled;   // KFMon on_boot flag
 
     QString aniListToken;
     bool offlineMode;
     int autoSuspendMinutes;  // 0 = disabled
     bool wifiAutoDisconnect; // disconnect wifi on sleep
+    bool iaGeneralBooksEnabled;  // show general books from Internet Archive
 
     QMap<QString, bool> enabledMangaSources;
+
+    static void writeKfmonAutoboot(bool enabled);
 
 private:
     QTimer timer;

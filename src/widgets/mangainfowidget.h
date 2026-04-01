@@ -74,6 +74,7 @@ private:
     void setupAniListUI();
     void updateAniListTracking();
     bool summaryExpanded = false;
+    bool isDownloadOnly = false;
 
     void updateInfos();
 };

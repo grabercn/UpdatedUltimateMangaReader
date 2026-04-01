@@ -1,0 +1,132 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [master, main]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '5.15.2'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2019_64'
+
+      - name: Install vcpkg dependencies
+        run: |
+          vcpkg install libjpeg-turbo:x64-windows libpng:x64-windows openssl:x64-windows
+        shell: cmd
+
+      - name: Build
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          set VCPKG_ROOT=C:\vcpkg
+          qmake UltimateMangaReader.pro CONFIG+=desktop "VCPKG_INSTALLED=C:/vcpkg/installed/x64-windows" "INCLUDEPATH+=C:/vcpkg/installed/x64-windows/include" "LIBS+=-LC:/vcpkg/installed/x64-windows/lib"
+          nmake
+        shell: cmd
+
+      - name: Deploy Qt
+        run: |
+          mkdir deploy
+          copy release\UltimateMangaReader.exe deploy\
+          copy C:\vcpkg\installed\x64-windows\bin\turbojpeg.dll deploy\
+          copy C:\vcpkg\installed\x64-windows\bin\jpeg62.dll deploy\
+          copy C:\vcpkg\installed\x64-windows\bin\libpng16.dll deploy\
+          copy C:\vcpkg\installed\x64-windows\bin\zlib1.dll deploy\
+          windeployqt deploy\UltimateMangaReader.exe --no-translations --no-compiler-runtime
+        shell: cmd
+
+      - name: Package
+        run: |
+          7z a UltimateMangaReader-Windows.zip ./deploy/*
+        shell: cmd
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: UltimateMangaReader-Windows
+          path: UltimateMangaReader-Windows.zip
+
+  build-kobo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Kobo binary
+        run: |
+          docker build -t umr-kobo -f Dockerfile.kobo .
+          mkdir -p output
+          docker run --rm -v $(pwd):/src:ro -v $(pwd)/output:/output umr-kobo
+        timeout-minutes: 120
+
+      - name: Package Kobo
+        run: |
+          mkdir -p kobo-package/.adds/UltimateMangaReader
+          cp output/UltimateMangaReader kobo-package/.adds/UltimateMangaReader/
+          cp eink.qss kobo-package/.adds/UltimateMangaReader/
+          cp -r images kobo-package/.adds/UltimateMangaReader/
+          cd kobo-package && tar czf ../UltimateMangaReader-Kobo.tar.gz .adds/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: UltimateMangaReader-Kobo
+          path: UltimateMangaReader-Kobo.tar.gz
+
+  release:
+    needs: [build-windows, build-kobo]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: UltimateMangaReader-Windows
+
+      - name: Download Kobo artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: UltimateMangaReader-Kobo
+
+      - name: Get commit info
+        id: commit
+        run: |
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "date=$(date -u +%Y-%m-%d)" >> $GITHUB_OUTPUT
+          echo "message=$(git log -1 --pretty=%B | head -1)" >> $GITHUB_OUTPUT
+
+      - name: Create/Update Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "Latest Build (${{ steps.commit.outputs.sha_short }} - ${{ steps.commit.outputs.date }})"
+          body: |
+            Auto-built from commit ${{ github.sha }}
+
+            ${{ steps.commit.outputs.message }}
+
+            ## Downloads
+            - **Windows**: `UltimateMangaReader-Windows.zip` - Extract and run
+            - **Kobo**: `UltimateMangaReader-Kobo.tar.gz` - Extract to Kobo root via USB
+
+            ## Auto-Update
+            The app checks for updates daily. On Kobo, updates are applied automatically.
+          files: |
+            UltimateMangaReader-Windows.zip
+            UltimateMangaReader-Kobo.tar.gz
+          prerelease: false
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

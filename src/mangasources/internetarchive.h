@@ -27,12 +27,17 @@ public:
         QSharedPointer<DownloadStringJob> job, QSharedPointer<MangaInfo> info) override;
     Result<QStringList, QString> getPageList(const QString &chapterUrl) override;
     Result<QString, QString> getChapterText(const QString &chapterUrl) override;
+    bool isDownloadOnly(const QString &chapterUrl) override;
 
 private:
     QString searchApiUrl;
     QString metadataUrl;
     QString downloadUrl;
     QString subjectFilter;
+
+    // Cache: identifier -> has page images (jp2.zip derived files)
+    mutable QMap<QString, bool> hasPageImagesCache;
+    bool checkHasPageImages(const QString &identifier) const;
 };
 
 #endif  // INTERNETARCHIVE_H

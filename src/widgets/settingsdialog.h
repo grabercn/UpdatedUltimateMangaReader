@@ -14,6 +14,7 @@
 #include "utils.h"
 
 class AniList;
+class Updater;
 
 namespace Ui
 {
@@ -27,7 +28,8 @@ class SettingsDialog : public QDialog
     Q_ENUM(AdvancePageHWButton)
 
 public:
-    explicit SettingsDialog(Settings *settings, AniList *aniList = nullptr, QWidget *parent = nullptr);
+    explicit SettingsDialog(Settings *settings, AniList *aniList = nullptr,
+                           Updater *updater = nullptr, QWidget *parent = nullptr);
     ~SettingsDialog();
 
     void open() override;
@@ -44,6 +46,7 @@ private:
     Ui::SettingsDialog *ui;
     Settings *settings;
     AniList *aniList;
+    Updater *updater;
     CLineEdit *aniListTokenEdit;
     QLabel *aniListStatusLabel;
     QPushButton *aniListLoginBtn;

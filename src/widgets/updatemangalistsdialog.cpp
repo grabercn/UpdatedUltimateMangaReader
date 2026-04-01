@@ -97,7 +97,7 @@ void UpdateMangaListsDialog::updateProgress()
     for (auto v : progressToken->sourcesProgress.values())
         sum += v;
     ui->labelProgress->setText("Updating " + progressToken->currentSourceName + "...");
-    ui->progressBar->setValue(sum / numsources);
+    ui->progressBar->setValue(numsources > 0 ? sum / numsources : 0);
 }
 
 void UpdateMangaListsDialog::updateFinished()

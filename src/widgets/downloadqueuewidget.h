@@ -52,10 +52,14 @@ public:
     void jobCompleted(const QString &title);
     void jobFailed(const QString &title, const QString &error);
 
+    void setAniListLinkInfo(int count, qint64 sizeBytes);
+    class HomeWidget *homeWidget = nullptr;
+
 signals:
     void backClicked();
     void cancelRequested();
     void openMangaRequested(const QString &source, const QString &title);
+    void resetAniListLinksRequested();
     void clearAllCacheRequested();
 
 private:

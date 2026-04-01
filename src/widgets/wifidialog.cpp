@@ -10,6 +10,7 @@ WifiDialog::WifiDialog(QWidget *parent, NetworkManager *networkManager)
 
 WifiDialog::~WifiDialog()
 {
+    destroying = true;
     if (lastConnection.isRunning())
         lastConnection.waitForFinished();
     delete ui;
@@ -22,15 +23,20 @@ void WifiDialog::connect()
 
     lastConnection = QtConcurrent::run([this]() {
         networkManager->connectWifi();
-        if (networkManager->connected)
+        if (destroying)
+            return;
+        QMetaObject::invokeMethod(this, [this]()
         {
-            close();
-        }
-        else
-        {
-            ui->pushButtonRetry->show();
-            ui->labelInfo->setText("Couldn't connect to WiFi.");
-        }
+            if (destroying)
+                return;
+            if (networkManager->connected)
+                close();
+            else
+            {
+                ui->pushButtonRetry->show();
+                ui->labelInfo->setText("Couldn't connect to WiFi.");
+            }
+        }, Qt::QueuedConnection);
     });
 }
 

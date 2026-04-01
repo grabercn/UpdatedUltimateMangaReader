@@ -14,14 +14,12 @@ Settings::Settings()
       trimPages(true),
       manhwaMode(true),
       ditheringMode(SWDithering),
-#ifdef DESKTOP
-      colorMode(true),
-#else
-      colorMode(false),
-#endif
+      colorMode(false),  // greyscale by default for fast page loading
+      iaGeneralBooksEnabled(false),
       preloadEnabled(true),
       preloadPages(3),
       preloadChapters(2),
+      autoBootEnabled(false),
       offlineMode(false),
       autoSuspendMinutes(15),
       wifiAutoDisconnect(true),
@@ -44,6 +42,66 @@ void Settings::deserialize()
 void Settings::scheduleSerialize()
 {
     timer.start(1000);
+}
+
+void Settings::writeKfmonAutoboot(bool enabled)
+{
+#ifdef KOBO
+    // Detect launcher: check for KFMon config dir and NickelMenu config dir
+    bool hasKfmon = QDir("/mnt/onboard/.adds/kfmon/config").exists();
+    bool hasNickelMenu = QDir("/mnt/onboard/.adds/nm").exists();
+
+    // KFMon config
+    if (hasKfmon)
+    {
+        QString kfmonPath = "/mnt/onboard/.adds/kfmon/config/UltimateMangaReader.ini";
+        QFile file(kfmonPath);
+        if (file.open(QIODevice::WriteOnly | QIODevice::Text))
+        {
+            QTextStream out(&file);
+            out << "# UltimateMangaReader KFMon config\n"
+                << "[watch]\n"
+                << "filename = /mnt/onboard/.adds/UltimateMangaReader/UltimateMangaReader\n"
+                << "label = Ultimate Manga Reader\n"
+                << "on_boot = " << (enabled ? "true" : "false") << "\n"
+                << "on_failure = nickel\n"  // fall back to Nickel if app crashes
+                << "block_spawns = false\n";
+            file.close();
+            qDebug() << "KFMon autoboot config written:" << enabled;
+        }
+    }
+
+    // NickelMenu config - add/update a menu entry and optionally set as startup
+    if (hasNickelMenu)
+    {
+        QString nmPath = "/mnt/onboard/.adds/nm/umr.cfg";
+        QFile file(nmPath);
+        if (file.open(QIODevice::WriteOnly | QIODevice::Text))
+        {
+            QTextStream out(&file);
+            out << "# UltimateMangaReader NickelMenu config\n";
+
+            // Always add a menu entry to launch the app
+            out << "menu_item :main :Ultimate Manga Reader :cmd_spawn :quiet "
+                << ":/mnt/onboard/.adds/UltimateMangaReader/UltimateMangaReader\n";
+
+            // Add startup entry if autoboot enabled
+            if (enabled)
+            {
+                out << "menu_item :startup :Ultimate Manga Reader :cmd_spawn :quiet "
+                    << ":/mnt/onboard/.adds/UltimateMangaReader/UltimateMangaReader\n";
+            }
+
+            file.close();
+            qDebug() << "NickelMenu config written:" << enabled;
+        }
+    }
+
+    if (!hasKfmon && !hasNickelMenu)
+        qDebug() << "No launcher detected (neither KFMon nor NickelMenu found)";
+#else
+    Q_UNUSED(enabled);
+#endif
 }
 
 void Settings::serialize()

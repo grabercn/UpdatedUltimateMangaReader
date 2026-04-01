@@ -93,12 +93,15 @@ int calcRotationInfo(QSize imgSize, QSize screenSize, DoublePageMode doublePageM
 
 QSize fitToSize(QSize imgSize, QSize maxSize)
 {
+    if (imgSize.width() <= 0 || imgSize.height() <= 0)
+        return maxSize;
+
     bool fitToWidth = (float)maxSize.width() / imgSize.width() < (float)maxSize.height() / imgSize.height();
     if (fitToWidth)
     {
         return QSize(maxSize.width(), ((float)imgSize.height() * maxSize.width()) / imgSize.width());
     }
-    else  // fit to height
+    else
     {
         return QSize((float)(imgSize.width() * maxSize.height()) / imgSize.height(), maxSize.height());
     }
@@ -106,6 +109,10 @@ QSize fitToSize(QSize imgSize, QSize maxSize)
 
 QSize calcRescaleSize(QSize imgSize, QSize screenSize, bool rot90, bool manhwaMode)
 {
+    if (imgSize.width() <= 0 || imgSize.height() <= 0 ||
+        screenSize.width() <= 0 || screenSize.height() <= 0)
+        return screenSize;
+
     QSize rescaleSize;
 
     if (rot90)
@@ -114,8 +121,9 @@ QSize calcRescaleSize(QSize imgSize, QSize screenSize, bool rot90, bool manhwaMo
     }
     else
     {
-        if (manhwaMode && ((float)imgSize.height() / imgSize.width()) >
-                              1.6 * ((float)screenSize.height() / screenSize.width()))
+        if (manhwaMode && imgSize.width() > 0 && screenSize.width() > 0 &&
+            ((float)imgSize.height() / imgSize.width()) >
+                1.6 * ((float)screenSize.height() / screenSize.width()))
             rescaleSize =
                 QSize(screenSize.width(), (imgSize.height() * screenSize.width()) / imgSize.width());
         else
@@ -137,25 +145,41 @@ QImage processImageQt(const QByteArray &array, const QString &filepath, QSize sc
     auto rot90 = calcRotationInfo(img.size(), screenSize, doublePageMode);
 
     QImage ret;
-    QImage greyImg = img.convertToFormat(QImage::Format_Grayscale8);
     bool res = false;
 
-    if (!greyImg.isNull())
+    if (!useSWDither)
     {
-        if (trim)
-        {
-            auto arrayT = QByteArray::fromRawData((const char *)greyImg.bits(), greyImg.sizeInBytes());
-            auto trimRect = getTrimRect(arrayT, img.width(), img.height(), greyImg.bytesPerLine());
-            greyImg = greyImg.copy(trimRect);
-        }
-
+        // Color mode: keep original color, just resize
+        QImage workImg = img;
         if (rot90 != 0)
-            greyImg = greyImg.transformed(QTransform().rotate(rot90));
-        auto rescaleSize = calcRescaleSize(greyImg.size(), screenSize, rot90 != 0, manhwaMode);
-
-        ret = greyImg.scaled(rescaleSize.width(), rescaleSize.height(), Qt::KeepAspectRatio,
-                             Qt::SmoothTransformation);
+            workImg = workImg.transformed(QTransform().rotate(rot90));
+        auto rescaleSize = calcRescaleSize(workImg.size(), screenSize, rot90 != 0, manhwaMode);
+        ret = workImg.scaled(rescaleSize.width(), rescaleSize.height(),
+                             Qt::KeepAspectRatio, Qt::SmoothTransformation);
         res = ret.save(filepath, nullptr, 85);
+    }
+    else
+    {
+        // Greyscale mode
+        QImage greyImg = img.convertToFormat(QImage::Format_Grayscale8);
+
+        if (!greyImg.isNull())
+        {
+            if (trim)
+            {
+                auto arrayT = QByteArray::fromRawData((const char *)greyImg.bits(), greyImg.sizeInBytes());
+                auto trimRect = getTrimRect(arrayT, img.width(), img.height(), greyImg.bytesPerLine());
+                greyImg = greyImg.copy(trimRect);
+            }
+
+            if (rot90 != 0)
+                greyImg = greyImg.transformed(QTransform().rotate(rot90));
+            auto rescaleSize = calcRescaleSize(greyImg.size(), screenSize, rot90 != 0, manhwaMode);
+
+            ret = greyImg.scaled(rescaleSize.width(), rescaleSize.height(), Qt::KeepAspectRatio,
+                                 Qt::SmoothTransformation);
+            res = ret.save(filepath, nullptr, 85);
+        }
     }
 
     // if something went wrong with the greyscale img -> use original

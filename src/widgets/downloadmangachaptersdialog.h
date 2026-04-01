@@ -18,7 +18,8 @@ public:
     explicit DownloadMangaChaptersDialog(QWidget *parent = nullptr);
     ~DownloadMangaChaptersDialog();
 
-    void show(QSharedPointer<MangaInfo> mangaInfo, int chapterFromDefault = 0);
+    void show(QSharedPointer<MangaInfo> mangaInfo, int chapterFromDefault = 0,
+              bool exportOnly = false);
 
 signals:
     void downloadConfirmed(QSharedPointer<MangaInfo> mangaInfo, int chapterFrom, int chapterTo);

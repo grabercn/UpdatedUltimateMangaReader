@@ -1,5 +1,6 @@
 #include "mangacontroller.h"
 
+#include "mangadex.h"
 #include "settings.h"
 
 MangaController::MangaController(NetworkManager *networkManager, QObject *parent)
@@ -100,18 +101,22 @@ Result<QString, QString> MangaController::getImageUrl(const MangaIndex &index)
     if (currentManga->mangaSource->contentType == ContentLightNovel)
         return Err(QString("Light novel - use text reader."));
 
+    if (index.chapter < 0 || index.chapter >= currentManga->chapters.count())
+        return Err(QString("Chapter index out of bounds."));
+
     if (!currentManga->chapters[index.chapter].pagesLoaded)
     {
         currentManga->mangaSource->updatePageList(currentManga, index.chapter);
         currentManga->serialize();
     }
 
-    if (index.chapter >= currentManga->chapters.count() ||
-        currentManga->chapters[index.chapter].imageUrlList.count() <= index.page)
+    if (index.page < 0 || index.page >= currentManga->chapters[index.chapter].imageUrlList.count())
         return Err(QString("Page index out of bounds."));
 
     if (currentManga->chapters[index.chapter].imageUrlList[index.page] == "")
     {
+        if (index.page >= currentManga->chapters[index.chapter].pageUrlList.count())
+            return Err(QString("Page URL index out of bounds."));
         auto res = currentManga->mangaSource->getImageUrl(
             currentManga->chapters[index.chapter].pageUrlList.at(index.page));
         if (!res.isOk())
@@ -176,20 +181,35 @@ void MangaController::updateCurrentImage()
             {
                 auto title = currentManga->chapters[currentIndex.chapter].chapterTitle;
                 emit currentTextChanged(textResult.unwrap(), title);
+                return;
+            }
+            else if (textResult.unwrapErr() == "__PDF_USE_IMAGE_READER__")
+            {
+                // PDF chapter - load page list and fall through to the image reader
+                qDebug() << "PDF chapter detected, using image reader";
+                auto pageRes = currentManga->mangaSource->updatePageList(currentManga, currentIndex.chapter);
+                if (!pageRes.isOk())
+                {
+                    emit error("Failed to load PDF pages: " + pageRes.unwrapErr());
+                    return;
+                }
+                currentManga->serialize();
+                // Fall through to image reader below
             }
             else
             {
                 emit error(textResult.unwrapErr());
+                return;
             }
         }
         catch (...)
         {
             emit error("Failed to load chapter text.");
+            return;
         }
-        return;
     }
 
-    // Try up to 3 times - on failure, invalidate cached URL and retry
+    // Try up to 3 times - on failure, try CDN fallback then invalidate cached URL
     for (int attempt = 0; attempt < 3; attempt++)
     {
         auto imageUrl = getImageUrl(currentIndex);
@@ -213,6 +233,28 @@ void MangaController::updateCurrentImage()
         {
             emit currentImageChanged(imagePath.unwrap());
             return;
+        }
+
+        // On first failure, try MangaDex data-saver CDN fallback before full retry
+        if (attempt == 0)
+        {
+            auto *mangadex = dynamic_cast<MangaDex *>(currentManga->mangaSource);
+            if (mangadex)
+            {
+                auto fallbackUrl = mangadex->getFallbackImageUrl(currentIndex.page);
+                if (!fallbackUrl.isEmpty())
+                {
+                    qDebug() << "Trying MangaDex data-saver fallback for page" << currentIndex.page;
+                    auto fallbackDd = DownloadImageDescriptor(fallbackUrl, currentManga->title,
+                                                              currentIndex.chapter, currentIndex.page);
+                    auto fallbackPath = currentManga->mangaSource->downloadAwaitImage(fallbackDd);
+                    if (fallbackPath.isOk())
+                    {
+                        emit currentImageChanged(fallbackPath.unwrap());
+                        return;
+                    }
+                }
+            }
         }
 
         // Failed - invalidate the cached image URL so next attempt gets a fresh one

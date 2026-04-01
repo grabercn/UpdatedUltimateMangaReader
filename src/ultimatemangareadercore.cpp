@@ -12,6 +12,7 @@ UltimateMangaReaderCore::UltimateMangaReaderCore(QObject* parent)
       mangaChapterDownloadManager(new MangaChapterDownloadManager(networkManager, this)),
       suspendManager(new SuspendManager(networkManager, this)),
       aniList(new AniList(networkManager, this)),
+      updater(new Updater(networkManager, this)),
       settings(),
       timer(),
       autoSuspendTimer(),
@@ -28,6 +29,13 @@ UltimateMangaReaderCore::UltimateMangaReaderCore(QObject* parent)
     mangaSources.append(QSharedPointer<AbstractMangaSource>(new AllNovel(networkManager)));
     mangaSources.append(QSharedPointer<AbstractMangaSource>(
         new InternetArchive(networkManager, "IANovels", "light novel", ContentLightNovel)));
+
+    // General books from Internet Archive - disabled by default, enabled via settings
+    if (settings.iaGeneralBooksEnabled)
+    {
+        mangaSources.append(QSharedPointer<AbstractMangaSource>(
+            new InternetArchive(networkManager, "IABooks", "", ContentLightNovel)));
+    }
 
     currentMangaSource = mangaSources.isEmpty() ? nullptr : mangaSources.first().get();
 
@@ -77,7 +85,16 @@ void UltimateMangaReaderCore::enableTimers(bool enabled)
 
     if (enabled)
     {
-        autoSuspendTimer.start();
+        // Update auto-suspend interval from settings
+        if (settings.autoSuspendMinutes > 0)
+        {
+            autoSuspendTimer.setInterval(settings.autoSuspendMinutes * 60 * 1000);
+            autoSuspendTimer.start();
+        }
+        else
+        {
+            autoSuspendTimer.stop();  // "Never" setting
+        }
         timerTick();
         QTimer::singleShot(1000 * 60 - QTime::currentTime().second() * 1000 - QTime::currentTime().msec(),
                            this,

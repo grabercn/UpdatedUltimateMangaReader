@@ -31,13 +31,14 @@ Result<MangaList, QString> InternetArchive::searchManga(const QString &query, in
         return Ok(results);
 
     auto encodedQuery = QString::fromUtf8(QUrl::toPercentEncoding(query));
-    auto url = searchApiUrl + "?q=" + encodedQuery +
-               "+subject%3A(" + QString::fromUtf8(QUrl::toPercentEncoding(subjectFilter)) + ")"
-               "+mediatype%3A(texts)"
-               "&fl%5B%5D=identifier&fl%5B%5D=title"
-               "&sort%5B%5D=downloads+desc"
-               "&rows=" + QString::number(maxResults) +
-               "&output=json";
+    auto url = searchApiUrl + "?q=" + encodedQuery;
+    if (!subjectFilter.isEmpty())
+        url += "+subject%3A(" + QString::fromUtf8(QUrl::toPercentEncoding(subjectFilter)) + ")";
+    url += "+mediatype%3A(texts)"
+           "&fl%5B%5D=identifier&fl%5B%5D=title"
+           "&sort%5B%5D=downloads+desc"
+           "&rows=" + QString::number(maxResults) +
+           "&output=json";
 
     auto job = networkManager->downloadAsString(url, -1);
 
@@ -302,14 +303,58 @@ Result<QStringList, QString> InternetArchive::getPageList(const QString &chapter
     }
     else
     {
-        // For CBZ/PDF, use the page render API
+        // For CBZ/PDF, use IA's BookReader page image service
         auto parts = chapterUrl.split('/');
         if (parts.size() < 2)
             return Err(QString("Invalid chapter URL."));
 
         auto identifier = parts[0];
 
-        for (int i = 0; i < 100; i++)
+        if (!checkHasPageImages(identifier))
+            return Err(QString("This PDF has no page images on Archive.org. Use download to save it."));
+
+        // Try to get page count from page_numbers.json
+        int pageCount = 0;
+        auto metaJob = networkManager->downloadAsString(metadataUrl + identifier, -1);
+        if (metaJob->await(15000))
+        {
+            try
+            {
+                Document doc;
+                doc.Parse(metaJob->buffer.data());
+                if (doc.HasMember("files") && doc["files"].IsArray())
+                {
+                    for (const auto &file : doc["files"].GetArray())
+                    {
+                        if (!file.HasMember("name"))
+                            continue;
+                        auto fname = QString(file["name"].GetString());
+                        if (fname.endsWith("_page_numbers.json"))
+                        {
+                            auto pnJob = networkManager->downloadAsString(
+                                downloadUrl + identifier + "/" +
+                                QString::fromUtf8(QUrl::toPercentEncoding(fname, "/")), -1);
+                            if (pnJob->await(10000))
+                            {
+                                Document pnDoc;
+                                pnDoc.Parse(pnJob->buffer.data());
+                                if (pnDoc.IsArray())
+                                    pageCount = pnDoc.GetArray().Size();
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (...) {}
+        }
+
+        if (pageCount <= 0)
+            pageCount = 300;  // fallback
+
+        qDebug() << "IA page images available, page count:" << pageCount << "for" << identifier;
+
+        for (int i = 0; i < pageCount; i++)
         {
             imageUrls.append(QString("https://archive.org/download/%1/page/n%2_medium.jpg")
                                  .arg(identifier).arg(i));
@@ -347,8 +392,69 @@ Result<QString, QString> InternetArchive::getChapterText(const QString &chapterU
         return Ok(text);
     }
 
-    // For EPUB/PDF, we can't render them inline easily
-    // Return a message directing the user to use the download feature
-    return Err(QString("This chapter is a %1 file. Use the download button to save it to your device.")
-                   .arg(filenameLower.endsWith(".epub") ? "EPUB" : "PDF"));
+    // For PDF files, try to use image reader for items with page images
+    if (filenameLower.endsWith(".pdf"))
+    {
+        if (checkHasPageImages(identifier))
+            return Err(QString("__PDF_USE_IMAGE_READER__"));
+        return Err(QString("This PDF cannot be read inline. Use the download button to save it."));
+    }
+
+    // For EPUB, we can't render inline easily
+    return Err(QString("This chapter is an EPUB file. Use the download button to save it to your device."));
+}
+
+bool InternetArchive::checkHasPageImages(const QString &identifier) const
+{
+    if (hasPageImagesCache.contains(identifier))
+        return hasPageImagesCache[identifier];
+
+    bool result = false;
+    auto metaJob = networkManager->downloadAsString(metadataUrl + identifier, -1);
+    if (metaJob->await(15000))
+    {
+        try
+        {
+            Document doc;
+            doc.Parse(metaJob->buffer.data());
+            if (doc.HasMember("files") && doc["files"].IsArray())
+            {
+                for (const auto &file : doc["files"].GetArray())
+                {
+                    if (!file.HasMember("name"))
+                        continue;
+                    if (QString(file["name"].GetString()).endsWith("_jp2.zip"))
+                    {
+                        result = true;
+                        break;
+                    }
+                }
+            }
+        }
+        catch (...) {}
+    }
+
+    hasPageImagesCache[identifier] = result;
+    return result;
+}
+
+bool InternetArchive::isDownloadOnly(const QString &chapterUrl)
+{
+    auto parts = chapterUrl.split('/');
+    if (parts.size() < 2)
+        return true;
+
+    auto identifier = parts[0];
+    auto filename = parts.mid(1).join('/').toLower();
+
+    // TXT files can always be read inline
+    if (filename.endsWith(".txt"))
+        return false;
+
+    // PDFs with page images can be read inline
+    if (filename.endsWith(".pdf") && checkHasPageImages(identifier))
+        return false;
+
+    // Everything else (raw PDFs, EPUBs) is download-only
+    return true;
 }

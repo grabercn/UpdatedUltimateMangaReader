@@ -3,6 +3,7 @@
 
 #include <QDialog>
 #include <QtConcurrent/QtConcurrent>
+#include <atomic>
 
 #include "networkmanager.h"
 
@@ -30,6 +31,7 @@ private:
     Ui::WifiDialog* ui;
     NetworkManager* networkManager;
     QFuture<void> lastConnection;
+    std::atomic<bool> destroying{false};
 };
 
 #endif  // WIFIDIALOG_H

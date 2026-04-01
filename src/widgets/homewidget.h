@@ -46,6 +46,11 @@ public:
     void setFavoritesManager(class FavoritesManager *fm);
     void refreshHomeView();
 
+    // AniList link management
+    int aniListLinkCount() const { return aniListLocalMap.size(); }
+    QStringList aniListLinkDescriptions() const;
+    void resetAniListLinks();
+
 signals:
     void mangaSourceClicked(AbstractMangaSource *source);
     void mangaClicked(const QString &mangaurl, const QString &mangatitle);
@@ -95,6 +100,9 @@ private:
     };
     QMap<QString, LocalMangaMatch> aniListLocalMap;  // anilist title -> local match
     void buildAniListLocalMap();
+    void saveAniListLocalMap();
+    void loadAniListLocalMap();
+    void clearAniListLocalMap();
 
     // Background matching
     struct CachedDir { QString source; QString dirName; QString normName; QString path; };

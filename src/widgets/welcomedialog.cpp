@@ -114,7 +114,10 @@ WelcomeDialog::WelcomeDialog(QWidget *parent)
         "<p>- <b>Favorites:</b> Star manga to quickly find them later<br>"
         "- <b>Bookmarks:</b> Save a specific page while reading<br>"
         "- <b>Auto-sleep:</b> Configurable in Settings > Power<br>"
-        "- <b>History:</b> Access from the menu to see stats and bookmarks</p>"
+        "- <b>History:</b> Access from the menu to see stats and bookmarks<br>"
+        "- <b>Color mode:</b> Enable in Settings for color e-readers. "
+        "Color images may load slightly slower than greyscale.<br>"
+        "- <b>Updates:</b> Check for updates in Settings</p>"
         "<br>"
         "<p style='text-align:center; font-size:12pt;'><b>Ready to start reading?</b></p>"
     );
