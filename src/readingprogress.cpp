@@ -30,8 +30,23 @@ bool ReadingProgress::deserialize(const QString &hostname, const QString &title)
     if (!file.open(QIODevice::ReadOnly))
         return false;
 
-    QDataStream in2(&file);
-    in2 >> *this;
+    try
+    {
+        QDataStream in2(&file);
+        in2 >> *this;
+        if (in2.status() != QDataStream::Ok)
+        {
+            index = MangaIndex(0, 0);
+            numChapters = 0;
+            numPages = 0;
+        }
+    }
+    catch (...)
+    {
+        index = MangaIndex(0, 0);
+        numChapters = 0;
+        numPages = 0;
+    }
 
     file.close();
     return true;

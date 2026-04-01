@@ -3,13 +3,15 @@
 #include "ui_errormessagewidget.h"
 
 ErrorMessageWidget::ErrorMessageWidget(QWidget* parent)
-    : QWidget(parent), ui(new Ui::ErrorMessageWidget), hideTimer(), timeout(3000)
+    : QWidget(parent), ui(new Ui::ErrorMessageWidget), hideTimer(), timeout(5000)
 {
     ui->setupUi(this);
 
     ui->labelErrorImage->setFixedSize(SIZES.buttonSize, SIZES.buttonSize);
 
-    ui->buttonHide->setMinimumHeight(SIZES.buttonSize);
+    ui->buttonHide->setText("X");
+    ui->buttonHide->setFixedSize(SIZES.buttonSize, SIZES.buttonSize);
+    ui->buttonHide->setStyleSheet("font-weight: bold; font-size: 14pt;");
 
     hideTimer.setSingleShot(true);
     QObject::connect(&this->hideTimer, &QTimer::timeout, this, &QWidget::hide);

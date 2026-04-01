@@ -24,7 +24,8 @@ enum WidgetTab
     HomeTab,
     MangaInfoTab,
     FavoritesTab,
-    MangaReaderTab
+    MangaReaderTab,
+    DownloadsTab
 };
 
 enum ClearDownloadCacheLevel
@@ -53,7 +54,12 @@ enum DoublePageMode
     DoublePageNoRotation,
     DoublePage90CW,
     DoublePage90CCW
+};
 
+enum ContentType
+{
+    ContentManga = 0,
+    ContentLightNovel
 };
 
 #endif  // ENUMS_H

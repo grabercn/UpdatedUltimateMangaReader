@@ -15,12 +15,26 @@ QSharedPointer<MangaInfo> MangaInfo::deserialize(AbstractMangaSource *mangasourc
     if (!file.open(QIODevice::ReadOnly))
         return mi;
 
-    QDataStream in(&file);
-    in >> mi->hostname >> mi->title >> mi->url >> mi->author >> mi->artist >> mi->releaseYear >> mi->status >>
-        mi->genres >> mi->summary >> mi->coverUrl >> mi->coverPath >> mi->chapters;
+    try
+    {
+        QDataStream in(&file);
+        in >> mi->hostname >> mi->title >> mi->url >> mi->author >> mi->artist >> mi->releaseYear >>
+            mi->status >> mi->genres >> mi->summary >> mi->coverUrl >> mi->coverPath >> mi->chapters;
+
+        // Validate deserialized data
+        if (in.status() != QDataStream::Ok)
+        {
+            qDebug() << "Warning: corrupt manga info file:" << path;
+            mi->chapters.clear();
+        }
+    }
+    catch (...)
+    {
+        qDebug() << "Error deserializing manga info:" << path;
+        mi->chapters.clear();
+    }
 
     file.close();
-
     return mi;
 }
 

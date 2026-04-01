@@ -7,6 +7,7 @@
 #include "downloadqueue.h"
 #include "mangainfo.h"
 #include "networkmanager.h"
+#include "staticsettings.h"
 #include "thirdparty/result.h"
 
 struct MangaChapterRange
@@ -40,6 +41,10 @@ signals:
 private:
     bool cancelled;
     bool running;
+    int failedImages;
+    int currentFromChapter;
+    int currentToChapter;
+    QSharedPointer<MangaInfo> currentManga;
 
     QQueue<MangaChapterRange> downloadJobs;
 

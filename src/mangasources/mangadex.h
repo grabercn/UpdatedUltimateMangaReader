@@ -19,6 +19,7 @@ public:
     virtual ~MangaDex() = default;
 
     bool updateMangaList(UpdateProgressToken *token) override;
+    Result<MangaList, QString> searchManga(const QString &query, int maxResults = 25) override;
     Result<MangaChapterCollection, QString> updateMangaInfoFinishedLoading(
         QSharedPointer<DownloadStringJob> job, QSharedPointer<MangaInfo> info) override;
     Result<QStringList, QString> getPageList(const QString &chapterUrl) override;
@@ -26,7 +27,6 @@ public:
 private:
     void login();
     QString apiUrl;
-    QVector<QString> serverUrls;
 
     QVector<QString> statuses;
     QVector<QString> demographies;

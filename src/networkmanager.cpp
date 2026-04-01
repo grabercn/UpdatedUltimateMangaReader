@@ -105,6 +105,10 @@ bool NetworkManager::checkInternetConnection()
 #else
     connected = true;
 #endif
+    // Offline test mode override
+    if (settings && settings->offlineMode)
+        connected = false;
+
     if (oldstatus != connected)
         emit connectionStatusChanged(connected);
 
@@ -114,20 +118,21 @@ bool NetworkManager::checkInternetConnection()
 QString NetworkManager::fixUrl(const QString &url)
 {
     if (url.startsWith("//"))
-        return "http:" + url;
+        return "https:" + url;
 
     return url;
 }
 
 QSharedPointer<DownloadStringJob> NetworkManager::downloadAsString(const QString &url, int timeout,
-                                                                   const QByteArray &postData)
+                                                                   const QByteArray &postData,
+                                                                   const QList<std::tuple<const char *, const char *>> &headers)
 {
     auto urlf = fixUrl(url);
 
     qDebug() << "Downloading as string:" << urlf;
 
     auto job = QSharedPointer<DownloadStringJob>(
-        new DownloadStringJob(networkManager, urlf, timeout, postData), &QObject::deleteLater);
+        new DownloadStringJob(networkManager, urlf, timeout, postData, headers), &QObject::deleteLater);
 
     job->start();
 

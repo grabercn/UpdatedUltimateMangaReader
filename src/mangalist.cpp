@@ -49,10 +49,11 @@ void MangaList::sortBy(MangaOrderMethod method)
         }
 }
 
-void MangaList::append(const QString &title, const QString &url)
+void MangaList::append(const QString &title, const QString &url, const QString &altTitle)
 {
     titles.append(title);
     urls.append(url);
+    altTitles.append(altTitle);
     popularityRanks.append(size++);
 }
 

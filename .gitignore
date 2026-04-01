@@ -1,0 +1,28 @@
+# Build artifacts
+build-windows/
+build-desktop/
+output/
+*.o
+*.obj
+*.exe
+moc_*
+ui_*
+qrc_*
+Makefile
+Makefile.*
+
+# vcpkg (installed by setup-windows.ps1)
+vcpkg/
+
+# IDE files
+.qmake.stash
+*.pro.user
+*.pro.user.*
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS files
+Thumbs.db
+.DS_Store

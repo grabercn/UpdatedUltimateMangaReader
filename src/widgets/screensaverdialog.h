@@ -9,6 +9,7 @@
 
 #include "enums.h"
 #include "imageprocessingnative.h"
+#include "mangainfo.h"
 #include "staticsettings.h"
 
 namespace Ui
@@ -24,12 +25,18 @@ public:
     ~ScreensaverDialog();
 
     void showRandomScreensaver();
+    void setCurrentManga(QSharedPointer<MangaInfo> manga, int chapter, int page);
+    void setBatteryLevel(int level);
 
 protected:
     bool event(QEvent *event) override;
 
 private:
     Ui::ScreensaverDialog *ui;
+    QSharedPointer<MangaInfo> currentManga;
+    int currentChapter = 0;
+    int currentPage = 0;
+    int battery = 100;
 };
 
 #endif  // SCREENSAVERDIALOG_H

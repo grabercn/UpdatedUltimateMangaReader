@@ -15,11 +15,38 @@ else { # default is desktop
     DEFINES  += DESKTOP
 }
 
-QT    += core gui widgets network svg
+QT    += core gui widgets network svg concurrent
 CONFIG += c++17
-QMAKE_LFLAGS += -rdynamic
 
-LIBS +=  -lturbojpeg -lpng
+# Platform-specific linker flags and libraries
+unix:!macx {
+    QMAKE_LFLAGS += -rdynamic
+}
+
+unix {
+    LIBS += -lturbojpeg -lpng
+}
+
+win32 {
+    # On Windows, use vcpkg or manually installed libs
+    # Check project-local vcpkg first, then VCPKG_ROOT env var
+    PROJECT_VCPKG = $$PWD/vcpkg/installed/x64-windows
+    exists($$PROJECT_VCPKG/lib) {
+        VCPKG_INSTALLED = $$PROJECT_VCPKG
+    } else {
+        isEmpty(VCPKG_ROOT): VCPKG_ROOT = $$(VCPKG_ROOT)
+        !isEmpty(VCPKG_ROOT) {
+            VCPKG_INSTALLED = $$VCPKG_ROOT/installed/x64-windows
+        }
+    }
+    !isEmpty(VCPKG_INSTALLED) {
+        INCLUDEPATH += $$VCPKG_INSTALLED/include
+        LIBS += -L$$VCPKG_INSTALLED/lib
+    }
+    LIBS += turbojpeg.lib libpng16.lib zlib.lib ws2_32.lib
+    # OpenSSL for HTTPS support
+    LIBS += libssl.lib libcrypto.lib crypt32.lib
+}
 
 TARGET = UltimateMangaReader
 
@@ -50,6 +77,7 @@ FORMS += \
 
 HEADERS += \
     src/aboutinfo.h \
+    src/anilist.h \
     src/downloadbufferjob.h \
     src/downloadfilejob.h \
     src/downloadimageandrescalejob.h \
@@ -73,16 +101,12 @@ HEADERS += \
     src/mangainfo.h \
     src/mangalist.h \
     src/mangasources/abstractmangasource.h \
+    src/mangasources/allnovel.h \
+    src/mangasources/internetarchive.h \
     src/mangasources/mangadex.h \
-    src/mangasources/mangago.h \
-    src/mangasources/mangahere.h \
-    src/mangasources/mangahub.h \
-    src/mangasources/mangakakalot.h \
-    src/mangasources/mangaowl.h \
-    src/mangasources/mangapanda.h \
+    src/mangasources/mangafire.h \
     src/mangasources/mangaplus.h \
     src/mangasources/mangatown.h \
-    src/mangasources/readmanga.h \
     src/mangasources/updateprogresstoken.h \
     src/networkmanager.h \
     src/readingprogress.h \
@@ -99,6 +123,7 @@ HEADERS += \
     src/widgets/clineedit.h \
     src/widgets/customgesturerecognizer.h \
     src/widgets/downloadmangachaptersdialog.h \
+    src/widgets/downloadqueuewidget.h \
     src/widgets/downloadstatusdialog.h \
     src/widgets/errormessagewidget.h \
     src/widgets/favoriteswidget.h \
@@ -112,6 +137,7 @@ HEADERS += \
     src/widgets/numpadwidget.h \
     src/widgets/screensaverdialog.h \
     src/widgets/settingsdialog.h \
+    src/widgets/spinnerwidget.h \
     src/widgets/updatemangalistsdialog.h \
     src/widgets/virtualkeyboard.h \
     src/widgets/wifidialog.h \
@@ -122,6 +148,7 @@ HEADERS += \
 
 
 SOURCES += \
+    src/anilist.cpp \
     src/downloadbufferjob.cpp \
     src/downloadfilejob.cpp \
     src/downloadimageandrescalejob.cpp \
@@ -144,16 +171,12 @@ SOURCES += \
     src/mangainfo.cpp \
     src/mangalist.cpp \
     src/mangasources/abstractmangasource.cpp \
+    src/mangasources/allnovel.cpp \
+    src/mangasources/internetarchive.cpp \
     src/mangasources/mangadex.cpp \
-    src/mangasources/mangago.cpp \
-    src/mangasources/mangahere.cpp \
-    src/mangasources/mangahub.cpp \
-    src/mangasources/mangakakalot.cpp \
-    src/mangasources/mangaowl.cpp \
-    src/mangasources/mangapanda.cpp \
+    src/mangasources/mangafire.cpp \
     src/mangasources/mangaplus.cpp \
     src/mangasources/mangatown.cpp \
-    src/mangasources/readmanga.cpp \
     src/mangasources/updateprogresstoken.cpp \
     src/networkmanager.cpp \
     src/readingprogress.cpp \
@@ -167,6 +190,7 @@ SOURCES += \
     src/widgets/clineedit.cpp \
     src/widgets/customgesturerecognizer.cpp \
     src/widgets/downloadmangachaptersdialog.cpp \
+    src/widgets/downloadqueuewidget.cpp \
     src/widgets/downloadstatusdialog.cpp \
     src/widgets/errormessagewidget.cpp \
     src/widgets/favoriteswidget.cpp \

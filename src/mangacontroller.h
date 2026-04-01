@@ -42,6 +42,7 @@ signals:
     void currentMangaChanged(QSharedPointer<MangaInfo> mangaInfo);
     void currentIndexChanged(const ReadingProgress &progress);
     void currentImageChanged(const QString &imagePath);
+    void currentTextChanged(const QString &text, const QString &chapterTitle);
     void completedImagePreloadSignal(const QString &path);
     void activity();
 

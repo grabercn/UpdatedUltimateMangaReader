@@ -22,7 +22,11 @@ void DownloadBufferJob::start()
     }
     else
     {
-        request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
+        // Use JSON content type if data looks like JSON, otherwise form-encoded
+        if (postData.startsWith('{') || postData.startsWith('['))
+            request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+        else
+            request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
         reply.reset(networkManager->post(request, postData));
     }
     //    reply->setParent(nullptr);

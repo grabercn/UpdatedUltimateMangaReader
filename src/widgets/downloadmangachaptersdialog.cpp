@@ -1,5 +1,7 @@
 #include "downloadmangachaptersdialog.h"
 
+#include <QPushButton>
+
 #include "ui_downloadmangachaptersdialog.h"
 
 DownloadMangaChaptersDialog::DownloadMangaChaptersDialog(QWidget *parent)
@@ -8,6 +10,15 @@ DownloadMangaChaptersDialog::DownloadMangaChaptersDialog(QWidget *parent)
     ui->setupUi(this);
     adjustUI();
     setWindowFlags(Qt::Popup);
+
+    // Add "Export to Device" button next to OK
+    auto *exportButton = new QPushButton(" Export to Kobo ", this);
+    exportButton->setObjectName("pushButtonExportToDevice");
+    exportButton->setFocusPolicy(Qt::NoFocus);
+    exportButton->setFixedHeight(SIZES.buttonSize);
+    ui->horizontalLayout->insertWidget(1, exportButton);
+    connect(exportButton, &QPushButton::clicked, this,
+            &DownloadMangaChaptersDialog::exportToDeviceClicked);
 
     ui->spinBoxFrom->installEventFilter(this);
     ui->spinBoxTo->installEventFilter(this);
@@ -83,6 +94,19 @@ void DownloadMangaChaptersDialog::on_pushButtonConfirm_clicked()
     {
         close();
         emit downloadConfirmed(mangaInfo, from, to);
+        mangaInfo.clear();
+    }
+}
+
+void DownloadMangaChaptersDialog::exportToDeviceClicked()
+{
+    int from = ui->spinBoxFrom->value() - 1;
+    int to = ui->spinBoxTo->value() - 1;
+
+    if (from <= to)
+    {
+        close();
+        emit exportToDeviceConfirmed(mangaInfo, from, to);
         mangaInfo.clear();
     }
 }

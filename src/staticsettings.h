@@ -43,6 +43,15 @@ public:
         return mangainfodir(hostname, title) + "images/";
     }
 
+    inline QString exportDir()
+    {
+#ifdef KOBO
+        return "/mnt/onboard/UltimateMangaReader/";
+#else
+        return QCoreApplication::applicationDirPath() + "/exports/";
+#endif
+    }
+
 private:
     StaticSettings()
     {

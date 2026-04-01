@@ -1,5 +1,9 @@
 #include "utils.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include "staticsettings.h"
 
 QList<QRegularExpressionMatch> getAllRxMatches(const QRegularExpression& rx, const QString& text, int spos,
@@ -141,16 +145,30 @@ qint64 getFreeSpace()
 
 unsigned long long getTotalSystemMemory()
 {
+#ifdef _WIN32
+    MEMORYSTATUSEX memInfo;
+    memInfo.dwLength = sizeof(MEMORYSTATUSEX);
+    GlobalMemoryStatusEx(&memInfo);
+    return memInfo.ullTotalPhys;
+#else
     long pages = sysconf(_SC_PHYS_PAGES);
     long page_size = sysconf(_SC_PAGE_SIZE);
     return pages * page_size;
+#endif
 }
 
 unsigned long long getFreeSystemMemory()
 {
+#ifdef _WIN32
+    MEMORYSTATUSEX memInfo;
+    memInfo.dwLength = sizeof(MEMORYSTATUSEX);
+    GlobalMemoryStatusEx(&memInfo);
+    return memInfo.ullAvailPhys;
+#else
     long pages = sysconf(_SC_AVPHYS_PAGES);
     long page_size = sysconf(_SC_PAGE_SIZE);
     return pages * page_size;
+#endif
 }
 
 bool enoughFreeSystemMemory()

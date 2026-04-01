@@ -1,5 +1,10 @@
 #include "mangareaderwidget.h"
 
+#include <QHBoxLayout>
+#include <QMouseEvent>
+#include <QScrollBar>
+#include <QVBoxLayout>
+
 #include "ui_mangareaderwidget.h"
 
 #ifdef KOBO
@@ -7,7 +12,8 @@
 #endif
 
 MangaReaderWidget::MangaReaderWidget(QWidget *parent)
-    : QWidget(parent), ui(new Ui::MangaReaderWidget), imgcache(), settings(nullptr)
+    : QWidget(parent), ui(new Ui::MangaReaderWidget), imgcache(),
+      isTextMode(false), textCurrentPage(0), settings(nullptr)
 {
     ui->setupUi(this);
     adjustUI();
@@ -16,6 +22,57 @@ MangaReaderWidget::MangaReaderWidget(QWidget *parent)
 
     ui->readerFrontLightBar->setVisible(false);
     ui->readerNavigationBar->setVisible(false);
+
+    // Paginated text reader for light novels
+    textReader = new QTextBrowser(this);
+    textReader->setStyleSheet(
+        "QTextBrowser { background-color: white; color: #111; "
+        "font-family: 'Georgia','Noto Serif',serif; font-size: 12pt; "
+        "padding: 15px 20px; border: none; }");
+    textReader->setOpenExternalLinks(false);
+    textReader->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    textReader->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    textReader->setWordWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+    textReader->setTextInteractionFlags(Qt::NoTextInteraction);
+    textReader->hide();
+
+    // Bottom bar: progress + page info + menu button
+    textBottomBar = new QWidget(this);
+    textBottomBar->setFixedHeight(32);
+    textBottomBar->hide();
+
+    auto *barLayout = new QHBoxLayout(textBottomBar);
+    barLayout->setSpacing(10);
+    barLayout->setContentsMargins(12, 0, 12, 0);
+
+    textProgressBar = new QProgressBar(textBottomBar);
+    textProgressBar->setRange(0, 100);
+    textProgressBar->setValue(0);
+    textProgressBar->setFixedHeight(6);
+    textProgressBar->setTextVisible(false);
+    textProgressBar->setStyleSheet(
+        "QProgressBar { border: 1px solid #bbb; border-radius: 3px; background: #eee; }"
+        "QProgressBar::chunk { background: #333; border-radius: 2px; }");
+
+    textPageLabel = new QLabel("1/1", textBottomBar);
+    textPageLabel->setStyleSheet("font-size: 9pt; color: #444;");
+    textPageLabel->setFixedWidth(55);
+    textPageLabel->setAlignment(Qt::AlignCenter);
+
+    textMenuBtn = new QPushButton("Menu", textBottomBar);
+    textMenuBtn->setFixedSize(50, 26);
+    textMenuBtn->setFocusPolicy(Qt::NoFocus);
+    textMenuBtn->setStyleSheet("font-size: 9pt; padding: 2px 6px;");
+    connect(textMenuBtn, &QPushButton::clicked, this, [this]()
+    {
+        ui->readerNavigationBar->raise();
+        ui->readerFrontLightBar->raise();
+        showMenuBar(!ui->readerNavigationBar->isVisible());
+    });
+
+    barLayout->addWidget(textProgressBar, 1);
+    barLayout->addWidget(textPageLabel);
+    barLayout->addWidget(textMenuBtn);
 
     gotodialog = new GotoDialog(this);
 
@@ -81,12 +138,38 @@ bool MangaReaderWidget::event(QEvent *event)
     return QWidget::event(event);
 }
 
+bool MangaReaderWidget::eventFilter(QObject *obj, QEvent *event)
+{
+    Q_UNUSED(obj);
+    Q_UNUSED(event);
+    return false;
+}
+
 bool MangaReaderWidget::buttonPressEvent(QKeyEvent *event)
 {
-    if (event->key() == Qt::Key_PageUp)
+    if (isTextMode)
+    {
+        if (event->key() == Qt::Key_PageDown || event->key() == Qt::Key_Down ||
+            event->key() == Qt::Key_Right)
+        {
+            textPageForward();
+        }
+        else if (event->key() == Qt::Key_PageUp || event->key() == Qt::Key_Up ||
+                 event->key() == Qt::Key_Left)
+        {
+            textPageBack();
+        }
+        else
+            return false;
+
+        return true;
+    }
+
+    // Manga mode: page buttons and arrow keys advance pages
+    if (event->key() == Qt::Key_PageUp || event->key() == Qt::Key_Left)
         emit advancPageClicked(
             conditionalReverse(Forward, settings->buttonAdvance != AdvancePageHWButton::Up));
-    else if (event->key() == Qt::Key_PageDown)
+    else if (event->key() == Qt::Key_PageDown || event->key() == Qt::Key_Right)
         emit advancPageClicked(
             conditionalReverse(Forward, settings->buttonAdvance != AdvancePageHWButton::Down));
     else
@@ -168,10 +251,20 @@ void MangaReaderWidget::updateMenuBar()
 
 void MangaReaderWidget::updateCurrentIndex(const ReadingProgress &progress)
 {
-    ui->labelReaderChapter->setText("Chapter: " + QString::number(progress.index.chapter + 1) + "/" +
+    ui->labelReaderChapter->setText("Ch. " + QString::number(progress.index.chapter + 1) + "/" +
                                     QString::number(progress.numChapters));
-    ui->labelReaderPage->setText("Page: " + QString::number(progress.index.page + 1) + "/" +
-                                 QString::number(progress.numPages));
+
+    if (isTextMode)
+    {
+        int tp = textPageOffsets.size();
+        ui->labelReaderPage->setText("Page: " + QString::number(textCurrentPage + 1) + "/" +
+                                     QString::number(qMax(1, tp)));
+    }
+    else
+    {
+        ui->labelReaderPage->setText("Page: " + QString::number(progress.index.page + 1) + "/" +
+                                     QString::number(progress.numPages));
+    }
 
     gotodialog->setup(progress);
 }
@@ -191,8 +284,137 @@ void MangaReaderWidget::on_pushButtonReaderFavorites_clicked()
     emit changeView(FavoritesTab);
 }
 
+void MangaReaderWidget::setTextMode(bool textMode)
+{
+    isTextMode = textMode;
+    if (textMode)
+    {
+        ui->mangaImageWidget->hide();
+
+        int barH = textBottomBar->height();
+        int w = this->width();
+        int h = this->height();
+
+        textReader->setGeometry(0, 0, w, h - barH);
+        textBottomBar->setGeometry(0, h - barH, w, barH);
+
+        textReader->show();
+        textBottomBar->show();
+        textBottomBar->raise();
+    }
+    else
+    {
+        textReader->hide();
+        textBottomBar->hide();
+        ui->mangaImageWidget->show();
+    }
+}
+
+void MangaReaderWidget::showText(const QString &text, const QString &chapterTitle)
+{
+    showMenuBar(false);
+    textCurrentPage = 0;
+    textPageOffsets.clear();
+
+    QString html = "<html><head><style>"
+                   "body { font-family: 'Georgia','Noto Serif',serif; font-size: 12pt; "
+                   "line-height: 1.8; margin: 0; padding: 8px 5px; color: #111; }"
+                   "h2 { text-align: center; font-size: 13pt; margin: 8px 0 16px 0; "
+                   "padding-bottom: 8px; border-bottom: 1px solid #ccc; }"
+                   "p { text-indent: 2em; margin: 5px 0; }"
+                   "img { max-width: 100%; height: auto; display: block; margin: 12px auto; }"
+                   "</style></head><body>";
+
+    html += "<h2>" + chapterTitle.toHtmlEscaped() + "</h2>";
+
+    bool hasImages = text.contains("<img", Qt::CaseInsensitive);
+    if (hasImages)
+    {
+        QString rich = text;
+        rich.remove(QRegularExpression(R"(<script[^>]*>.*?</script>)",
+                                        QRegularExpression::DotMatchesEverythingOption));
+        html += rich;
+    }
+    else
+    {
+        for (const auto &p : text.split("\n\n", Qt::SkipEmptyParts))
+        {
+            auto t = p.trimmed();
+            if (!t.isEmpty())
+                html += "<p>" + t.toHtmlEscaped().replace("\n", "<br>") + "</p>";
+        }
+    }
+    html += "</body></html>";
+
+    setTextMode(true);
+    textReader->setHtml(html);
+    textReader->verticalScrollBar()->setValue(0);
+
+    QTimer::singleShot(100, this, [this]() { paginateText(); });
+}
+
+void MangaReaderWidget::paginateText()
+{
+    textPageOffsets.clear();
+    textPageOffsets.append(0);
+
+    int viewH = textReader->viewport()->height();
+    auto *sb = textReader->verticalScrollBar();
+    int maxScroll = sb->maximum();
+
+    if (viewH <= 0 || maxScroll <= 0)
+    {
+        textGoToPage(0);
+        return;
+    }
+
+    for (int pos = viewH; pos <= maxScroll; pos += viewH)
+        textPageOffsets.append(pos);
+
+    if (textPageOffsets.last() < maxScroll)
+        textPageOffsets.append(maxScroll);
+
+    textGoToPage(0);
+}
+
+void MangaReaderWidget::updateTextBottomBar()
+{
+    int total = qMax(1, textPageOffsets.size());
+    int pct = total > 1 ? (textCurrentPage * 100) / (total - 1) : 100;
+
+    textPageLabel->setText(QString("%1/%2").arg(textCurrentPage + 1).arg(total));
+    textProgressBar->setValue(pct);
+}
+
+void MangaReaderWidget::textGoToPage(int page)
+{
+    if (textPageOffsets.isEmpty())
+        return;
+    page = qBound(0, page, textPageOffsets.size() - 1);
+    textCurrentPage = page;
+    textReader->verticalScrollBar()->setValue(textPageOffsets[page]);
+    updateTextBottomBar();
+}
+
+void MangaReaderWidget::textPageForward()
+{
+    if (textCurrentPage + 1 < textPageOffsets.size())
+        textGoToPage(textCurrentPage + 1);
+    else
+        emit advancPageClicked(Forward);
+}
+
+void MangaReaderWidget::textPageBack()
+{
+    if (textCurrentPage > 0)
+        textGoToPage(textCurrentPage - 1);
+    else
+        emit advancPageClicked(Backward);
+}
+
 void MangaReaderWidget::showImage(const QString &path)
 {
+    setTextMode(false);
     showMenuBar(false);
 
     if (QFile::exists(path))

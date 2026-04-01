@@ -25,12 +25,18 @@ public:
 
     QString baseUrl;
 
+    ContentType contentType;
+
     MangaList mangaList;
 
     AbstractMangaSource(NetworkManager *networkManager);
     virtual ~AbstractMangaSource() = default;
 
     virtual bool updateMangaList(UpdateProgressToken *token) = 0;
+
+    // Live search - returns up to maxResults matching manga
+    // Default implementation searches the cached mangaList
+    virtual Result<MangaList, QString> searchManga(const QString &query, int maxResults = 25);
 
     virtual Result<MangaChapterCollection, QString> updateMangaInfoFinishedLoading(
         QSharedPointer<DownloadStringJob> job, QSharedPointer<MangaInfo> mangainfo) = 0;
@@ -40,6 +46,10 @@ public:
 
     virtual Result<QStringList, QString> getPageList(const QString &chapterUrl) = 0;
     virtual Result<QString, QString> getImageUrl(const QString &pageUrl);
+
+    // For light novels: get chapter text as HTML
+    virtual Result<QString, QString> getChapterText(const QString &chapterUrl);
+
 
     Result<QSharedPointer<MangaInfo>, QString> loadMangaInfo(const QString &mangaUrl,
                                                              const QString &mangatitle, bool update = true);

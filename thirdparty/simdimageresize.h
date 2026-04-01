@@ -38,6 +38,9 @@
 
 #include <cstdint>
 #include <cstdlib>
+#ifdef _WIN32
+#include <malloc.h>
+#endif
 
 #define SIMD_INLINE inline
 #define SIMD_ALIGN 16
@@ -407,9 +410,13 @@ SIMD_INLINE void *Allocate(size_t size, size_t align = SIMD_ALIGN)
     void *ptr = NULL;
     align = AlignHi(align, sizeof(void *));
     size = AlignHi(size, align);
+#ifdef _WIN32
+    ptr = _aligned_malloc(size, align);
+#else
     int result = ::posix_memalign(&ptr, align, size);
     if (result != 0)
         ptr = NULL;
+#endif
     return ptr;
 }
 
@@ -423,7 +430,11 @@ T *Allocate(uint8_t *&buffer, size_t size, size_t align = SIMD_ALIGN)
 
 SIMD_INLINE void Free(void *ptr)
 {
+#ifdef _WIN32
+    _aligned_free(ptr);
+#else
     free(ptr);
+#endif
 }
 
 struct Deletable

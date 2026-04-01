@@ -11,6 +11,7 @@ public:
     virtual ~MangaTown() = default;
 
     bool updateMangaList(UpdateProgressToken *token) override;
+    Result<MangaList, QString> searchManga(const QString &query, int maxResults = 25) override;
     Result<MangaChapterCollection, QString> updateMangaInfoFinishedLoading(
         QSharedPointer<DownloadStringJob> job, QSharedPointer<MangaInfo> info) override;
     Result<QStringList, QString> getPageList(const QString &chapterUrl) override;

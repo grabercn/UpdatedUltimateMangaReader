@@ -12,8 +12,21 @@ void FavoritesManager::deserialize()
     if (!file.open(QIODevice::ReadOnly))
         return;
 
-    QDataStream in(&file);
-    in >> favorites;
+    try
+    {
+        QDataStream in(&file);
+        in >> favorites;
+        if (in.status() != QDataStream::Ok)
+        {
+            qDebug() << "Corrupt favorites file, clearing";
+            favorites.clear();
+        }
+    }
+    catch (...)
+    {
+        qDebug() << "Error reading favorites";
+        favorites.clear();
+    }
     file.close();
 }
 

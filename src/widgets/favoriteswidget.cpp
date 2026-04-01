@@ -1,5 +1,6 @@
 #include "favoriteswidget.h"
 
+#include "anilist.h"
 #include "ui_favoriteswidget.h"
 
 FavoritesWidget::FavoritesWidget(QWidget *parent)
@@ -78,19 +79,68 @@ void FavoritesWidget::showFavoritesList()
     }
 }
 
+static QPair<QString, QString> getSmartStatus(const QSharedPointer<MangaInfo> &fav,
+                                               AniList *aniList)
+{
+    ReadingProgress progress(fav->hostname, fav->title);
+    int ch = progress.index.chapter;
+    int pg = progress.index.page;
+    int totalCh = fav->chapters.size();
+
+    // Check AniList first
+    QString status;
+    int aniProgress = 0;
+    if (aniList && aniList->isLoggedIn())
+    {
+        auto entry = aniList->findByTitle(fav->title);
+        if (entry.mediaId > 0)
+        {
+            status = AniList::statusName(entry.status);
+            aniProgress = entry.progress;
+            // Use AniList progress if higher
+            if (aniProgress > ch)
+            {
+                ch = aniProgress;
+                pg = 0;
+            }
+        }
+    }
+
+    // Smart status if no AniList match
+    if (status.isEmpty())
+    {
+        if (ch == 0 && pg <= 1)
+            status = "Not started";
+        else if (totalCh > 0 && ch >= totalCh - 1)
+            status = "Finished";
+        else
+            status = "Reading";
+    }
+
+    if (fav->updated)
+        status = "New chapters!";
+
+    status += "\n" + QString::number(totalCh) + " chapters";
+
+    QString progressStr;
+    if (ch == 0 && pg <= 1)
+        progressStr = "Not started";
+    else
+        progressStr = "Ch." + QString::number(ch + 1) + " Pg." + QString::number(pg + 1);
+
+    return {status, progressStr};
+}
+
 void FavoritesWidget::updateStatus(int row)
 {
+    if (row >= favoritesManager->favoriteinfos.size())
+        return;
+
     auto &fav = favoritesManager->favoriteinfos.at(row);
-    ReadingProgress progress(fav->hostname, fav->title);
+    auto [status, progress] = getSmartStatus(fav, aniList);
 
-    QString statusstring = (fav->updated ? "New chapters!\n" : fav->status + "\n") +
-                           "Chapters: " + QString::number(fav->chapters.size());
-
-    QString progressstring = "Chapter: " + QString::number(progress.index.chapter + 1) +
-                             "\nPage: " + QString::number(progress.index.page + 1);
-
-    ui->tableWidget->item(row, 2)->setText(statusstring);
-    ui->tableWidget->item(row, 3)->setText(progressstring);
+    ui->tableWidget->item(row, 2)->setText(status);
+    ui->tableWidget->item(row, 3)->setText(progress);
 }
 
 void FavoritesWidget::insertRow(const QSharedPointer<MangaInfo> &fav, int row)
@@ -105,16 +155,12 @@ void FavoritesWidget::insertRow(const QSharedPointer<MangaInfo> &fav, int row)
     QTableWidgetItem *hostwidget = new QTableWidgetItem(fav->hostname);
     hostwidget->setTextAlignment(Qt::AlignCenter);
 
-    ReadingProgress progress(fav->hostname, fav->title);
+    auto [statusStr, progressStr] = getSmartStatus(fav, aniList);
 
-    QString statusstring = (fav->updated ? "New chapters!\n" : fav->status + "\n") +
-                           "Chapters: " + QString::number(fav->chapters.size());
-    QTableWidgetItem *chapters = new QTableWidgetItem(statusstring);
+    QTableWidgetItem *chapters = new QTableWidgetItem(statusStr);
     chapters->setTextAlignment(Qt::AlignCenter);
 
-    QString progressstring = "Chapter: " + QString::number(progress.index.chapter + 1) +
-                             "\nPage: " + QString::number(progress.index.page + 1);
-    QTableWidgetItem *progressitem = new QTableWidgetItem(progressstring);
+    QTableWidgetItem *progressitem = new QTableWidgetItem(progressStr);
     progressitem->setTextAlignment(Qt::AlignCenter);
 
     ui->tableWidget->setCellWidget(row, 0, titlewidget);

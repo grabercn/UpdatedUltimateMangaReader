@@ -1,7 +1,11 @@
 #ifndef MANGAINFOWIDGET_H
 #define MANGAINFOWIDGET_H
 
+#include <QComboBox>
 #include <QIcon>
+#include <QLabel>
+#include <QPushButton>
+#include <QSpinBox>
 #include <QWidget>
 
 #include "imageprocessingnative.h"
@@ -9,6 +13,8 @@
 #include "mangainfo.h"
 #include "sizes.h"
 #include "utils.h"
+
+class AniList;
 
 namespace Ui
 {
@@ -25,6 +31,7 @@ public:
 
     void setManga(QSharedPointer<MangaInfo> manga);
     void setFavoriteButtonState(bool state);
+    void setAniList(AniList *aniList);
 
 signals:
     void toggleFavoriteClicked(QSharedPointer<MangaInfo> manga);
@@ -51,8 +58,22 @@ private:
     Ui::MangaInfoWidget *ui;
 
     QSharedPointer<MangaInfo> currentmanga;
+    AniList *aniList = nullptr;
 
+    // AniList tracking UI
+    QFrame *aniListFrame = nullptr;
+    QLabel *aniListLabel = nullptr;
+    QComboBox *aniListStatusCombo = nullptr;
+    QSpinBox *aniListProgressSpin = nullptr;
+    QComboBox *aniListScoreCombo = nullptr;
+    QPushButton *aniListSyncBtn = nullptr;
+    int currentAniListMediaId = 0;
+
+    bool eventFilter(QObject *obj, QEvent *event) override;
     void adjustUI();
+    void setupAniListUI();
+    void updateAniListTracking();
+    bool summaryExpanded = false;
 
     void updateInfos();
 };

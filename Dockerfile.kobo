@@ -1,0 +1,178 @@
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    wget \
+    curl \
+    unzip \
+    python3 \
+    pkg-config \
+    autoconf \
+    automake \
+    libtool \
+    gperf \
+    bison \
+    flex \
+    ruby \
+    cmake \
+    ninja-build \
+    libgl1-mesa-dev \
+    libfontconfig1-dev \
+    libfreetype6-dev \
+    libx11-dev \
+    libxext-dev \
+    libxfixes-dev \
+    libxi-dev \
+    libxrender-dev \
+    libxcb1-dev \
+    libx11-xcb-dev \
+    libxcb-glx0-dev \
+    libxkbcommon-dev \
+    libxkbcommon-x11-dev \
+    libjpeg-turbo8-dev \
+    libpng-dev \
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up koxtoolchain for ARM cross-compilation
+WORKDIR /opt
+RUN git clone --depth 1 https://github.com/koreader/koxtoolchain.git
+
+WORKDIR /opt/koxtoolchain
+RUN apt-get update && apt-get install -y \
+    gawk \
+    texinfo \
+    help2man \
+    libncurses5-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build the Kobo cross-compiler toolchain
+RUN ./gen-tc.sh kobo 2>&1 | tail -5 || true
+
+ENV CROSS_TC=/home/root/x-tools/arm-kobo-linux-gnueabihf
+ENV PATH=${CROSS_TC}/bin:${PATH}
+ENV CROSS=arm-kobo-linux-gnueabihf
+ENV SYSROOT=${CROSS_TC}/${CROSS}/sysroot
+
+# Cross-compile OpenSSL
+WORKDIR /opt
+RUN wget -q https://www.openssl.org/source/openssl-1.1.1w.tar.gz \
+    && tar xzf openssl-1.1.1w.tar.gz \
+    && cd openssl-1.1.1w \
+    && export AR=${CROSS_TC}/bin/${CROSS}-ar \
+    && export AS=${CROSS_TC}/bin/${CROSS}-as \
+    && export CC=${CROSS_TC}/bin/${CROSS}-gcc \
+    && export CXX=${CROSS_TC}/bin/${CROSS}-g++ \
+    && export LD=${CROSS_TC}/bin/${CROSS}-ld \
+    && export RANLIB=${CROSS_TC}/bin/${CROSS}-ranlib \
+    && export CFLAGS="-O3 -march=armv7-a -mfpu=neon -mfloat-abi=hard -D__arm__ -D__ARM_NEON__ -fPIC -fno-omit-frame-pointer -funwind-tables -Wl,--no-merge-exidx-entries" \
+    && ./Configure linux-elf no-comp no-asm shared --prefix=${SYSROOT}/usr --openssldir=${SYSROOT}/usr \
+    && make -j$(nproc) \
+    && make install \
+    && cd .. && rm -rf openssl-1.1.1w*
+
+# Cross-compile libjpeg-turbo
+WORKDIR /opt
+RUN wget -q https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/2.1.5.1.tar.gz \
+    && tar xzf 2.1.5.1.tar.gz \
+    && cd libjpeg-turbo-2.1.5.1 \
+    && mkdir build && cd build \
+    && cmake .. \
+        -DCMAKE_SYSTEM_NAME=Linux \
+        -DCMAKE_SYSTEM_PROCESSOR=armv7l \
+        -DCMAKE_C_COMPILER=${CROSS_TC}/bin/${CROSS}-gcc \
+        -DCMAKE_INSTALL_PREFIX=${SYSROOT}/usr \
+        -DCMAKE_C_FLAGS="-O3 -march=armv7-a -mfpu=neon -mfloat-abi=hard" \
+    && make -j$(nproc) \
+    && make install \
+    && cd ../.. && rm -rf libjpeg-turbo-2.1.5.1 2.1.5.1.tar.gz
+
+# Cross-compile libpng
+WORKDIR /opt
+RUN wget -q https://download.sourceforge.net/libpng/libpng-1.6.40.tar.xz \
+    && tar xJf libpng-1.6.40.tar.xz \
+    && cd libpng-1.6.40 \
+    && export CC=${CROSS_TC}/bin/${CROSS}-gcc \
+    && export CFLAGS="-O3 -march=armv7-a -mfpu=neon -mfloat-abi=hard" \
+    && ./configure --host=${CROSS} --prefix=${SYSROOT}/usr \
+    && make -j$(nproc) \
+    && make install \
+    && cd .. && rm -rf libpng-1.6.40*
+
+# Download and cross-compile Qt 5.15
+WORKDIR /opt
+RUN wget -q https://download.qt.io/archive/qt/5.15/5.15.2/single/qt-everywhere-src-5.15.2.tar.xz \
+    && tar xJf qt-everywhere-src-5.15.2.tar.xz \
+    && rm qt-everywhere-src-5.15.2.tar.xz
+
+# Add Kobo platform spec to Qt
+RUN mkdir -p /opt/qt-everywhere-src-5.15.2/qtbase/mkspecs/linux-kobo-gnueabihf-g++ \
+    && echo '\
+MAKEFILE_GENERATOR      = UNIX\n\
+CONFIG                 += incremental gdb_dwarf_index\n\
+QMAKE_INCREMENTAL_STYLE = sublib\n\
+include(../common/linux.conf)\n\
+include(../common/gcc-base-unix.conf)\n\
+include(../common/g++-unix.conf)\n\
+QMAKE_CFLAGS_RELEASE   = -O3 -march=armv7-a -mfpu=neon -mfloat-abi=hard -D__arm__ -D__ARM_NEON__ -fPIC -fno-omit-frame-pointer -funwind-tables -Wl,--no-merge-exidx-entries\n\
+QMAKE_CFLAGS_RELEASE_WITH_DEBUGINFO = $$QMAKE_CFLAGS_RELEASE_WITH_DEBUGINFO -g\n\
+QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CFLAGS_RELEASE\n\
+QMAKE_CXXFLAGS_RELEASE_WITH_DEBUGINFO = $$QMAKE_CFLAGS_RELEASE_WITH_DEBUGINFO\n\
+QMAKE_CC                = arm-kobo-linux-gnueabihf-gcc\n\
+QMAKE_CXX               = arm-kobo-linux-gnueabihf-g++\n\
+QMAKE_LINK              = arm-kobo-linux-gnueabihf-g++\n\
+QMAKE_LINK_SHLIB        = arm-kobo-linux-gnueabihf-g++\n\
+QMAKE_AR                = arm-kobo-linux-gnueabihf-ar cqs\n\
+QMAKE_OBJCOPY           = arm-kobo-linux-gnueabihf-objcopy\n\
+QMAKE_NM                = arm-kobo-linux-gnueabihf-nm -P\n\
+QMAKE_STRIP             = arm-kobo-linux-gnueabihf-strip\n\
+load(qt_config)\n\
+' > /opt/qt-everywhere-src-5.15.2/qtbase/mkspecs/linux-kobo-gnueabihf-g++/qmake.conf \
+    && echo '#include "../linux-g++/qplatformdefs.h"' \
+    > /opt/qt-everywhere-src-5.15.2/qtbase/mkspecs/linux-kobo-gnueabihf-g++/qplatformdefs.h
+
+# Configure and build Qt for Kobo
+WORKDIR /opt/qt-everywhere-src-5.15.2
+ENV QTDIR=qt-linux-5.15.2-kobo
+RUN ./configure --recheck-all -opensource -confirm-license -release \
+    -prefix /mnt/onboard/.adds/${QTDIR} \
+    -extprefix /opt/qt-bin/${QTDIR} \
+    -xplatform linux-kobo-gnueabihf-g++ \
+    -sysroot ${SYSROOT} \
+    -openssl-linked OPENSSL_PREFIX="${SYSROOT}/usr" \
+    -qt-libjpeg -qt-zlib -qt-libpng -qt-freetype -qt-harfbuzz -qt-pcre -sql-sqlite -linuxfb \
+    -no-sse2 -no-xcb -no-xcb-xlib -no-tslib -no-icu -no-iconv -no-dbus \
+    -nomake tests -nomake examples -no-compile-examples -no-opengl \
+    -skip qtx11extras -skip qtwayland -skip qtwinextras -skip qtmacextras -skip qtandroidextras \
+    -skip qttools -skip qtdoc -skip qtlocation -skip qtremoteobjects -skip qtconnectivity -skip qtgamepad \
+    -skip qt3d -skip qtquick3d -skip qtquickcontrols -skip qtsensors -skip qtspeech -skip qtdatavis3d \
+    -skip qtpurchasing -skip qtserialbus -skip qtserialport -skip multimedia -skip qtquicktimeline -skip qtlottie \
+    -skip activeqt -skip qtscript -skip qtxmlpatterns -skip qtscxml -skip qtvirtualkeyboard \
+    -skip qtwebengine -skip qtwebview -skip qtwebglplugin \
+    -no-cups -no-pch -no-libproxy \
+    -no-sql-db2 -no-sql-ibase -no-sql-mysql -no-sql-oci -no-sql-odbc -no-sql-psql -no-sql-sqlite2 -no-sql-tds \
+    -no-feature-printdialog -no-feature-printer -no-feature-printpreviewdialog -no-feature-printpreviewwidget \
+    2>&1 | tail -20
+
+RUN make -j$(nproc) 2>&1 | tail -5
+RUN make install
+
+# Clone the Kobo platform plugin
+WORKDIR /opt
+RUN git clone --depth 1 https://github.com/Rain92/qt5-kobo-platform-plugin.git
+
+# Build the platform plugin
+WORKDIR /opt/qt5-kobo-platform-plugin
+RUN /opt/qt-bin/${QTDIR}/bin/qmake && make -j$(nproc)
+
+# Set up the build environment for the app
+WORKDIR /build
+ENV QMAKE=/opt/qt-bin/${QTDIR}/bin/qmake
+
+# Default: build the application
+CMD ["sh", "-c", "cd /src && ${QMAKE} CONFIG+=kobo && make -j$(nproc) && cp UltimateMangaReader /output/"]

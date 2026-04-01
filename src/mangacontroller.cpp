@@ -44,11 +44,18 @@ void MangaController::chaptersMoved(QList<QPair<int, int>>)
 
 Result<void, QString> MangaController::assurePagesLoaded()
 {
+    if (!currentManga || !currentManga->mangaSource)
+        return Err(QString("No manga selected."));
+
     if (currentManga->chapters.count() == 0)
-        return Err(QString("Manga has no chapters."));
+        return Err(QString("No chapters available."));
 
     if (currentIndex.chapter >= currentManga->chapters.count() || currentIndex.chapter < 0)
         currentIndex.chapter = qMax(0, currentManga->chapters.count() - 1);
+
+    // Light novels don't need page lists loaded
+    if (currentManga->mangaSource->contentType == ContentLightNovel)
+        return Ok();
 
     if (!currentIndex.currentChapter().pagesLoaded ||
         currentIndex.currentChapter().imageUrlList[currentIndex.page] == "")
@@ -81,8 +88,15 @@ void MangaController::setCurrentIndex(const MangaIndex &index)
 
 Result<QString, QString> MangaController::getImageUrl(const MangaIndex &index)
 {
+    if (!currentManga || !currentManga->mangaSource)
+        return Err(QString("No manga selected."));
+
     if (index.chapter < 0 || index.chapter >= currentManga->chapters.count())
         return Err(QString("Chapter number out of bounds."));
+
+    // Light novels don't have image pages
+    if (currentManga->mangaSource->contentType == ContentLightNovel)
+        return Err(QString("Light novel - use text reader."));
 
     if (!currentManga->chapters[index.chapter].pagesLoaded)
     {
@@ -107,14 +121,25 @@ Result<QString, QString> MangaController::getImageUrl(const MangaIndex &index)
 }
 void MangaController::currentIndexChangedInternal(bool preload)
 {
+    if (!currentManga || !currentManga->mangaSource)
+        return;
+
+    int pageCount = 1;
+    if (currentManga->mangaSource->contentType != ContentLightNovel &&
+        currentIndex.chapter >= 0 && currentIndex.chapter < currentManga->chapters.count() &&
+        currentManga->chapters[currentIndex.chapter].pagesLoaded)
+    {
+        pageCount = static_cast<int>(currentIndex.currentChapter().pageUrlList.count());
+    }
+
     emit currentIndexChanged(
-        {currentIndex, static_cast<int>(currentManga->chapters.count()), static_cast<int>(currentIndex.currentChapter().pageUrlList.count())});
+        {currentIndex, static_cast<int>(currentManga->chapters.count()), pageCount});
 
     updateCurrentImage();
 
     serializeProgress();
 
-    if (preload)
+    if (preload && currentManga->mangaSource->contentType != ContentLightNovel)
         QTimer::singleShot(50, this, &MangaController::preloadNeighbours);
 
     emit activity();
@@ -122,33 +147,94 @@ void MangaController::currentIndexChangedInternal(bool preload)
 
 void MangaController::updateCurrentImage()
 {
-    auto imageUrl = getImageUrl(currentIndex);
-
-    if (!imageUrl.isOk())
+    if (!currentManga || !currentManga->mangaSource)
     {
-        emit currentImageChanged("error");
-        emit error(imageUrl.unwrapErr());
+        emit error("No manga selected.");
         return;
     }
 
-    auto dd = DownloadImageDescriptor(imageUrl.unwrap(), currentManga->title, currentIndex.chapter,
-                                      currentIndex.page);
-
-    auto imagePath = currentManga->mangaSource->downloadAwaitImage(dd);
-
-    if (imagePath.isOk())
+    // Check if this is a light novel source
+    if (currentManga->mangaSource->contentType == ContentLightNovel)
     {
-        emit currentImageChanged(imagePath.unwrap());
+        if (currentIndex.chapter < 0 || currentIndex.chapter >= currentManga->chapters.count())
+        {
+            emit error("Chapter out of bounds.");
+            return;
+        }
+
+        try
+        {
+            auto chapterUrl = currentManga->chapters[currentIndex.chapter].chapterUrl;
+            auto textResult = currentManga->mangaSource->getChapterText(chapterUrl);
+
+            if (textResult.isOk())
+            {
+                auto title = currentManga->chapters[currentIndex.chapter].chapterTitle;
+                emit currentTextChanged(textResult.unwrap(), title);
+            }
+            else
+            {
+                emit error(textResult.unwrapErr());
+            }
+        }
+        catch (...)
+        {
+            emit error("Failed to load chapter text.");
+        }
+        return;
     }
-    else
+
+    // Try up to 3 times - on failure, invalidate cached URL and retry
+    for (int attempt = 0; attempt < 3; attempt++)
     {
-        emit currentImageChanged("error");
-        emit error(imagePath.unwrapErr());
+        auto imageUrl = getImageUrl(currentIndex);
+
+        if (!imageUrl.isOk())
+        {
+            if (attempt >= 2)
+            {
+                emit currentImageChanged("error");
+                emit error(imageUrl.unwrapErr());
+            }
+            return;
+        }
+
+        auto dd = DownloadImageDescriptor(imageUrl.unwrap(), currentManga->title,
+                                          currentIndex.chapter, currentIndex.page);
+
+        auto imagePath = currentManga->mangaSource->downloadAwaitImage(dd);
+
+        if (imagePath.isOk())
+        {
+            emit currentImageChanged(imagePath.unwrap());
+            return;
+        }
+
+        // Failed - invalidate the cached image URL so next attempt gets a fresh one
+        if (currentIndex.chapter >= 0 && currentIndex.chapter < currentManga->chapters.count())
+        {
+            auto &ch = currentManga->chapters[currentIndex.chapter];
+            if (currentIndex.page < ch.imageUrlList.count())
+                ch.imageUrlList[currentIndex.page] = "";
+            // Also invalidate the page list so getPageList re-fetches from the server
+            if (attempt >= 1)
+                ch.pagesLoaded = false;
+        }
+
+        qDebug() << "Image load failed, retry" << (attempt + 1);
     }
+
+    emit currentImageChanged("error");
 }
 
 void MangaController::advanceMangaPage(PageTurnDirection direction)
 {
+    if (!currentManga)
+    {
+        emit indexMovedOutOfBounds();
+        return;
+    }
+
     bool inbound = false;
     if (direction == Forward)
     {
@@ -185,6 +271,13 @@ void MangaController::advanceMangaPage(PageTurnDirection direction)
 
 void MangaController::preloadImage(const MangaIndex &index)
 {
+    if (!currentManga || !currentManga->mangaSource)
+        return;
+
+    // Don't preload images for light novel sources
+    if (currentManga->mangaSource->contentType == ContentLightNovel)
+        return;
+
     auto imageUrl = getImageUrl(index);
 
     if (!imageUrl.isOk())
@@ -199,13 +292,15 @@ void MangaController::preloadImage(const MangaIndex &index)
     if (QFile::exists(path))
         return;
 
-    //    qDebug() << "preload page" << index.page;
-
     preloadQueue.appendDownload(FileDownloadDescriptor(imageUrl.unwrap(), path));
 }
 
 void MangaController::preloadPopular()
 {
+    if (!currentManga || !currentManga->mangaSource)
+        return;
+    if (currentManga->mangaSource->contentType == ContentLightNovel)
+        return;
     if (currentManga->chapters.count() == 0)
         return;
 

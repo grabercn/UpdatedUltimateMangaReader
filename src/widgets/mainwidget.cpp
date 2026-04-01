@@ -1,5 +1,9 @@
 #include "mainwidget.h"
 
+#include <QListWidget>
+#include <QToolButton>
+#include <QVBoxLayout>
+
 #include "ui_mainwidget.h"
 
 MainWidget::MainWidget(QWidget *parent)
@@ -9,10 +13,63 @@ MainWidget::MainWidget(QWidget *parent)
       lastTab(MangaInfoTab),
       virtualKeyboard(new VirtualKeyboard(this)),
       errorMessageWidget(new ErrorMessageWidget(this)),
-      powerButtonTimer(new QTimer(this))
+      powerButtonTimer(new QTimer(this)),
+      spinner(nullptr)
 {
     ui->setupUi(this);
     adjustUI();
+
+    spinner = new SpinnerWidget(this);
+    spinner->hide();
+
+    // Download queue - full page widget
+    downloadQueueWidget = new DownloadQueueWidget(this);
+    ui->stackedWidget->addWidget(downloadQueueWidget);  // index = DownloadsTab (4)
+
+    connect(downloadQueueWidget, &DownloadQueueWidget::backClicked,
+            this, [this]() { readerGoBack(); });
+
+    connect(downloadQueueWidget, &DownloadQueueWidget::cancelRequested,
+            core->mangaChapterDownloadManager, &MangaChapterDownloadManager::cancelDownloads);
+
+    connect(downloadQueueWidget, &DownloadQueueWidget::openMangaRequested,
+            this, [this](const QString &source, const QString &title)
+            {
+                // Find the source and load the cached manga
+                for (const auto &ms : core->mangaSources)
+                {
+                    if (ms->name == source)
+                    {
+                        core->setCurrentMangaSource(ms.get());
+                        auto infoPath = CONF.mangainfodir(source, title) + "mangainfo.dat";
+                        if (QFile::exists(infoPath))
+                        {
+                            try
+                            {
+                                auto info = MangaInfo::deserialize(ms.get(), infoPath);
+                                if (info)
+                                {
+                                    core->mangaController->setCurrentManga(info);
+                                    return;
+                                }
+                            }
+                            catch (...) {}
+                        }
+                        break;
+                    }
+                }
+            });
+
+    // Add download button to header bar
+    auto *downloadBtn = new QToolButton(this);
+    downloadBtn->setIcon(QIcon(":/images/icons/download.png"));
+    downloadBtn->setIconSize(QSize(SIZES.wifiIconSize, SIZES.wifiIconSize));
+    downloadBtn->setMinimumSize(QSize(40, 40));
+    downloadBtn->setFocusPolicy(Qt::NoFocus);
+    downloadBtn->setToolTip("Downloads");
+    ui->horizontalLayout_5->insertWidget(3, downloadBtn);
+    connect(downloadBtn, &QToolButton::clicked, this,
+            [this]() { setWidgetTab(DownloadsTab); });
     ui->batteryIcon->updateIcon();
     setupVirtualKeyboard();
 
@@ -20,7 +77,7 @@ MainWidget::MainWidget(QWidget *parent)
 
     // Dialogs
     menuDialog = new MenuDialog(this);
-    settingsDialog = new SettingsDialog(&core->settings, this);
+    settingsDialog = new SettingsDialog(&core->settings, core->aniList, this);
     updateMangaListsDialog = new UpdateMangaListsDialog(&core->settings, this);
     clearCacheDialog = new ClearCacheDialog(this);
     wifiDialog = new WifiDialog(this, core->networkManager);
@@ -43,11 +100,41 @@ MainWidget::MainWidget(QWidget *parent)
     QObject::connect(updateMangaListsDialog, &UpdateMangaListsDialog::updateClicked, core,
                      &UltimateMangaReaderCore::updateMangaLists);
 
+    // Download to app cache
     QObject::connect(downloadMangaChaptersDialog, &DownloadMangaChaptersDialog::downloadConfirmed,
                      [this](auto m, auto f, auto t)
                      {
-                         downloadStatusDialog->open();
+                         bool isLN = m->mangaSource && m->mangaSource->contentType == ContentLightNovel;
+                         downloadQueueWidget->addJob(m->title, m->hostname, f, t, false, isLN);
                          core->mangaChapterDownloadManager->downloadMangaChapters(m, f, t);
+                         setWidgetTab(DownloadsTab);
+                     });
+
+    // Export to Kobo device
+    QObject::connect(downloadMangaChaptersDialog, &DownloadMangaChaptersDialog::exportToDeviceConfirmed,
+                     [this](auto m, auto f, auto t)
+                     {
+                         bool isLN = m->mangaSource && m->mangaSource->contentType == ContentLightNovel;
+                         downloadQueueWidget->addJob(m->title, m->hostname, f, t, true, isLN);
+
+                         showLoadingIndicator();
+                         bool success;
+                         if (isLN)
+                             success = core->exportNovelAsEPUB(m, f, t);
+                         else
+                         {
+                             // First download chapters to cache, then export
+                             core->mangaChapterDownloadManager->downloadMangaChapters(m, f, t);
+                             success = true;  // CBZ export happens after download completes
+                         }
+                         hideLoadingIndicator();
+
+                         if (success)
+                             downloadQueueWidget->jobCompleted(m->title);
+                         else
+                             downloadQueueWidget->jobFailed(m->title, "Export failed");
+
+                         setWidgetTab(DownloadsTab);
                      });
 
     QObject::connect(downloadStatusDialog, &DownloadStatusDialog::abortDownloads,
@@ -74,9 +161,9 @@ MainWidget::MainWidget(QWidget *parent)
                          ui->toolButtonWifiIcon->setIcon(icon);
                      });
 
-    // MangaChapterDownloadManager
+    // MangaChapterDownloadManager - log errors but don't spam popups
     QObject::connect(core->mangaChapterDownloadManager, &MangaChapterDownloadManager::error, this,
-                     &MainWidget::showErrorMessage);
+                     [](const QString &msg) { qDebug() << "Download error:" << msg; });
 
     QObject::connect(core->mangaChapterDownloadManager, &MangaChapterDownloadManager::downloadStart,
                      downloadStatusDialog, &DownloadStatusDialog::downloadStart);
@@ -94,10 +181,39 @@ MainWidget::MainWidget(QWidget *parent)
     QObject::connect(core->mangaChapterDownloadManager, &MangaChapterDownloadManager::downloadCompleted,
                      downloadStatusDialog, &DownloadStatusDialog::downloadCompleted);
 
+    // Wire download progress to queue widget
+    QObject::connect(core->mangaChapterDownloadManager, &MangaChapterDownloadManager::downloadStart,
+                     [this](const QString &title)
+                     {
+                         // Mark the job as active
+                         for (auto &j : downloadQueueWidget->findChildren<QLabel *>())
+                             Q_UNUSED(j);  // just need the widget reference
+                     });
+
+    QObject::connect(core->mangaChapterDownloadManager,
+                     &MangaChapterDownloadManager::downloadImagesProgress,
+                     [this](int completed, int total, int)
+                     {
+                         downloadQueueWidget->updateActiveJob(completed, total, 0);
+                     });
+
+    QObject::connect(core->mangaChapterDownloadManager,
+                     &MangaChapterDownloadManager::downloadCompleted,
+                     [this]()
+                     {
+                         if (core->mangaController->currentManga)
+                             downloadQueueWidget->jobCompleted(
+                                 core->mangaController->currentManga->title);
+                     });
+
     // Core
     QObject::connect(core, &UltimateMangaReaderCore::error, this, &MainWidget::showErrorMessage);
 
     QObject::connect(core, &UltimateMangaReaderCore::timeTick, this, &MainWidget::timerTick);
+
+    // AniList + Favorites
+    ui->homeWidget->setAniList(core->aniList);
+    ui->homeWidget->setFavoritesManager(core->favoritesManager);
 
     QObject::connect(core, &UltimateMangaReaderCore::activeMangaSourcesChanged, ui->homeWidget,
                      &HomeWidget::updateSourcesList);
@@ -116,6 +232,68 @@ MainWidget::MainWidget(QWidget *parent)
                          ui->mangaReaderWidget->clearCache();
                      });
 
+    // Auto-track AniList progress when reading
+    // Track completed chapters: when moving to ch.N, mark ch.N-1 as completed
+    QObject::connect(core->mangaController, &MangaController::currentIndexChanged,
+                     [this](const ReadingProgress &progress)
+                     {
+                         if (core->aniList && core->aniList->isLoggedIn() &&
+                             core->mangaController->currentManga)
+                         {
+                             try
+                             {
+                                 auto manga = core->mangaController->currentManga;
+                                 int currentCh = progress.index.chapter;
+                                 int totalCh = manga->chapters.count();
+
+                                 // Track: current chapter index = completed chapters
+                                 // (reading ch.1 means ch.0 is completed = 1 completed)
+                                 // But if on ch.0 pg.0, don't track yet (just opened)
+                                 int completed = currentCh;
+                                 if (completed > 0 || progress.index.page > 0)
+                                 {
+                                     if (progress.index.page > 0)
+                                         completed = currentCh;  // still reading this chapter
+                                     else
+                                         completed = currentCh;  // moved to next chapter
+
+                                     core->aniList->trackReading(manga->title, completed);
+                                 }
+
+                                 // Auto-complete if at the last chapter's last page
+                                 if (currentCh >= totalCh - 1 && totalCh > 0)
+                                 {
+                                     // Check if this is truly the end
+                                     bool atEnd = false;
+                                     if (manga->mangaSource->contentType == ContentLightNovel)
+                                         atEnd = true;  // LN: being on last chapter = done
+                                     else if (progress.numPages > 0 &&
+                                              progress.index.page >= progress.numPages - 1)
+                                         atEnd = true;
+
+                                     if (atEnd)
+                                     {
+                                         core->aniList->trackReading(manga->title, totalCh);
+                                         // Mark as COMPLETED on AniList
+                                         auto entry = core->aniList->findByTitle(manga->title);
+                                         if (entry.mediaId > 0)
+                                             core->aniList->updateStatus(entry.mediaId, 3);
+                                     }
+                                 }
+                             }
+                             catch (...)
+                             {
+                                 qDebug() << "AniList tracking error (non-fatal)";
+                             }
+                         }
+                     });
+
+    QObject::connect(core->mangaController, &MangaController::currentTextChanged,
+                     [this](const QString &text, const QString &title)
+                     {
+                         ui->mangaReaderWidget->showText(text, title);
+                     });
+
     QObject::connect(core->mangaController, &MangaController::completedImagePreloadSignal,
                      ui->mangaReaderWidget,
                      [this](auto path) { ui->mangaReaderWidget->addImageToCache(path, true); });
@@ -129,7 +307,16 @@ MainWidget::MainWidget(QWidget *parent)
     QObject::connect(core->mangaController, &MangaController::indexMovedOutOfBounds, this,
                      &MainWidget::readerGoBack);
 
-    QObject::connect(core->mangaController, &MangaController::error, this, &MainWidget::showErrorMessage);
+    // Log controller errors but don't spam the user with popups for image failures
+    QObject::connect(core->mangaController, &MangaController::error, this,
+                     [this](const QString &msg)
+                     {
+                         qDebug() << "Reader error:" << msg;
+                         // Only show non-download errors to user
+                         if (!msg.contains("404") && !msg.contains("transferring") &&
+                             !msg.contains("timeout", Qt::CaseInsensitive))
+                             showErrorMessage(msg);
+                     });
 
     // FavoritesManager
     QObject::connect(core->favoritesManager, &FavoritesManager::error, this, &MainWidget::showErrorMessage);
@@ -138,13 +325,20 @@ MainWidget::MainWidget(QWidget *parent)
     QObject::connect(ui->homeWidget, &HomeWidget::mangaSourceClicked, core,
                      &UltimateMangaReaderCore::setCurrentMangaSource);
 
-    QObject::connect(ui->homeWidget, &HomeWidget::mangaClicked, core,
-                     &UltimateMangaReaderCore::setCurrentManga);
+    QObject::connect(ui->homeWidget, &HomeWidget::mangaClicked,
+                     [this](const QString &url, const QString &title)
+                     {
+                         showLoadingIndicator();
+                         core->setCurrentManga(url, title);
+                         hideLoadingIndicator();
+                     });
 
     QObject::connect(core, &UltimateMangaReaderCore::currentMangaSourceChanged, ui->homeWidget,
                      &HomeWidget::currentMangaSourceChanged);
 
     // MangaInfoWidget
+    ui->mangaInfoWidget->setAniList(core->aniList);
+
     QObject::connect(ui->mangaInfoWidget, &MangaInfoWidget::toggleFavoriteClicked,
                      [this](auto info)
                      {
@@ -172,6 +366,7 @@ MainWidget::MainWidget(QWidget *parent)
 
     // FavoritesWidget
     ui->favoritesWidget->favoritesManager = core->favoritesManager;
+    ui->favoritesWidget->aniList = core->aniList;
 
     QObject::connect(ui->favoritesWidget, &FavoritesWidget::favoriteClicked,
                      [this](auto mangainfo, auto jumptoreader)
@@ -227,13 +422,39 @@ MainWidget::~MainWidget()
 
 void MainWidget::adjustUI()
 {
-    ui->pushButtonClose->setProperty("type", "borderless");
     ui->pushButtonFavorites->setProperty("type", "borderless");
     ui->pushButtonHome->setProperty("type", "borderless");
 
-    ui->pushButtonClose->setFixedHeight(SIZES.buttonSize);
     ui->pushButtonFavorites->setFixedHeight(SIZES.buttonSize);
     ui->pushButtonHome->setFixedHeight(SIZES.buttonSize);
+
+    // Replace Close with Back arrow on the left side
+    ui->pushButtonClose->setText("< Back");
+    ui->pushButtonClose->setProperty("type", "borderless");
+    ui->pushButtonClose->setFixedHeight(SIZES.buttonSize);
+    // Reorder: [< Back | Home | Favorites]
+    auto *btnLayout = qobject_cast<QHBoxLayout *>(ui->frameButtons->layout());
+    if (btnLayout)
+    {
+        // Remove all widgets from layout
+        while (btnLayout->count() > 0)
+            btnLayout->takeAt(0);
+
+        // Re-add in new order with separators
+        btnLayout->addWidget(ui->pushButtonClose);
+        ui->frame_2->setStyleSheet("color: #ccc;");
+        ui->frame_2->show();
+        btnLayout->addWidget(ui->frame_2);
+        btnLayout->addWidget(ui->pushButtonHome);
+        ui->frame_3->setStyleSheet("color: #ccc;");
+        ui->frame_3->show();
+        btnLayout->addWidget(ui->frame_3);
+        btnLayout->addWidget(ui->pushButtonFavorites);
+    }
+
+    // Reconnect Close button to go back instead of quit
+    disconnect(ui->pushButtonClose, nullptr, nullptr, nullptr);
+    connect(ui->pushButtonClose, &QPushButton::clicked, this, &MainWidget::readerGoBack);
 
     ui->toolButtonMenu->setFixedSize(QSize(SIZES.menuIconSize, SIZES.menuIconSize));
     ui->toolButtonMenu->setIconSize(QSize(SIZES.menuIconSize, SIZES.menuIconSize));
@@ -296,15 +517,33 @@ bool MainWidget::buttonPressEvent(QKeyEvent *event)
     {
         qDebug() << "Powerkey press";
         powerButtonTimer->start(2000);
-
         return true;
     }
     else if (event->key() == SLEEPCOVERBUTTON)
     {
         qDebug() << "Sleepcover closed";
         core->suspendManager->suspend();
-
         return true;
+    }
+    // Page buttons scroll lists when not in reader
+    else if (event->key() == Qt::Key_PageDown || event->key() == Qt::Key_PageUp ||
+             event->key() == Qt::Key_Left || event->key() == Qt::Key_Right)
+    {
+        // Find the currently visible scrollable list
+        QAbstractScrollArea *scrollArea = nullptr;
+        auto *stack = ui->stackedWidget;
+        auto *current = stack->currentWidget();
+        if (current)
+            scrollArea = current->findChild<QAbstractScrollArea *>();
+
+        if (scrollArea && scrollArea->verticalScrollBar())
+        {
+            auto *sb = scrollArea->verticalScrollBar();
+            int step = scrollArea->viewport()->height();
+            bool down = (event->key() == Qt::Key_PageDown || event->key() == Qt::Key_Right);
+            sb->setValue(sb->value() + (down ? step : -step));
+            return true;
+        }
     }
 
     return false;
@@ -326,11 +565,28 @@ void MainWidget::onSuspend()
 {
     core->enableTimers(false);
     wifiDialog->close();
+
+    // Pass current reading info to sleep screen
+    if (core->mangaController->currentManga)
+    {
+        screensaverDialog->setCurrentManga(
+            core->mangaController->currentManga,
+            core->mangaController->currentIndex.chapter,
+            core->mangaController->currentIndex.page);
+    }
+
+    int bat = 100;
+#ifdef KOBO
+    bat = KoboPlatformFunctions::getBatteryLevel();
+#endif
+    screensaverDialog->setBatteryLevel(bat);
+
     screensaverDialog->showRandomScreensaver();
 
     disableFrontLight();
 
-    core->networkManager->disconnectWifi();
+    if (core->settings.wifiAutoDisconnect)
+        core->networkManager->disconnectWifi();
 }
 
 void MainWidget::onResume()
@@ -438,7 +694,8 @@ void MainWidget::on_pushButtonFavorites_clicked()
 
 void MainWidget::on_pushButtonClose_clicked()
 {
-    close();
+    // Now used as Back button - handled by readerGoBack connection in adjustUI
+    readerGoBack();
 }
 
 void MainWidget::resizeEvent(QResizeEvent *event)
@@ -459,14 +716,26 @@ void MainWidget::setWidgetTab(WidgetTab tab)
     enableVirtualKeyboard(false);
     core->mangaController->cancelAllPreloads();
 
-    if (tab == ui->stackedWidget->currentIndex())
+    int currentIdx = ui->stackedWidget->currentIndex();
+    if (tab == currentIdx)
         return;
+
+    // Push current tab to history (but don't push duplicates)
+    auto currentTab = static_cast<WidgetTab>(currentIdx);
+    if (tabHistory.isEmpty() || tabHistory.last() != currentTab)
+        tabHistory.append(currentTab);
+    // Keep history bounded
+    while (tabHistory.size() > 10)
+        tabHistory.removeFirst();
+
     switch (tab)
     {
         case HomeTab:
             ui->navigationBar->setVisible(true);
             ui->frameHeader->setVisible(true);
             lastTab = HomeTab;
+            // Refresh home view to update stars etc
+            ui->homeWidget->refreshHomeView();
             break;
         case FavoritesTab:
             ui->favoritesWidget->showFavoritesList();
@@ -483,14 +752,16 @@ void MainWidget::setWidgetTab(WidgetTab tab)
             ui->navigationBar->setVisible(false);
             ui->frameHeader->setVisible(false);
             break;
+        case DownloadsTab:
+            ui->navigationBar->setVisible(false);
+            ui->frameHeader->setVisible(false);
+            break;
     }
     ui->frameHeader->repaint();
 
     ui->batteryIcon->updateIcon();
     ui->stackedWidget->setCurrentIndex(tab);
 
-    // kiwilex issue-15
-    // force focus on widget to activate signal for hardware buttons
     QWidget *w = ui->stackedWidget->currentWidget();
     if (w)
         w->setFocus();
@@ -498,7 +769,17 @@ void MainWidget::setWidgetTab(WidgetTab tab)
 
 void MainWidget::readerGoBack()
 {
-    setWidgetTab(lastTab);
+    // Pop from history, skip MangaInfoTab if no manga is loaded
+    while (!tabHistory.isEmpty())
+    {
+        auto tab = tabHistory.takeLast();
+        if (tab == MangaInfoTab && (!core->mangaController->currentManga))
+            continue;  // skip blank info page
+        setWidgetTab(tab);
+        return;
+    }
+    // Fallback to home
+    setWidgetTab(HomeTab);
 }
 
 bool MainWidget::eventFilter(QObject *, QEvent *event)
@@ -533,6 +814,12 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
     switch (button)
     {
         case ExitButton:
+            core->enableTimers(false);
+            core->mangaController->cancelAllPreloads();
+            core->mangaChapterDownloadManager->cancelDownloads();
+            core->settings.serialize();
+            if (core->aniList)
+                core->aniList->serialize();
             close();
             break;
         case SettingsButton:
@@ -547,7 +834,190 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
         case AboutButton:
             aboutDialog->open();
             break;
+        case HistoryButton:
+        {
+            // Show history as a simple dialog with list
+            QDialog dlg(this);
+            dlg.setWindowFlags(Qt::Popup);
+            dlg.setMaximumSize(this->size());
+            dlg.resize(this->width() - 20, this->height() - 40);
+
+            auto *layout = new QVBoxLayout(&dlg);
+            auto *title = new QLabel("<b>History</b>", &dlg);
+            title->setAlignment(Qt::AlignCenter);
+            title->setStyleSheet("font-size: 14pt; padding: 8px;");
+            layout->addWidget(title);
+
+            auto *list = new QListWidget(&dlg);
+            list->setStyleSheet("font-size: 11pt;");
+            activateScroller(list);
+
+            for (const auto &h : core->browsingHistory)
+            {
+                auto text = h.title + "  [" + h.sourceName + "]";
+                if (h.timestamp.isValid())
+                    text += "  " + h.timestamp.toString("MM/dd hh:mm");
+                list->addItem(text);
+            }
+
+            if (core->browsingHistory.isEmpty())
+                list->addItem("No history yet");
+
+            layout->addWidget(list);
+
+            auto *closeBtn = new QPushButton("Close", &dlg);
+            closeBtn->setFixedHeight(SIZES.buttonSize);
+            connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::close);
+            layout->addWidget(closeBtn);
+
+            dlg.exec();
+            break;
+        }
+        case AniListButton:
+        {
+            // Show AniList management dialog
+            QDialog dlg(this);
+            dlg.setWindowFlags(Qt::Popup);
+            dlg.setMaximumSize(this->size());
+            dlg.resize(this->width() - 20, this->height() - 40);
+
+            auto *layout = new QVBoxLayout(&dlg);
+            auto *title = new QLabel("<b>AniList</b>", &dlg);
+            title->setAlignment(Qt::AlignCenter);
+            title->setStyleSheet("font-size: 14pt; padding: 8px;");
+            layout->addWidget(title);
+
+            if (core->aniList->isLoggedIn())
+            {
+                auto *status = new QLabel("Logged in as: " + core->aniList->username(), &dlg);
+                status->setAlignment(Qt::AlignCenter);
+                layout->addWidget(status);
+
+                auto *refreshBtn = new QPushButton("Refresh List", &dlg);
+                refreshBtn->setFixedHeight(SIZES.buttonSize);
+                connect(refreshBtn, &QPushButton::clicked, &dlg, [this, &dlg]()
+                {
+                    core->aniList->fetchMangaList();
+                    dlg.close();
+                });
+                layout->addWidget(refreshBtn);
+
+                auto *list = new QListWidget(&dlg);
+                list->setStyleSheet("font-size: 10pt;");
+                activateScroller(list);
+
+                int statuses[] = {1, 2, 5, 3, 4, 6};
+                for (int s : statuses)
+                {
+                    auto entries = core->aniList->entriesByStatus(s);
+                    if (entries.isEmpty())
+                        continue;
+
+                    auto *header = new QListWidgetItem("-- " + AniList::statusName(s) +
+                                  " (" + QString::number(entries.size()) + ") --");
+                    header->setForeground(QColor(100, 100, 100));
+                    list->addItem(header);
+
+                    for (const auto &e : entries)
+                    {
+                        QString info = "  " + e.title + "  Ch." + QString::number(e.progress);
+                        if (e.totalChapters > 0)
+                            info += "/" + QString::number(e.totalChapters);
+                        if (e.score > 0)
+                            info += "  Score:" + QString::number(e.score);
+                        auto *item = new QListWidgetItem(info);
+                        item->setData(Qt::UserRole, e.title);
+                        list->addItem(item);
+                    }
+                }
+
+                // Click entry to open directly or search
+                connect(list, &QListWidget::itemClicked, &dlg, [this, &dlg](QListWidgetItem *item)
+                {
+                    auto title = item->data(Qt::UserRole).toString();
+                    if (title.isEmpty())
+                        return;
+
+                    dlg.close();
+
+                    // Try to find cached manga info locally first
+                    for (const auto &ms : core->mangaSources)
+                    {
+                        auto infoDir = CONF.mangasourcedir(ms->name);
+                        QDir dir(infoDir);
+                        for (const auto &mangaDir : dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot))
+                        {
+                            auto infoPath = infoDir + mangaDir + "/mangainfo.dat";
+                            if (!QFile::exists(infoPath))
+                                continue;
+                            // Check if the cached title matches
+                            auto clean = mangaDir.toLower().replace("-", " ");
+                            if (clean.contains(title.toLower()) || title.toLower().contains(clean))
+                            {
+                                try
+                                {
+                                    auto info = MangaInfo::deserialize(ms.get(), infoPath);
+                                    if (info && !info->title.isEmpty())
+                                    {
+                                        core->setCurrentMangaSource(ms.get());
+                                        core->mangaController->setCurrentManga(info);
+                                        return;
+                                    }
+                                }
+                                catch (...) {}
+                            }
+                        }
+                    }
+
+                    // Not found locally - search for it
+                    setWidgetTab(HomeTab);
+                    auto *lineEdit = ui->homeWidget->findChild<QLineEdit *>("lineEditFilter");
+                    if (lineEdit)
+                    {
+                        lineEdit->setText(title);
+                        QMetaObject::invokeMethod(ui->homeWidget, "on_pushButtonFilter_clicked");
+                    }
+                });
+
+                layout->addWidget(list, 1);
+
+                auto *logoutBtn = new QPushButton("Logout", &dlg);
+                logoutBtn->setFixedHeight(SIZES.buttonSize);
+                connect(logoutBtn, &QPushButton::clicked, &dlg, [this, &dlg]()
+                {
+                    core->aniList->logout();
+                    dlg.close();
+                });
+                layout->addWidget(logoutBtn);
+            }
+            else
+            {
+                auto *info = new QLabel("Not logged in.\nGo to Settings to connect.", &dlg);
+                info->setAlignment(Qt::AlignCenter);
+                info->setStyleSheet("font-size: 12pt; padding: 20px;");
+                layout->addWidget(info);
+            }
+
+            auto *closeBtn = new QPushButton("Close", &dlg);
+            closeBtn->setFixedHeight(SIZES.buttonSize);
+            connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::close);
+            layout->addWidget(closeBtn);
+
+            dlg.exec();
+            break;
+        }
     }
+}
+
+void MainWidget::showLoadingIndicator()
+{
+    spinner->start();
+    QApplication::processEvents();
+}
+
+void MainWidget::hideLoadingIndicator()
+{
+    spinner->stop();
 }
 
 void MainWidget::on_toolButtonWifiIcon_clicked()

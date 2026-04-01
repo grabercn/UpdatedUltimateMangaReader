@@ -1,8 +1,10 @@
 #ifndef SUSPENDMANAGER_H
 #define SUSPENDMANAGER_H
 
+#ifndef _WIN32
 #include <fcntl.h>
 #include <unistd.h>
+#endif
 
 #include <QObject>
 

@@ -14,6 +14,9 @@ Settings::Settings()
       trimPages(true),
       manhwaMode(true),
       ditheringMode(SWDithering),
+      offlineMode(false),
+      autoSuspendMinutes(15),
+      wifiAutoDisconnect(true),
       timer()
 {
     QObject::connect(&timer, &QTimer::timeout, [this]() { this->serialize(); });
@@ -51,17 +54,33 @@ QDataStream &operator<<(QDataStream &str, const Settings &m)
 {
     str << m.lightValue << m.comflightValue << m.hideErrorMessages << m.tabAdvance << m.swipeAdvance
         << m.buttonAdvance << m.mangaOrder << m.doublePageMode << m.trimPages << m.manhwaMode
-        << m.enabledMangaSources << m.ditheringMode;
+        << m.enabledMangaSources << m.ditheringMode << m.aniListToken;
 
     return str;
 }
 
 QDataStream &operator>>(QDataStream &str, Settings &m)
 {
-    m.enabledMangaSources.clear();
-    str >> m.lightValue >> m.comflightValue >> m.hideErrorMessages >> m.tabAdvance >> m.swipeAdvance >>
-        m.buttonAdvance >> m.mangaOrder >> m.doublePageMode >> m.trimPages >> m.manhwaMode >>
-        m.enabledMangaSources >> m.ditheringMode;
+    try
+    {
+        m.enabledMangaSources.clear();
+        str >> m.lightValue >> m.comflightValue >> m.hideErrorMessages >> m.tabAdvance >> m.swipeAdvance >>
+            m.buttonAdvance >> m.mangaOrder >> m.doublePageMode >> m.trimPages >> m.manhwaMode >>
+            m.enabledMangaSources >> m.ditheringMode;
+
+        if (str.status() != QDataStream::Ok)
+        {
+            qDebug() << "Settings file partially corrupt, using defaults for remaining fields";
+            return str;
+        }
+
+        if (!str.atEnd())
+            str >> m.aniListToken;
+    }
+    catch (...)
+    {
+        qDebug() << "Error reading settings, using defaults";
+    }
 
     return str;
 }

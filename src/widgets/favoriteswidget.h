@@ -25,6 +25,7 @@ public:
 
     void showFavoritesList();
     FavoritesManager *favoritesManager;
+    class AniList *aniList = nullptr;
 
 signals:
     void favoriteClicked(QSharedPointer<MangaInfo> fav, bool current);

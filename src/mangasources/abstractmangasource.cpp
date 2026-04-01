@@ -3,8 +3,26 @@
 #include "mangainfo.h"
 
 AbstractMangaSource::AbstractMangaSource(NetworkManager *networkManager)
-    : mangaInfoPostDataStr(), networkManager(networkManager), htmlConverter()
+    : contentType(ContentManga), mangaInfoPostDataStr(), networkManager(networkManager), htmlConverter()
 {
+}
+
+Result<MangaList, QString> AbstractMangaSource::searchManga(const QString &query, int maxResults)
+{
+    // Default: search the cached local manga list
+    MangaList results;
+    results.absoluteUrls = mangaList.absoluteUrls;
+
+    if (query.isEmpty())
+        return Ok(results);
+
+    for (int i = 0; i < mangaList.titles.size() && results.size < maxResults; i++)
+    {
+        if (mangaList.titles[i].contains(query, Qt::CaseInsensitive))
+            results.append(mangaList.titles[i], mangaList.urls[i]);
+    }
+
+    return Ok(results);
 }
 
 bool AbstractMangaSource::serializeMangaList()
@@ -63,7 +81,7 @@ Result<QString, QString> AbstractMangaSource::downloadAwaitImage(const DownloadI
 
     auto job = networkManager->downloadAsScaledImage(descriptor.imageUrl, path);
 
-    if (job->await(3000))
+    if (job->await(10000))
         return Ok(path);
     else
         return Err(job->errorString);
@@ -74,6 +92,13 @@ Result<QString, QString> AbstractMangaSource::getImageUrl(const QString &pageurl
     // Default implementation:
     // pageurls are actually already imageurls
     return Ok(pageurl);
+}
+
+Result<QString, QString> AbstractMangaSource::getChapterText(const QString &chapterUrl)
+{
+    // Default: not a light novel source
+    Q_UNUSED(chapterUrl);
+    return Err(QString("This source doesn't support text chapters."));
 }
 
 Result<QSharedPointer<MangaInfo>, QString> AbstractMangaSource::loadMangaInfo(const QString &mangaUrl,
@@ -111,7 +136,7 @@ Result<QSharedPointer<MangaInfo>, QString> AbstractMangaSource::loadMangaInfo(co
 Result<QSharedPointer<MangaInfo>, QString> AbstractMangaSource::getMangaInfo(const QString &mangaUrl,
                                                                              const QString &mangaTitle)
 {
-    auto job = networkManager->downloadAsString(mangaUrl, 2000, mangaInfoPostDataStr);
+    auto job = networkManager->downloadAsString(mangaUrl, 15000, mangaInfoPostDataStr);
 
     auto info = QSharedPointer<MangaInfo>(new MangaInfo(this));
 
@@ -120,7 +145,7 @@ Result<QSharedPointer<MangaInfo>, QString> AbstractMangaSource::getMangaInfo(con
     info->url = mangaUrl;
     info->title = mangaTitle;
 
-    if (!job->await(2000))
+    if (!job->await(15000))
         return Err(job->errorString);
 
     int oldnumchapters = info->chapters.count();
@@ -150,7 +175,7 @@ void AbstractMangaSource::updateMangaInfoAsync(QSharedPointer<MangaInfo> info, b
 {
     int oldnumchapters = info->chapters.count();
 
-    auto job = networkManager->downloadAsString(info->url, 2000, mangaInfoPostDataStr);
+    auto job = networkManager->downloadAsString(info->url, 15000, mangaInfoPostDataStr);
 
     auto lambda = [oldnumchapters, info, job, updateCover, this]
     {

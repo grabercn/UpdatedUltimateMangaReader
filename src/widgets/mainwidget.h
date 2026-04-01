@@ -9,6 +9,7 @@
 #include "aboutdialog.h"
 #include "clearcachedialog.h"
 #include "downloadmangachaptersdialog.h"
+#include "downloadqueuewidget.h"
 #include "downloadstatusdialog.h"
 #include "errormessagewidget.h"
 #include "favoriteswidget.h"
@@ -21,6 +22,7 @@
 #include "ultimatemangareadercore.h"
 #include "updatemangalistsdialog.h"
 #include "virtualkeyboard.h"
+#include "spinnerwidget.h"
 #include "wifidialog.h"
 
 #ifdef KOBO
@@ -92,6 +94,7 @@ private:
     UltimateMangaReaderCore *core;
 
     WidgetTab lastTab;
+    QList<WidgetTab> tabHistory;
 
     VirtualKeyboard *virtualKeyboard;
     ErrorMessageWidget *errorMessageWidget;
@@ -106,6 +109,11 @@ private:
     ScreensaverDialog *screensaverDialog;
     DownloadMangaChaptersDialog *downloadMangaChaptersDialog;
     DownloadStatusDialog *downloadStatusDialog;
+    DownloadQueueWidget *downloadQueueWidget;
+
+    SpinnerWidget *spinner;
+    void showLoadingIndicator();
+    void hideLoadingIndicator();
 
     QIcon wifiIcons[2];
 

@@ -11,6 +11,7 @@ UltimateMangaReaderCore::UltimateMangaReaderCore(QObject* parent)
       favoritesManager(new FavoritesManager(activeMangaSources, this)),
       mangaChapterDownloadManager(new MangaChapterDownloadManager(networkManager, this)),
       suspendManager(new SuspendManager(networkManager, this)),
+      aniList(new AniList(networkManager, this)),
       settings(),
       timer(),
       autoSuspendTimer(),
@@ -20,17 +21,30 @@ UltimateMangaReaderCore::UltimateMangaReaderCore(QObject* parent)
     settings.deserialize();
 
     mangaSources.append(QSharedPointer<AbstractMangaSource>(new MangaDex(networkManager)));
-    mangaSources.append(QSharedPointer<AbstractMangaSource>(new ReadManga(networkManager)));
-    mangaSources.append(QSharedPointer<AbstractMangaSource>(new Mangakakalot(networkManager)));
-    mangaSources.append(QSharedPointer<AbstractMangaSource>(new MangaTown(networkManager)));
     mangaSources.append(QSharedPointer<AbstractMangaSource>(new MangaPlus(networkManager)));
+    mangaSources.append(QSharedPointer<AbstractMangaSource>(new MangaTown(networkManager)));
+    mangaSources.append(QSharedPointer<AbstractMangaSource>(
+        new InternetArchive(networkManager, "IAManga", "manga", ContentManga)));
+    mangaSources.append(QSharedPointer<AbstractMangaSource>(new AllNovel(networkManager)));
+    mangaSources.append(QSharedPointer<AbstractMangaSource>(
+        new InternetArchive(networkManager, "IANovels", "light novel", ContentLightNovel)));
 
     currentMangaSource = mangaSources.first().get();
 
     for (const auto& ms : qAsConst(mangaSources))
         ms->deserializeMangaList();
 
+    aniList->deserialize();
+    loadHistory();
+
     updateActiveScources();
+
+    // Refresh AniList data after UI is connected (deferred)
+    QTimer::singleShot(1000, this, [this]()
+    {
+        if (aniList->isLoggedIn())
+            aniList->fetchMangaList();
+    });
 
     timer.setInterval(CONF.globalTickIntervalSeconds * 1000);
     connect(&timer, &QTimer::timeout, this, &UltimateMangaReaderCore::timerTick);
@@ -39,11 +53,17 @@ UltimateMangaReaderCore::UltimateMangaReaderCore(QObject* parent)
     connect(networkManager, &NetworkManager::activity, this, &UltimateMangaReaderCore::activity);
     connect(mangaController, &MangaController::activity, this, &UltimateMangaReaderCore::activity);
 
-    autoSuspendTimer.setInterval(CONF.autoSuspendIntervalMinutes * 60 * 1000);
+    // Use configurable auto-suspend
+    int suspendMs = settings.autoSuspendMinutes * 60 * 1000;
+    if (suspendMs <= 0)
+        suspendMs = CONF.autoSuspendIntervalMinutes * 60 * 1000;
+    autoSuspendTimer.setInterval(suspendMs);
     connect(&autoSuspendTimer, &QTimer::timeout,
             [this]()
             {
-                //                qDebug() << "Auto Suspend!";
+                qDebug() << "Auto Suspend after" << settings.autoSuspendMinutes << "minutes";
+                if (settings.wifiAutoDisconnect)
+                    networkManager->disconnectWifi();
                 suspendManager->suspend();
             });
 }
@@ -117,13 +137,88 @@ void UltimateMangaReaderCore::setCurrentMangaSource(AbstractMangaSource* mangaSo
     activity();
 }
 
+void UltimateMangaReaderCore::addToHistory(const QString &title, const QString &url,
+                                            const QString &source)
+{
+    // Remove duplicate if exists
+    for (int i = browsingHistory.size() - 1; i >= 0; i--)
+        if (browsingHistory[i].title == title && browsingHistory[i].sourceName == source)
+            browsingHistory.removeAt(i);
+
+    HistoryEntry entry;
+    entry.title = title;
+    entry.url = url;
+    entry.sourceName = source;
+    entry.timestamp = QDateTime::currentDateTime();
+    browsingHistory.prepend(entry);
+
+    while (browsingHistory.size() > 50)
+        browsingHistory.removeLast();
+
+    saveHistory();
+}
+
+void UltimateMangaReaderCore::saveHistory()
+{
+    QFile file(CONF.cacheDir + "history.dat");
+    if (!file.open(QIODevice::WriteOnly))
+        return;
+    QDataStream out(&file);
+    out << (int)browsingHistory.size();
+    for (const auto &e : browsingHistory)
+        out << e.title << e.url << e.sourceName << e.timestamp;
+    file.close();
+}
+
+void UltimateMangaReaderCore::loadHistory()
+{
+    QFile file(CONF.cacheDir + "history.dat");
+    if (!file.open(QIODevice::ReadOnly))
+        return;
+    try
+    {
+        QDataStream in(&file);
+        int count;
+        in >> count;
+        count = qBound(0, count, 200);
+        for (int i = 0; i < count && !in.atEnd(); i++)
+        {
+            HistoryEntry e;
+            in >> e.title >> e.url >> e.sourceName >> e.timestamp;
+            if (in.status() == QDataStream::Ok)
+                browsingHistory.append(e);
+        }
+    }
+    catch (...) {}
+    file.close();
+}
+
 void UltimateMangaReaderCore::setCurrentManga(const QString& mangaUrl, const QString& mangatitle)
 {
-    auto res = currentMangaSource->loadMangaInfo(mangaUrl, mangatitle);
-    if (res.isOk())
-        mangaController->setCurrentManga(res.unwrap());
-    else
-        emit error(res.unwrapErr());
+    if (!currentMangaSource)
+    {
+        emit error("No manga source selected.");
+        return;
+    }
+
+    addToHistory(mangatitle, mangaUrl, currentMangaSource->name);
+
+    try
+    {
+        auto res = currentMangaSource->loadMangaInfo(mangaUrl, mangatitle);
+        if (res.isOk())
+            mangaController->setCurrentManga(res.unwrap());
+        else
+            emit error(res.unwrapErr());
+    }
+    catch (const QException &e)
+    {
+        emit error(QString("Failed to load manga info: ") + e.what());
+    }
+    catch (...)
+    {
+        emit error("Unexpected error loading manga info.");
+    }
 }
 
 void UltimateMangaReaderCore::setupDirectories()
@@ -194,6 +289,117 @@ void UltimateMangaReaderCore::updateMangaLists(QSharedPointer<UpdateProgressToke
     progressToken->sendFinished();
 
     sortMangaLists();
+}
+
+bool UltimateMangaReaderCore::exportMangaAsCBZ(QSharedPointer<MangaInfo> manga, int fromCh, int toCh)
+{
+    if (!manga || !manga->mangaSource)
+        return false;
+
+    auto dir = CONF.exportDir();
+    QDir().mkpath(dir);
+
+    // Copy downloaded images to export directory as a folder (Kobo can browse)
+    auto exportDir = dir + makePathLegal(manga->title) + "/";
+    QDir().mkpath(exportDir);
+
+    int count = 0;
+    for (int c = fromCh; c <= toCh && c < manga->chapters.count(); c++)
+    {
+        auto imgDir = CONF.mangaimagesdir(manga->hostname, manga->title);
+        QDir src(imgDir);
+        for (const auto &f : src.entryList(QDir::Files))
+        {
+            if (f.startsWith(QString::number(c) + "_"))
+            {
+                auto dest = exportDir + f;
+                if (!QFile::exists(dest))
+                    QFile::copy(src.absoluteFilePath(f), dest);
+                count++;
+            }
+        }
+    }
+
+    if (count == 0)
+    {
+        emit error("No downloaded images found. Download chapters first.");
+        return false;
+    }
+
+    qDebug() << "Exported" << count << "images to" << exportDir;
+    return true;
+}
+
+bool UltimateMangaReaderCore::exportNovelAsEPUB(QSharedPointer<MangaInfo> manga, int fromCh, int toCh)
+{
+    if (!manga || !manga->mangaSource)
+        return false;
+
+    auto dir = CONF.exportDir();
+    QDir().mkpath(dir);
+
+    auto filepath = dir + makePathLegal(manga->title) + ".html";
+
+    QFile file(filepath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+        emit error("Couldn't create export file.");
+        return false;
+    }
+
+    QTextStream out(&file);
+
+    out << "<!DOCTYPE html>\n<html>\n<head>\n"
+        << "<meta charset='utf-8'>\n"
+        << "<title>" << manga->title.toHtmlEscaped() << "</title>\n"
+        << "<style>body{font-family:serif;font-size:12pt;line-height:1.8;padding:20px;}"
+        << "h1{text-align:center;}h2{margin-top:2em;border-bottom:1px solid #ccc;padding-bottom:8px;}"
+        << "p{text-indent:2em;margin:5px 0;}</style>\n"
+        << "</head>\n<body>\n"
+        << "<h1>" << manga->title.toHtmlEscaped() << "</h1>\n"
+        << "<p>Author: " << manga->author.toHtmlEscaped() << "</p>\n";
+
+    int exported = 0;
+    for (int c = fromCh; c <= toCh && c < manga->chapters.count(); c++)
+    {
+        auto textResult = manga->mangaSource->getChapterText(manga->chapters[c].chapterUrl);
+        if (!textResult.isOk())
+            continue;
+
+        out << "<h2>" << manga->chapters[c].chapterTitle.toHtmlEscaped() << "</h2>\n";
+        auto text = textResult.unwrap();
+        if (text.contains("<p>") || text.contains("<img"))
+            out << text << "\n";
+        else
+            for (const auto &p : text.split("\n\n", Qt::SkipEmptyParts))
+                if (!p.trimmed().isEmpty())
+                    out << "<p>" << p.trimmed().toHtmlEscaped() << "</p>\n";
+        exported++;
+    }
+
+    out << "</body>\n</html>\n";
+    file.close();
+
+    if (exported == 0)
+    {
+        QFile::remove(filepath);
+        emit error("Couldn't fetch chapter text for export.");
+        return false;
+    }
+
+    qDebug() << "Exported" << exported << "chapters to" << filepath;
+    return true;
+}
+
+QStringList UltimateMangaReaderCore::listDeviceExports()
+{
+    QStringList result;
+    QDir dir(CONF.exportDir());
+    if (!dir.exists())
+        return result;
+    for (const auto &f : dir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot))
+        result.append(f);
+    return result;
 }
 
 void UltimateMangaReaderCore::sortMangaLists()

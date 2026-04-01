@@ -19,7 +19,8 @@ public:
     QNetworkAccessManager *networkAccessManager();
 
     QSharedPointer<DownloadStringJob> downloadAsString(const QString &url, int timeout = 6000,
-                                                       const QByteArray &postData = QByteArray());
+                                                       const QByteArray &postData = QByteArray(),
+                                                       const QList<std::tuple<const char *, const char *>> &headers = {});
     QSharedPointer<DownloadBufferJob> downloadToBuffer(const QString &url, int timeout = 6000,
                                                        const QByteArray &postData = QByteArray());
     QSharedPointer<DownloadFileJob> downloadAsFile(const QString &url, const QString &localPath);

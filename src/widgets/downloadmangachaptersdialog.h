@@ -22,6 +22,7 @@ public:
 
 signals:
     void downloadConfirmed(QSharedPointer<MangaInfo> mangaInfo, int chapterFrom, int chapterTo);
+    void exportToDeviceConfirmed(QSharedPointer<MangaInfo> mangaInfo, int chapterFrom, int chapterTo);
 
 protected:
     bool eventFilter(QObject *obj, QEvent *ev) override;
@@ -30,6 +31,7 @@ private slots:
     void on_pushButtonCancel_clicked();
 
     void on_pushButtonConfirm_clicked();
+    void exportToDeviceClicked();
 
 private:
     void adjustUI();

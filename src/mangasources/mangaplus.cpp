@@ -4,7 +4,7 @@ MangaPlus::MangaPlus(NetworkManager *dm) : AbstractMangaSource(dm)
 {
     name = "MangaPlus";
     baseUrl = "https://jumpg-webapi.tokyo-cdn.com/";
-    mangalistUrl = "api/title_list/all";
+    mangalistUrl = "api/title_list/allV2";
     chapterDetailUrl = "api/title_detail?title_id=%1";
     pagesUrl = "api/manga_viewer?chapter_id=%1&img_quality=super_high&split=yes";
 
@@ -51,7 +51,36 @@ bool MangaPlus::updateMangaList(UpdateProgressToken *token)
     if (!message.CheckFieldForType(1, picoproto::FIELD_BYTES))
         return false;
 
-    auto titles = message.GetMessage(1)->GetMessage(5)->GetMessageArray(1);
+    // allV2 wraps title groups in field 5, each group has titles in field 2
+    // Try allV2 format first (grouped), fall back to old format
+    MangaList mangas;
+    mangas.absoluteUrls = false;
+
+    std::vector<picoproto::Message *> titles;
+    try
+    {
+        auto allTitlesView = message.GetMessage(1)->GetMessage(5);
+        auto titleGroups = allTitlesView->GetMessageArray(1);
+        for (const auto &group : titleGroups)
+        {
+            auto groupTitles = group->GetMessageArray(2);
+            for (auto *t : groupTitles)
+                titles.push_back(t);
+        }
+    }
+    catch (...)
+    {
+        // Fall back to old format
+        try
+        {
+            titles = message.GetMessage(1)->GetMessage(5)->GetMessageArray(1);
+        }
+        catch (...)
+        {
+            return false;
+        }
+    }
+
     //        message Title {
     //          optional uint32 titleId = 1;
     //          optional string name = 2;
@@ -63,9 +92,6 @@ bool MangaPlus::updateMangaList(UpdateProgressToken *token)
     //        }
 
     std::sort(titles.begin(), titles.end(), [](auto a, auto b) { return a->GetUInt64(6) > b->GetUInt64(6); });
-
-    MangaList mangas;
-    mangas.absoluteUrls = false;
 
     for (const auto &t : titles)
     {

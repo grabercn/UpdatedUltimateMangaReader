@@ -33,6 +33,11 @@ public:
     bool manhwaMode;
     DitheringMode ditheringMode;
 
+    QString aniListToken;
+    bool offlineMode;
+    int autoSuspendMinutes;  // 0 = disabled
+    bool wifiAutoDisconnect; // disconnect wifi on sleep
+
     QMap<QString, bool> enabledMangaSources;
 
 private:

@@ -1,0 +1,450 @@
+#include "downloadqueuewidget.h"
+
+#include <QDirIterator>
+
+#include "staticsettings.h"
+
+DownloadQueueWidget::DownloadQueueWidget(QWidget *parent)
+    : QWidget(parent), showingCached(false)
+{
+    auto *layout = new QVBoxLayout(this);
+    layout->setSpacing(4);
+    layout->setContentsMargins(8, 6, 8, 6);
+
+    // Header
+    auto *headerRow = new QHBoxLayout();
+    backBtn = new QPushButton("< Back", this);
+    backBtn->setFixedSize(70, 36);
+    backBtn->setProperty("type", "borderless");
+    connect(backBtn, &QPushButton::clicked, this, &DownloadQueueWidget::backClicked);
+
+    headerLabel = new QLabel("Downloads", this);
+    headerLabel->setStyleSheet("font-size: 15pt; font-weight: bold;");
+    headerLabel->setAlignment(Qt::AlignCenter);
+
+    headerRow->addWidget(backBtn);
+    headerRow->addWidget(headerLabel, 1);
+    headerRow->addSpacing(70);
+    layout->addLayout(headerRow);
+
+    // Progress bar
+    activeProgress = new QProgressBar(this);
+    activeProgress->setRange(0, 100);
+    activeProgress->setFixedHeight(16);
+    activeProgress->setTextVisible(true);
+    activeProgress->hide();
+    layout->addWidget(activeProgress);
+
+    statusLabel = new QLabel("No downloads", this);
+    statusLabel->setStyleSheet("color: #666; font-size: 9pt;");
+    statusLabel->setAlignment(Qt::AlignCenter);
+    layout->addWidget(statusLabel);
+
+    // Job list
+    jobList = new QListWidget(this);
+    jobList->setStyleSheet(
+        "QListWidget { border: none; font-size: 11pt; }"
+        "QListWidget::item { padding: 10px 8px; min-height: 36px; border-bottom: 1px solid #ddd; }"
+        "QListWidget::indicator { width: 28px; height: 28px; }"
+        "QListWidget::indicator:unchecked { image: url(:/images/icons/checkbox-unchecked.png); }"
+        "QListWidget::indicator:checked { image: url(:/images/icons/checkbox-checked.png); }");
+    jobList->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    jobList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    jobList->setFocusPolicy(Qt::NoFocus);
+    activateScroller(jobList);
+    layout->addWidget(jobList, 1);
+
+    // Bottom buttons
+    auto *btnRow = new QHBoxLayout();
+    btnRow->setSpacing(4);
+
+    cancelBtn = new QPushButton("Cancel All", this);
+    cancelBtn->setFixedHeight(SIZES.buttonSize);
+    connect(cancelBtn, &QPushButton::clicked, this, [this]()
+    {
+        for (auto &j : jobs)
+            if (j.state == DownloadJob::Active || j.state == DownloadJob::Queued)
+                j.state = DownloadJob::Cancelled;
+        activeProgress->hide();
+        emit cancelRequested();
+        refreshList();
+    });
+
+    clearBtn = new QPushButton("Clear", this);
+    clearBtn->setFixedHeight(SIZES.buttonSize);
+    connect(clearBtn, &QPushButton::clicked, this, [this]()
+    {
+        if (showingCached)
+            return;
+        jobs.erase(std::remove_if(jobs.begin(), jobs.end(),
+                   [](const DownloadJob &j) {
+                       return j.state == DownloadJob::Completed ||
+                              j.state == DownloadJob::Failed ||
+                              j.state == DownloadJob::Cancelled;
+                   }), jobs.end());
+        refreshList();
+    });
+
+    showCachedBtn = new QPushButton("Downloaded", this);
+    showCachedBtn->setFixedHeight(SIZES.buttonSize);
+    connect(showCachedBtn, &QPushButton::clicked, this, [this]()
+    {
+        showingCached = !showingCached;
+        showCachedBtn->setText(showingCached ? "Queue" : "Downloaded");
+        deleteSelectedBtn->setVisible(showingCached);
+        cancelBtn->setVisible(!showingCached);
+        clearBtn->setVisible(!showingCached);
+        if (showingCached)
+            refreshCachedList();
+        else
+            refreshList();
+    });
+
+    deleteSelectedBtn = new QPushButton("Delete Selected", this);
+    deleteSelectedBtn->setFixedHeight(SIZES.buttonSize);
+    deleteSelectedBtn->setStyleSheet("color: #900;");
+    deleteSelectedBtn->hide();
+    connect(deleteSelectedBtn, &QPushButton::clicked, this, [this]()
+    {
+        // Delete all checked items
+        for (int i = jobList->count() - 1; i >= 0; i--)
+        {
+            auto *item = jobList->item(i);
+            if (item->checkState() == Qt::Checked)
+            {
+                auto path = item->data(Qt::UserRole).toString();
+                if (!path.isEmpty())
+                {
+                    QFileInfo fi(path);
+                    if (fi.isDir())
+                        QDir(path).removeRecursively();
+                    else
+                        QFile::remove(path);
+                }
+            }
+        }
+        refreshCachedList();
+    });
+
+    auto *selectAllBtn = new QPushButton("All", this);
+    selectAllBtn->setFixedHeight(SIZES.buttonSize);
+    selectAllBtn->hide();
+    connect(selectAllBtn, &QPushButton::clicked, this, [this]()
+    {
+        bool allChecked = true;
+        for (int i = 0; i < jobList->count(); i++)
+        {
+            auto *item = jobList->item(i);
+            if ((item->flags() & Qt::ItemIsUserCheckable) && item->checkState() != Qt::Checked)
+                allChecked = false;
+        }
+        for (int i = 0; i < jobList->count(); i++)
+        {
+            auto *item = jobList->item(i);
+            if (item->flags() & Qt::ItemIsUserCheckable)
+                item->setCheckState(allChecked ? Qt::Unchecked : Qt::Checked);
+        }
+    });
+
+    // Store for visibility toggling
+    connect(showCachedBtn, &QPushButton::clicked, this, [=]()
+    {
+        selectAllBtn->setVisible(showingCached);
+    });
+
+    btnRow->addWidget(cancelBtn);
+    btnRow->addWidget(clearBtn);
+    btnRow->addWidget(selectAllBtn);
+    btnRow->addWidget(deleteSelectedBtn);
+    btnRow->addWidget(showCachedBtn);
+    layout->addLayout(btnRow);
+}
+
+void DownloadQueueWidget::addJob(const QString &title, const QString &source,
+                                  int from, int to, bool toDevice, bool isLN)
+{
+    DownloadJob job;
+    job.title = title;
+    job.source = source;
+    job.fromChapter = from;
+    job.toChapter = to;
+    job.toDevice = toDevice;
+    job.isLightNovel = isLN;
+    job.state = DownloadJob::Queued;
+    jobs.append(job);
+    refreshList();
+}
+
+void DownloadQueueWidget::updateActiveJob(int completedPages, int totalPages, int currentChapter)
+{
+    for (auto &j : jobs)
+    {
+        if (j.state == DownloadJob::Active)
+        {
+            j.completedPages = completedPages;
+            j.totalPages = totalPages;
+            j.currentChapter = currentChapter;
+            break;
+        }
+    }
+
+    if (totalPages > 0)
+    {
+        int pct = completedPages * 100 / totalPages;
+        activeProgress->setValue(pct);
+        activeProgress->setFormat(QString("%1% (%2/%3)").arg(pct).arg(completedPages).arg(totalPages));
+        activeProgress->show();
+    }
+
+    if (!showingCached)
+        refreshList();
+}
+
+void DownloadQueueWidget::jobCompleted(const QString &title)
+{
+    for (auto &j : jobs)
+    {
+        if ((j.state == DownloadJob::Active || j.state == DownloadJob::Queued) &&
+            j.title == title)
+        {
+            j.state = DownloadJob::Completed;
+            break;
+        }
+    }
+    activeProgress->hide();
+    if (!showingCached)
+        refreshList();
+}
+
+void DownloadQueueWidget::jobFailed(const QString &title, const QString &error)
+{
+    for (auto &j : jobs)
+    {
+        if ((j.state == DownloadJob::Active || j.state == DownloadJob::Queued) &&
+            j.title == title)
+        {
+            j.state = DownloadJob::Failed;
+            j.errorMsg = error;
+            break;
+        }
+    }
+    activeProgress->hide();
+    if (!showingCached)
+        refreshList();
+}
+
+void DownloadQueueWidget::refreshList()
+{
+    jobList->clear();
+
+    int activeCount = 0, queuedCount = 0, doneCount = 0;
+
+    for (const auto &j : jobs)
+    {
+        QString state;
+        switch (j.state)
+        {
+            case DownloadJob::Queued: state = "Queued"; queuedCount++; break;
+            case DownloadJob::Active: state = "Downloading"; activeCount++; break;
+            case DownloadJob::Completed: state = "Done"; doneCount++; break;
+            case DownloadJob::Failed: state = "Failed"; doneCount++; break;
+            case DownloadJob::Cancelled: state = "Cancelled"; doneCount++; break;
+        }
+
+        QString dest = j.toDevice ? "Device" : "App";
+        QString text = j.title + "\n  " + state + " | Ch." +
+                       QString::number(j.fromChapter + 1) + "-" +
+                       QString::number(j.toChapter + 1) + " | " + dest;
+
+        if (j.state == DownloadJob::Active && j.totalPages > 0)
+            text += " | " + QString::number(j.completedPages) + "/" + QString::number(j.totalPages);
+        if (j.state == DownloadJob::Failed && !j.errorMsg.isEmpty())
+            text += "\n  " + j.errorMsg;
+
+        auto *item = new QListWidgetItem(text, jobList);
+        if (j.state == DownloadJob::Completed)
+            item->setForeground(QColor(80, 80, 80));
+        else if (j.state == DownloadJob::Failed)
+            item->setForeground(QColor(160, 40, 40));
+    }
+
+    if (jobs.isEmpty())
+    {
+        statusLabel->setText("No downloads");
+        activeProgress->hide();
+    }
+    else
+        statusLabel->setText(QString("%1 active, %2 queued, %3 done")
+                                 .arg(activeCount).arg(queuedCount).arg(doneCount));
+
+    headerLabel->setText(QString("Downloads (%1)").arg(jobs.size()));
+}
+
+QList<CachedManga> DownloadQueueWidget::scanCachedManga()
+{
+    QList<CachedManga> result;
+    QDir cacheDir(CONF.cacheDir);
+
+    for (const auto &sourceDir : cacheDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot))
+    {
+        if (sourceDir == "mangalists")
+            continue;
+
+        QDir source(CONF.cacheDir + sourceDir);
+        for (const auto &mangaDir : source.entryList(QDir::Dirs | QDir::NoDotAndDotDot))
+        {
+            auto mangaPath = source.absolutePath() + "/" + mangaDir;
+            if (!QFile::exists(mangaPath + "/mangainfo.dat"))
+                continue;
+
+            CachedManga cm;
+            cm.source = sourceDir;
+            cm.title = mangaDir;
+            cm.path = mangaPath;
+            cm.chapters = 0;
+            cm.sizeMB = 0;
+            cm.pages = 0;
+
+            // Count chapters, pages, and size from images dir
+            QDir imgDir(mangaPath + "/images");
+            if (imgDir.exists())
+            {
+                QSet<int> chNums;
+                auto files = imgDir.entryList(QDir::Files);
+                cm.pages = files.size();
+                for (const auto &f : files)
+                {
+                    auto parts = f.split('_');
+                    if (!parts.isEmpty())
+                        chNums.insert(parts[0].toInt());
+                    cm.sizeMB += QFileInfo(imgDir.absoluteFilePath(f)).size();
+                }
+                cm.chapters = chNums.size();
+                cm.sizeMB /= (1024 * 1024);
+            }
+
+            // Read progress if available
+            cm.progressChapter = 0;
+            cm.progressPage = 0;
+            auto progressPath = mangaPath + "/progress.dat";
+            if (QFile::exists(progressPath))
+            {
+                QFile pf(progressPath);
+                if (pf.open(QIODevice::ReadOnly))
+                {
+                    QDataStream in(&pf);
+                    int ch = 0, pg = 0, numCh = 0, numPg = 0;
+                    in >> ch >> pg >> numCh >> numPg;
+                    cm.progressChapter = ch;
+                    cm.progressPage = pg;
+                    pf.close();
+                }
+            }
+
+            result.append(cm);
+        }
+    }
+
+    return result;
+}
+
+void DownloadQueueWidget::refreshCachedList()
+{
+    jobList->clear();
+
+    auto cached = scanCachedManga();
+    qint64 totalSize = 0;
+
+    for (const auto &cm : cached)
+    {
+        totalSize += cm.sizeMB;
+        bool hasImages = (cm.chapters > 0 && cm.pages > 0);
+        bool isCachedListing = (cm.chapters == 0 && cm.pages == 0);
+
+        QString text = cm.title;
+        if (hasImages)
+        {
+            text += "\n  " + cm.source +
+                    " | " + QString::number(cm.chapters) + " ch" +
+                    " | " + QString::number(cm.pages) + " pg" +
+                    " | " + QString::number(cm.sizeMB) + " MB";
+
+            if (cm.progressChapter > 0 || cm.progressPage > 0)
+                text += "\n  Reading: Ch." + QString::number(cm.progressChapter + 1) +
+                        " Pg." + QString::number(cm.progressPage + 1);
+        }
+        else
+        {
+            text += "\n  " + cm.source + " | Cached listing";
+        }
+
+        auto *item = new QListWidgetItem(text, jobList);
+        item->setData(Qt::UserRole, cm.path);
+        item->setData(Qt::UserRole + 1, cm.source);
+        item->setData(Qt::UserRole + 2, cm.title);
+
+        if (isCachedListing)
+            item->setForeground(QColor(140, 140, 140));
+
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        item->setCheckState(Qt::Unchecked);
+    }
+
+    // Device exports section
+    QDir exportDir(CONF.exportDir());
+    if (exportDir.exists())
+    {
+        auto exports = exportDir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
+        if (!exports.isEmpty())
+        {
+            auto *header = new QListWidgetItem("-- Exported to Device --", jobList);
+            header->setForeground(QColor(80, 80, 80));
+            header->setFlags(header->flags() & ~Qt::ItemIsUserCheckable);
+
+            for (const auto &f : exports)
+            {
+                auto fullPath = exportDir.absoluteFilePath(f);
+                QFileInfo fi(fullPath);
+                qint64 sz = fi.isDir() ? 0 : fi.size() / (1024 * 1024);
+                if (fi.isDir())
+                {
+                    QDirIterator it(fullPath, QDir::Files, QDirIterator::Subdirectories);
+                    while (it.hasNext()) { it.next(); sz += it.fileInfo().size(); }
+                    sz /= (1024 * 1024);
+                }
+
+                auto *item = new QListWidgetItem(f + " (" + QString::number(sz) + " MB)", jobList);
+                item->setData(Qt::UserRole, fullPath);
+                item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+                item->setCheckState(Qt::Unchecked);
+            }
+        }
+    }
+
+    if (cached.isEmpty())
+        jobList->addItem("No downloaded content");
+
+    headerLabel->setText(QString("Downloaded (%1)").arg(cached.size()));
+    statusLabel->setText(QString("%1 items, %2 MB").arg(cached.size()).arg(totalSize));
+
+    // Track check states to distinguish checkbox click from text click
+    disconnect(jobList, &QListWidget::itemChanged, nullptr, nullptr);
+    connect(jobList, &QListWidget::itemChanged, this, [this](QListWidgetItem *)
+    {
+        // Checkbox was toggled - do nothing else, just let the check state change
+    });
+
+    // Only open on double-click (single click = checkbox toggle)
+    disconnect(jobList, &QListWidget::itemDoubleClicked, nullptr, nullptr);
+    connect(jobList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *item)
+    {
+        if (!showingCached || !item)
+            return;
+
+        auto source = item->data(Qt::UserRole + 1).toString();
+        auto title = item->data(Qt::UserRole + 2).toString();
+
+        if (!source.isEmpty() && !title.isEmpty())
+            emit openMangaRequested(source, title);
+    });
+}

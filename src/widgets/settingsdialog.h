@@ -2,11 +2,18 @@
 #define SETTINGSDIALOG_H
 
 #include <QDialog>
+#include <QLabel>
+#include <QLineEdit>
+#include <QPushButton>
+
+#include "clineedit.h"
 
 #include "enums.h"
 #include "settings.h"
 #include "sizes.h"
 #include "utils.h"
+
+class AniList;
 
 namespace Ui
 {
@@ -20,7 +27,7 @@ class SettingsDialog : public QDialog
     Q_ENUM(AdvancePageHWButton)
 
 public:
-    explicit SettingsDialog(Settings *settings, QWidget *parent = nullptr);
+    explicit SettingsDialog(Settings *settings, AniList *aniList = nullptr, QWidget *parent = nullptr);
     ~SettingsDialog();
 
     void open() override;
@@ -36,6 +43,10 @@ private slots:
 private:
     Ui::SettingsDialog *ui;
     Settings *settings;
+    AniList *aniList;
+    CLineEdit *aniListTokenEdit;
+    QLabel *aniListStatusLabel;
+    QPushButton *aniListLoginBtn;
     bool internalChange;
 
     void resetUI();

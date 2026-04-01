@@ -1,7 +1,11 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#ifdef _WIN32
+#include <io.h>
+#else
 #include <unistd.h>
+#endif
 
 #include <QRegularExpression>
 #include <QScrollArea>

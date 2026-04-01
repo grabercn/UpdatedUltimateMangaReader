@@ -9,6 +9,7 @@
 struct MangaList
 {
     QStringList titles;
+    QStringList altTitles;  // romaji/japanese alternate names
     QStringList urls;
     QList<int> popularityRanks;
     bool absoluteUrls = false;
@@ -18,7 +19,7 @@ struct MangaList
 
     void sortBy(MangaOrderMethod method = OrderByTitle);
 
-    void append(const QString &title, const QString &url);
+    void append(const QString &title, const QString &url, const QString &altTitle = "");
 };
 
 QDataStream &operator<<(QDataStream &str, const MangaList &m);

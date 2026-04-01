@@ -1,13 +1,43 @@
 #include "mangatown.h"
 
+#include <QUrl>
+
 MangaTown::MangaTown(NetworkManager *networkManager) : AbstractMangaSource(networkManager)
 {
     name = "MangaTown";
     baseUrl = "https://www.mangatown.com";
     dictionaryUrl = "https://www.mangatown.com/directory/";
 
+    networkManager->addSetCustomRequestHeader("mangatown.com", "Referer", R"(https://www.mangatown.com/)");
     networkManager->addSetCustomRequestHeader("mangahere.org", "Referer", R"(https://www.mangatown.com/)");
     networkManager->addSetCustomRequestHeader("mangahere.com", "Referer", R"(https://www.mangatown.com/)");
+}
+
+Result<MangaList, QString> MangaTown::searchManga(const QString &query, int maxResults)
+{
+    MangaList results;
+    results.absoluteUrls = false;
+
+    if (query.isEmpty())
+        return Ok(results);
+
+    auto searchUrl = baseUrl + "/search?name=" + QUrl::toPercentEncoding(query);
+    auto job = networkManager->downloadAsString(searchUrl);
+
+    if (!job->await(7000))
+        return Err(job->errorString);
+
+    QRegularExpression mangarx(
+        R"lit(<a class="manga_cover" href="(/manga/[^"]*?)" title="([^"]*?)")lit");
+
+    for (auto &match : getAllRxMatches(mangarx, job->bufferStr))
+    {
+        if (results.size >= maxResults)
+            break;
+        results.append(htmlToPlainText(match.captured(2)), match.captured(1));
+    }
+
+    return Ok(results);
 }
 
 bool MangaTown::updateMangaList(UpdateProgressToken *token)
@@ -109,46 +139,79 @@ Result<MangaChapterCollection, QString> MangaTown::updateMangaInfoFinishedLoadin
 
 Result<QStringList, QString> MangaTown::getPageList(const QString &chapterUrl)
 {
-    QRegularExpression numPagesRx(
-        R"lit(>(\d+)</option>\s*?(:?<option value="/manga/[^"]*?">Featured</option>)?\s*?</select>)lit");
-
     auto job = networkManager->downloadAsString(chapterUrl);
 
     if (!job->await(7000))
         return Err(job->errorString);
 
-    auto numPagesRxMatch = numPagesRx.match(job->bufferStr);
+    // Check if licensed/unavailable
+    if (job->bufferStr.contains("not available in MangaTown") ||
+        job->bufferStr.contains("has been licensed"))
+        return Err(QString("This manga is licensed and not available on MangaTown."));
 
-    if (!numPagesRxMatch.hasMatch())
-        return Err(QString("Couldn't process pagelist."));
+    // Extract total_pages from JavaScript variable
+    QRegularExpression totalPagesRx(R"(var\s+total_pages\s*=\s*(\d+))");
+    auto totalPagesMatch = totalPagesRx.match(job->bufferStr);
 
-    int numPages = numPagesRxMatch.captured(1).toInt();
+    if (!totalPagesMatch.hasMatch())
+    {
+        // Fallback: try the old select/option method
+        QRegularExpression numPagesRx(
+            R"lit(>(\d+)</option>\s*?(?:<option[^>]*>Featured</option>)?\s*?</select>)lit");
+        auto numPagesRxMatch = numPagesRx.match(job->bufferStr);
+        if (!numPagesRxMatch.hasMatch())
+            return Err(QString("Couldn't process pagelist."));
+
+        int numPages = numPagesRxMatch.captured(1).toInt();
+        QStringList imageUrls;
+        for (int i = 1; i <= numPages; i++)
+            imageUrls.append(QString("%1%2.html").arg(chapterUrl).arg(i));
+        return Ok(imageUrls);
+    }
+
+    int numPages = totalPagesMatch.captured(1).toInt();
+
+    // Ensure chapter URL ends with /
+    QString baseChapterUrl = chapterUrl;
+    if (!baseChapterUrl.endsWith('/'))
+        baseChapterUrl += '/';
 
     QStringList imageUrls;
     for (int i = 1; i <= numPages; i++)
-    {
-        auto url = QString("%1%2.html").arg(job->url).arg(i);
-        imageUrls.append(url);
-    }
+        imageUrls.append(QString("%1%2.html").arg(baseChapterUrl).arg(i));
 
     return Ok(imageUrls);
 }
 
 Result<QString, QString> MangaTown::getImageUrl(const QString &pageUrl)
 {
-    QRegularExpression imgUrlRx(R"lit(<img\s*(?:id="image")?\s*src="([^"]*?)"\s*(?:id="image")?)lit");
-
     auto job = networkManager->downloadAsString(pageUrl);
 
     if (!job->await(6000))
         return Err(job->errorString);
 
-    auto match = imgUrlRx.match(job->bufferStr);
+    // Try JavaScript-based image URL first (newpicurl or similar)
+    QRegularExpression jsImgRx(R"lit((?:src|url)\s*[:=]\s*['"]([^'"]*?mangahere\.com[^'"]*?\.(?:jpg|png|webp))['"]\s*[,;])lit");
+    auto jsMatch = jsImgRx.match(job->bufferStr);
 
-    if (!match.hasMatch())
+    if (!jsMatch.hasMatch())
+    {
+        // Fallback: try the standard img#image tag
+        QRegularExpression imgUrlRx(R"lit(<img[^>]*id="image"[^>]*src="([^"]*?)")lit");
+        jsMatch = imgUrlRx.match(job->bufferStr);
+    }
+
+    if (!jsMatch.hasMatch())
+    {
+        // Try any large image from mangahere CDN
+        QRegularExpression cdnRx(R"lit(["']((?:https?:)?//[^"']*?mangahere[^"']*?\.(?:jpg|png|webp))[^"']*?["'])lit");
+        jsMatch = cdnRx.match(job->bufferStr);
+    }
+
+    if (!jsMatch.hasMatch())
         return Err(QString("Couldn't process pages/images."));
 
-    auto imageUrl = match.captured(1);
+    auto imageUrl = jsMatch.captured(1);
     if (imageUrl.startsWith("//"))
         imageUrl = "https:" + imageUrl;
 

@@ -11,7 +11,9 @@ enum MenuButton
     SettingsButton,
     ClearDownloadsButton,
     AboutButton,
-    UpdateMangaListsButton
+    UpdateMangaListsButton,
+    HistoryButton,
+    AniListButton
 };
 
 namespace Ui

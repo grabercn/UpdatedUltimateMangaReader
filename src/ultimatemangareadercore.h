@@ -3,14 +3,15 @@
 
 #include <QObject>
 
+#include "anilist.h"
 #include "favoritesmanager.h"
 #include "mangachapterdownloadmanager.h"
 #include "mangacontroller.h"
 #include "mangadex.h"
-#include "mangakakalot.h"
+#include "allnovel.h"
 #include "mangaplus.h"
 #include "mangatown.h"
-#include "readmanga.h"
+#include "internetarchive.h"
 #include "settings.h"
 #include "suspendmanager.h"
 #include "utils.h"
@@ -34,8 +35,22 @@ public:
     FavoritesManager *favoritesManager;
     MangaChapterDownloadManager *mangaChapterDownloadManager;
     SuspendManager *suspendManager;
+    AniList *aniList;
 
     Settings settings;
+
+    // Browsing history
+    struct HistoryEntry
+    {
+        QString title;
+        QString url;
+        QString sourceName;
+        QDateTime timestamp;
+    };
+    QList<HistoryEntry> browsingHistory;
+    void addToHistory(const QString &title, const QString &url, const QString &source);
+    void saveHistory();
+    void loadHistory();
 
 public:
     void setCurrentMangaSource(AbstractMangaSource *mangaSource);
@@ -50,6 +65,11 @@ public:
     void enableTimers(bool enabled);
 
     void activity();
+
+    // Export to device
+    bool exportMangaAsCBZ(QSharedPointer<MangaInfo> manga, int fromCh, int toCh);
+    bool exportNovelAsEPUB(QSharedPointer<MangaInfo> manga, int fromCh, int toCh);
+    QStringList listDeviceExports();
 
 signals:
     void currentMangaSourceChanged(AbstractMangaSource *source);

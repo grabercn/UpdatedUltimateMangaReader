@@ -1,14 +1,45 @@
 #ifndef STACKTRACE_H
 #define STACKTRACE_H
 
+#include <cstdlib>
+#include <exception>
+#include <iostream>
+
+#ifdef _WIN32
+#include <signal.h>
+
+const struct catchSignals_t
+{
+    int signo;
+    const char *name;
+} catchSignals[] = {{SIGSEGV, "SIGSEGV"}, {SIGILL, "SIGILL"}, {SIGFPE, "SIGFPE"},
+                    {SIGABRT, "SIGABRT"}};
+
+void doBacktrace(int signo)
+{
+    std::cerr << "Received signal " << signo << std::endl;
+    std::cerr << "(Backtrace not available on Windows)" << std::endl;
+    exit(1);
+}
+
+bool registerBacktraceHandlers()
+{
+    bool result = true;
+    for (auto i : catchSignals)
+    {
+        result = result && (signal(i.signo, doBacktrace) != SIG_ERR);
+        if (!result)
+            std::cerr << "Failed to install signal:" << i.name;
+    }
+    return result;
+}
+
+#else  // Linux / Kobo
+
 #include <execinfo.h>
 #include <signal.h>
 #include <sys/types.h>
 #include <unistd.h>
-
-#include <cstdlib>
-#include <exception>
-#include <iostream>
 
 void doBacktrace(int signo);
 
@@ -53,5 +84,7 @@ void doBacktrace(int signo)
     free(messages);
     exit(0);
 }
+
+#endif  // _WIN32
 
 #endif  // STACKTRACE_H

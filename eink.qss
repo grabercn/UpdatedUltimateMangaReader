@@ -1,366 +1,367 @@
+/* === UltimateMangaReader Modern E-Ink Theme === */
+/* Optimized for Kobo Libra H2O (7" 1264x1680 @ 300ppi) */
+/* High contrast monochrome, large touch targets */
 
-QPushButton[type="borderless"]
-{
+/* --- Base --- */
+QWidget {
+    background-color: white;
+    color: black;
+    selection-color: white;
+    selection-background-color: #333;
+    font-family: "Noto Sans", "Source Sans Pro", "Segoe UI", sans-serif;
+    font-size: 10pt;
+}
+
+/* --- Buttons --- */
+QPushButton {
     background: white;
-    border: 0;
-    padding: 2px;
+    border: 2px solid #333;
+    border-radius: 4px;
+    color: black;
+    padding: 8px 14px;
     outline: none;
     font-size: 12pt;
+    font-weight: 500;
+    min-height: 34px;
 }
-
-QPushButton[type="borderless"]:focus
-{
-    border: 0;
+QPushButton:focus {
+    border: 2px solid black;
 }
-
-QPushButton[type="borderless"]:pressed
-{
+QPushButton:pressed {
     background: black;
     color: white;
+}
+
+QPushButton[type="borderless"] {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 4px 8px;
+    font-size: 12pt;
+    font-weight: 500;
+}
+QPushButton[type="borderless"]:focus {
     border: none;
 }
-
-QLabel[type="mangainfolabel"]
-{
-    font-weight: bold;
-    font-size: 10pt;
+QPushButton[type="borderless"]:pressed {
+    background: #333;
+    color: white;
 }
 
-QLabel[type="mangainfocontent"]
-{
-    font-size: 10pt;
+/* --- Tool Buttons (icons) --- */
+QToolButton {
+    background: transparent;
+    border: none;
+    color: black;
+    padding: 4px;
+    outline: none;
+}
+QToolButton:checked {
+    border: none;
+}
+QToolButton:focus {
+    border: none;
+}
+QToolButton:pressed {
+    background: #eee;
+    border-radius: 4px;
 }
 
-QFrame#listViewSources
-{
+/* --- Title bar --- */
+QLabel#labelTitle {
+    font-size: 16pt;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+/* --- Source list --- */
+QFrame#listViewSources {
     border: none;
     font-size: 7pt;
     outline: none;
+    background: white;
 }
-
-QListView#listViewMangas
-{
-    border: none;
-    padding: 8px;
-    font-size: 12pt;
+QListView::item:selected#listViewSources {
+    background: white;
+    color: black;
 }
-
-QFrame#listViewChapters
-{
-    border: none;
-    padding-top: 8px;
-    padding-bottom: 8px;
-    font-size: 12pt;
-}
-
-QFrame#topButtonsFrame
-{
-    border-top: 1px solid black;
-    border-bottom: 1px solid black;
-}
-
-QFrame#frameButtons
-{
-    border-top: 1px solid black;
-}
-
-QListView::item:selected#listViewSources
-{
+QListView::item:focused#listViewSources {
     background: white;
     color: black;
 }
 
-QListView::item:focused#listViewSources
-{
+/* --- Manga / search results list --- */
+QListView#listViewMangas {
+    border: none;
+    border-top: 1px solid #ddd;
+    padding: 4px 8px;
+    font-size: 11pt;
     background: white;
-    color: black;
+}
+QListView#listViewMangas::item {
+    padding: 8px 4px;
+    border-bottom: 1px solid #eee;
+}
+QListView#listViewMangas::item:selected {
+    background: #f0f0f0;
 }
 
-QFrame#frameProgress
-{
-    border: 1px solid black;
+/* --- Chapter list --- */
+QFrame#listViewChapters {
+    border: none;
+    border-top: 1px solid #ddd;
+    padding: 4px 8px;
+    font-size: 11pt;
 }
 
-QLineEdit#lineEditFilter
-{
-    border-top-left-radius: 5px;
-    border-bottom-left-radius: 5px;
+/* --- Top/bottom bars --- */
+QFrame#topButtonsFrame {
+    border-top: 1px solid #ccc;
+    border-bottom: 1px solid #ccc;
+    background: #fafafa;
+}
+QFrame#frameButtons {
+    border-top: 1px solid #ccc;
+    background: #fafafa;
+}
+
+/* --- Search bar --- */
+QLineEdit#lineEditFilter {
+    border: 2px solid #333;
+    border-top-left-radius: 6px;
+    border-bottom-left-radius: 6px;
     border-top-right-radius: 0;
     border-bottom-right-radius: 0;
     font-size: 12pt;
+    padding: 6px 10px;
+    min-height: 24px;
+}
+QFrame#searchButtonFrame {
+    border: 2px solid #333;
+    border-left: none;
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+    background: white;
+}
+QPushButton#pushButtonFilterClear {
+    font-size: 14pt;
+    border: none;
+    background: transparent;
+}
+QPushButton#pushButtonFilter {
+    border: none;
+    background: transparent;
+    font-weight: 600;
 }
 
-QFrame#searchButtonFrame
-{
-    border-top-right-radius: 5px;
-    border-bottom-right-radius: 5px;
-    border:1px solid black;
-}
-
-QPushButton#pushButtonFilterClear
-{
-    font-size: 16pt;
-}
-
-
-QWidget
-{
-    background-color: white;
-    selection-color: white;
-    selection-background-color: black;
+/* --- Manga info labels --- */
+QLabel[type="mangainfolabel"] {
+    font-weight: bold;
     font-size: 10pt;
+    color: #333;
+}
+QLabel[type="mangainfocontent"] {
+    font-size: 10pt;
+    color: #444;
 }
 
-QMenu
-{
-  border: 1px solid black;
-  background-color:white;
+/* --- Progress bar --- */
+QFrame#frameProgress {
+    border: 2px solid #333;
+    border-radius: 3px;
 }
-QMenu::item::selected
-{
-  border-bottom: 5px solid black;
+QProgressBar {
+    border: 2px solid #333;
+    border-radius: 3px;
+    text-align: center;
+    background: white;
+    color: #999;
+    font-size: 10pt;
+    min-height: 20px;
 }
-QMenu::item
-{
-  padding: 0px 25px 0px 20px;
-  border-bottom: 5px solid transparent;
-}
-QMenu::indicator
-{
-    width: 20px;
-    height: 20px;
-}
-QMenu::indicator:exclusive:checked
-{
-    image: url(:/images/icons/checkbox-checked.png);
+QProgressBar::chunk {
+    background: #333;
+    border-radius: 2px;
 }
 
-QCheckBox::indicator
-{
-  width: 20px;
-  height: 20px;
-  margin: 3px;
-  border: none;
+/* --- Input fields --- */
+QLineEdit, QSpinBox, QDoubleSpinBox {
+    background-color: white;
+    border: 2px solid #555;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 11pt;
+    min-height: 30px;
+}
+QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {
+    border: 2px solid black;
 }
 
-QCheckBox::indicator:checked
-{
-  image: url(:/images/icons/checkbox-checked.png);
+/* --- Text area --- */
+QTextEdit {
+    background-color: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 4px;
+}
+QTextEdit:focus {
+    border: 2px solid black;
 }
 
-QCheckBox::indicator:unchecked
-{
-  image: url(:/images/icons/checkbox-unchecked.png);
+/* --- Combo box --- */
+QComboBox {
+    background-color: white;
+    border: 2px solid #555;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 11pt;
+    min-height: 30px;
 }
-
-
-QLineEdit, QSpinBox, QDoubleSpinBox
-{
-  background-color:white;
-  border:1px solid black;
-  padding: 2px;
+QComboBox:focus {
+    border: 2px solid black;
 }
-QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus
-{
-  border: 1px solid black;
-  padding: 1px;
-}
-QLineEdit:edit-focus, QSpinBox:edit-focus, QDoubleSpinBox:edit-focus
-{
-  border: 3px solid black;
-  padding: 0px;
-}
-
-QTextEdit
-{
-  background-color:transparent;
-  border:1px solid black;
-  padding: 1px;
-}
-QTextEdit:focus
-{
-  border: 1px solid black;
-  padding: 1px;
-}
-QTextEdit:edit-focus
-{
-  border: 3px solid black;
-  padding: 0px;
-}
-
-QComboBox
-{
-  background-color:white;
-  border: 1px solid black;
-  border-radius:5px;
-  padding-top: 3px;
-  padding-right: 0px;
-  padding-bottom: 3px;
-  padding-left: 5px;
-}
-QComboBox:focus
-{
-  border: 3px solid black;
-  padding-top: 1px;
-  padding-right: 0px;
-  padding-bottom: 1px;
-  padding-left: 3px;
-}
-QComboBox::drop-down
-{
-  border-width:1px;
+QComboBox::drop-down {
+    border-width: 0;
+    width: 24px;
 }
 QComboBox::down-arrow {
-  image:url(:/down-arrow.png);
-  padding-top: 2px;
-  padding-right: 5px;
-  padding-bottom: 2px;
-  padding-left: 0px;
+    image: url(:/down-arrow.png);
+    width: 12px;
+    height: 12px;
 }
-QComboBox::down-arrow:focus
-{
-  padding-top: 0px;
-  padding-right: 0px;
-  padding-bottom: 0px;
-  padding-left: 0px;
+
+/* --- Lists --- */
+QListView {
+    padding: 4px;
+    border: 1px solid #ddd;
+    background: white;
+    outline: none;
+    font-size: 11pt;
+}
+QListView::item {
+    padding: 8px 6px;
+    min-height: 28px;
 }
 QTreeView {
     padding: 2px;
-    border: 1px solid black;
+    border: 1px solid #ddd;
     background: white;
     outline: none;
     font-size: 10pt;
 }
-QListView {
-    padding: 6px;
-    border: 1px solid black;
-    background: white;
-    outline: none;
-    font-size: 12pt;
-}
-QTreeView:focus, QTableView:focus {
-    padding: 1px;
-    border: 1px solid black;
-}
-QTreeView:edit-focus, QListView:edit-focus, QTableView:edit-focus {
-    padding: 0px;
-    border: 3px solid black;
+QTreeView:focus, QTableView:focus, QListView:focus {
+    border: 1px solid #999;
 }
 QTreeView::branch:has-children:!has-siblings:closed,
-QTreeView::branch:closed:has-children:has-siblings
-{
+QTreeView::branch:closed:has-children:has-siblings {
     border-image: none;
     image: url(:/plus.png);
 }
 QTreeView::branch:open:has-children:!has-siblings,
-QTreeView::branch:open:has-children:has-siblings
-{
+QTreeView::branch:open:has-children:has-siblings {
     border-image: none;
     image: url(:/minus.png);
 }
 
-QPushButton
-{
-    background: white;
-    border: 1px solid black;
-    color: black;
-    padding: 2px;
-    outline: none;
-    font-size: 13pt;
-}
-QPushButton:focus {
-    border: 1px solid black;
-    padding: 2px;
-}
-QPushButton:pressed
-{
-    background: black;
-    color: white;
-    padding: 2px;
-}
-
-QToolButton
-{
-    background: transparent;
-    border: none;
-    color: black;
-    padding: 2px;
-    outline: none;
-}
-QToolButton:checked
-{
-    border: none;
-}
-
-QToolButton:focus {
-    border: none;
-    padding: 2px;
-}
-QToolButton:pressed {
-    border: none;
-    padding: 2px;
-}
-
-QSlider::groove:horizontal {
-     border: 1px solid black;
-     border-radius: 5px;
-     height: 20px;
-     background: white;
-     margin: 4px 0;
-}
-QSlider::handle:horizontal {
-     background: white;
-     border: 1px solid black;
-     border-radius: 5px;
-     height: 30px;
-     width: 25px;
-     margin: -7px 0;
-     border-radius: 9px;
-}
-
-QSlider::handle:horizontal::focus {
-     background: black;
-}
-
+/* --- Scrollbars --- */
 QScrollBar {
-background: white;
-border: 1px solid lightGrey;
+    background: #f5f5f5;
+    border: none;
 }
-
 QScrollBar:vertical {
-    width: 25px
+    width: 8px;
+    margin: 0;
 }
 QScrollBar:horizontal {
-    height: 25px
+    height: 8px;
+    margin: 0;
 }
 QScrollBar::handle {
-    background: black;
-    min-width: 25px;
-    min-height: 25px;
+    background: #999;
+    border-radius: 4px;
+    min-width: 20px;
+    min-height: 30px;
+}
+QScrollBar::handle:hover, QScrollBar::handle:pressed {
+    background: #555;
+}
+QScrollBar::add-line, QScrollBar::sub-line {
+    width: 0; height: 0;
+}
+QScrollBar::add-page, QScrollBar::sub-page {
+    background: transparent;
+}
+
+/* --- Sliders --- */
+QSlider::groove:horizontal {
+    border: 1px solid #999;
+    border-radius: 4px;
+    height: 12px;
+    background: #eee;
+    margin: 4px 0;
+}
+QSlider::handle:horizontal {
+    background: white;
+    border: 2px solid #333;
+    border-radius: 10px;
+    height: 28px;
+    width: 28px;
+    margin: -10px 0;
+}
+QSlider::handle:horizontal:focus {
+    background: #333;
+}
+
+/* --- Checkboxes --- */
+QCheckBox {
+    font-size: 11pt;
+    spacing: 10px;
+    min-height: 32px;
+}
+QCheckBox::indicator {
+    width: 28px;
+    height: 28px;
     border: none;
 }
-QScrollBar::add-line {
-    width: 0px;
+QCheckBox::indicator:checked {
+    image: url(:/images/icons/checkbox-checked.png);
 }
-QScrollBar::sub-line {
-    width: 0px;
+QCheckBox::indicator:unchecked {
+    image: url(:/images/icons/checkbox-unchecked.png);
 }
 
+/* --- Menus --- */
+QMenu {
+    border: 2px solid #333;
+    background-color: white;
+    padding: 4px 0;
+}
+QMenu::item {
+    padding: 8px 24px;
+    font-size: 12pt;
+}
+QMenu::item:selected {
+    background: #eee;
+}
+QMenu::indicator {
+    width: 20px;
+    height: 20px;
+}
+QMenu::indicator:exclusive:checked {
+    image: url(:/images/icons/checkbox-checked.png);
+}
+
+/* --- Dialogs --- */
 QDialog {
-    border: 1px solid black;
+    border: 2px solid #333;
     background: white;
 }
 
-QProgressBar {
-    border: 1px solid black;
-    text-align: center;
-    background: white;
-    color: rgb(160, 160, 160);
+/* --- Text browser (LN reader) --- */
+QTextBrowser {
+    background-color: white;
+    border: none;
+    font-family: "Georgia", "Noto Serif", "Times New Roman", serif;
+    font-size: 12pt;
+    line-height: 1.6;
 }
-
-QProgressBar::chunk {
-    background: black;
-    color: white;
-}
-
-
