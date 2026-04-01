@@ -64,16 +64,12 @@ WORKDIR /opt
 RUN wget -q https://www.openssl.org/source/openssl-1.1.1w.tar.gz \
     && tar xzf openssl-1.1.1w.tar.gz \
     && cd openssl-1.1.1w \
-    && export AR=${CROSS_TC}/bin/${CROSS}-ar \
-    && export AS=${CROSS_TC}/bin/${CROSS}-as \
-    && export CC=${CROSS_TC}/bin/${CROSS}-gcc \
-    && export CXX=${CROSS_TC}/bin/${CROSS}-g++ \
-    && export LD=${CROSS_TC}/bin/${CROSS}-ld \
-    && export RANLIB=${CROSS_TC}/bin/${CROSS}-ranlib \
-    && export CFLAGS="-O3 -march=armv7-a -mfpu=neon -mfloat-abi=hard -D__arm__ -D__ARM_NEON__ -fPIC -fno-omit-frame-pointer -funwind-tables -Wl,--no-merge-exidx-entries" \
-    && ./Configure linux-elf no-comp no-asm shared --prefix=${SYSROOT}/usr --openssldir=${SYSROOT}/usr \
+    && ./Configure linux-armv4 no-comp no-asm shared \
+       --cross-compile-prefix=${CROSS}- \
+       --prefix=${SYSROOT}/usr --openssldir=${SYSROOT}/usr \
+       -march=armv7-a -mfpu=neon -mfloat-abi=hard -fPIC \
     && make -j$(nproc) \
-    && make install \
+    && make install_sw install_ssldirs \
     && cd .. && rm -rf openssl-1.1.1w*
 
 # Cross-compile libjpeg-turbo
