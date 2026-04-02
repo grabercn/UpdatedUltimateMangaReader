@@ -107,7 +107,7 @@ RUN ./configure --recheck-all -opensource -confirm-license -release \
 
 # Build Qt (this is the long step - ~45 min on CI)
 RUN make -j$(nproc) 2>&1 | tail -5
-RUN make install
+RUN mkdir -p /mnt/onboard/.adds/${QTDIR} && make install
 
 # Build Kobo platform plugin
 WORKDIR /opt
