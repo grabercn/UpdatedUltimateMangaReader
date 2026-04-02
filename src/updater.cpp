@@ -129,8 +129,10 @@ void Updater::checkForUpdate()
     // On Kobo: download the ARM binary from releases
     // On desktop: just notify user to rebuild
 #ifdef KOBO
+    // Download just the binary directly from the release
     m_downloadUrl = QString("https://github.com/%1/%2/releases/latest/download/UltimateMangaReader-Kobo.tar.gz")
                         .arg(repoOwner, repoName);
+    // TODO: Once CI produces a standalone binary artifact, switch to direct binary URL
 #else
     m_downloadUrl.clear();  // No auto-download on desktop
 #endif
@@ -178,6 +180,31 @@ void Updater::downloadAndApply()
         QFile::remove(tempPath);
         emit updateCompleted(false);
         return;
+    }
+
+    // If downloaded file is a tar.gz, extract the binary from it
+    if (m_downloadUrl.endsWith(".tar.gz"))
+    {
+        auto extractDir = appPath + ".extract";
+        QDir().mkpath(extractDir);
+        QProcess tar;
+        tar.setWorkingDirectory(extractDir);
+        tar.start("tar", {"xzf", tempPath});
+        tar.waitForFinished(30000);
+        QFile::remove(tempPath);
+
+        // Find the binary inside the extracted archive
+        auto binaryPath = extractDir + "/.adds/UltimateMangaReader/UltimateMangaReader";
+        if (!QFile::exists(binaryPath))
+        {
+            emit updateLog("Couldn't find binary in update archive.");
+            QDir(extractDir).removeRecursively();
+            emit updateCompleted(false);
+            return;
+        }
+        // Move extracted binary to temp path
+        QFile::rename(binaryPath, tempPath);
+        QDir(extractDir).removeRecursively();
     }
 
     // Backup current binary
