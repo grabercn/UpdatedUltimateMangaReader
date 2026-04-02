@@ -64,10 +64,12 @@ WORKDIR /opt
 RUN wget -q https://www.openssl.org/source/openssl-1.1.1w.tar.gz \
     && tar xzf openssl-1.1.1w.tar.gz \
     && cd openssl-1.1.1w \
+    && export CC="${CROSS}-gcc" \
+    && export CXX="${CROSS}-g++" \
+    && export AR="${CROSS}-ar" \
+    && export RANLIB="${CROSS}-ranlib" \
     && ./Configure linux-armv4 no-comp no-asm shared \
-       --cross-compile-prefix=${CROSS}- \
        --prefix=${SYSROOT}/usr --openssldir=${SYSROOT}/usr \
-       -march=armv7-a -mfpu=neon -mfloat-abi=hard -fPIC \
     && make -j$(nproc) \
     && make install_sw install_ssldirs \
     && cd .. && rm -rf openssl-1.1.1w*
