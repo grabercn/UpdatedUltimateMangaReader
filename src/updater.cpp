@@ -6,6 +6,7 @@
 #include <QFile>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QSslSocket>
 
 #include "staticsettings.h"
 
@@ -39,6 +40,14 @@ bool Updater::shouldAutoCheck() const
 void Updater::checkForUpdate()
 {
     emit updateLog("Checking for updates...");
+
+    if (!QSslSocket::supportsSsl())
+    {
+        emit error("SSL not available. OpenSSL DLLs may be missing.\n"
+                   "SSL build: " + QSslSocket::sslLibraryBuildVersionString());
+        emit checkCompleted(false);
+        return;
+    }
 
     // Use GitHub API to get latest commit on master
     auto apiUrl = QString("https://api.github.com/repos/%1/%2/commits/master")

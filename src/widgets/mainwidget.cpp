@@ -575,10 +575,10 @@ void MainWidget::showEvent(QShowEvent *event)
         });
     }
 
-    // Auto-check for updates on startup (after welcome dialog)
+    // Auto-check for updates on startup (after welcome dialog, give SSL time to init)
     if (core->updater->shouldAutoCheck())
     {
-        QTimer::singleShot(2000, this, [this]()
+        QTimer::singleShot(8000, this, [this]()
         {
             core->updater->checkForUpdate();
 

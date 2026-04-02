@@ -64,7 +64,8 @@ private:
     QFrame *aniListFrame = nullptr;
     QLabel *aniListLabel = nullptr;
     QComboBox *aniListStatusCombo = nullptr;
-    QSpinBox *aniListProgressSpin = nullptr;
+    QComboBox *aniListChapterCombo = nullptr;
+    QComboBox *aniListVolumeCombo = nullptr;
     QComboBox *aniListScoreCombo = nullptr;
     QPushButton *aniListSyncBtn = nullptr;
     int currentAniListMediaId = 0;

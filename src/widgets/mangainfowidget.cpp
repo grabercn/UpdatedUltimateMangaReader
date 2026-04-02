@@ -390,55 +390,61 @@ void MangaInfoWidget::setupAniListUI()
     aniListFrame = new QFrame(this);
     aniListFrame->setStyleSheet(
         "QFrame#aniListFrame { border: 1px solid #ccc; background: #f5f5f5; "
-        "padding: 4px 10px; margin: 0; }");
+        "padding: 4px 10px; margin: 0; }"
+        "QComboBox { font-size: 11pt; padding: 6px 8px; min-height: 36px; }"
+        "QComboBox QAbstractItemView { font-size: 11pt; min-height: 36px; }"
+        "QComboBox QAbstractItemView::item { padding: 8px 6px; min-height: 32px; }");
     aniListFrame->setObjectName("aniListFrame");
 
     auto *mainLayout = new QVBoxLayout(aniListFrame);
-    mainLayout->setSpacing(6);
-    mainLayout->setContentsMargins(8, 6, 8, 6);
+    mainLayout->setSpacing(8);
+    mainLayout->setContentsMargins(8, 8, 8, 8);
 
-    // Top row: AniList label + status + score
-    auto *topRow = new QHBoxLayout();
-    topRow->setSpacing(6);
+    // Row 1: AniList label + Status
+    auto *row1 = new QHBoxLayout();
+    row1->setSpacing(8);
 
-    aniListLabel = new QLabel("AniList", aniListFrame);
-    aniListLabel->setStyleSheet("font-weight: bold; font-size: 10pt; border: none; background: transparent;");
-    topRow->addWidget(aniListLabel);
+    aniListLabel = new QLabel("AL:", aniListFrame);
+    aniListLabel->setStyleSheet("font-weight: bold; font-size: 11pt; border: none; background: transparent;");
+    aniListLabel->setFixedWidth(28);
+    row1->addWidget(aniListLabel);
 
     aniListStatusCombo = new QComboBox(aniListFrame);
-    aniListStatusCombo->setStyleSheet("font-size: 10pt; padding: 4px 6px;");
-    aniListStatusCombo->addItems({"--", "Reading", "Plan", "Done", "Drop", "Pause", "Re"});
+    aniListStatusCombo->addItems({"--", "Reading", "Planning", "Completed", "Dropped", "Paused", "Repeating"});
     aniListStatusCombo->setFixedHeight(SIZES.buttonSize);
-    topRow->addWidget(aniListStatusCombo, 1);
+    row1->addWidget(aniListStatusCombo, 1);
 
     aniListScoreCombo = new QComboBox(aniListFrame);
-    aniListScoreCombo->setStyleSheet("font-size: 10pt; padding: 4px 6px;");
     aniListScoreCombo->addItem("Score", 0);
     for (int i = 1; i <= 10; i++)
         aniListScoreCombo->addItem(QString::number(i) + "/10", i);
     aniListScoreCombo->setFixedHeight(SIZES.buttonSize);
-    topRow->addWidget(aniListScoreCombo);
+    row1->addWidget(aniListScoreCombo);
 
-    mainLayout->addLayout(topRow);
+    mainLayout->addLayout(row1);
 
-    // Bottom row: chapter progress + sync button
-    auto *bottomRow = new QHBoxLayout();
-    bottomRow->setSpacing(6);
+    // Row 2: Chapter + Volume dropdowns
+    auto *row2 = new QHBoxLayout();
+    row2->setSpacing(8);
 
-    aniListProgressSpin = new QSpinBox(aniListFrame);
-    aniListProgressSpin->setRange(0, 9999);
-    aniListProgressSpin->setPrefix("Ch. ");
-    aniListProgressSpin->setStyleSheet("font-size: 10pt; padding: 4px 6px;");
-    aniListProgressSpin->setFixedHeight(SIZES.buttonSize);
-    bottomRow->addWidget(aniListProgressSpin, 1);
+    aniListChapterCombo = new QComboBox(aniListFrame);
+    aniListChapterCombo->setFixedHeight(SIZES.buttonSize);
+    aniListChapterCombo->setMaxVisibleItems(8);
+    row2->addWidget(aniListChapterCombo, 1);
 
+    aniListVolumeCombo = new QComboBox(aniListFrame);
+    aniListVolumeCombo->setFixedHeight(SIZES.buttonSize);
+    aniListVolumeCombo->setMaxVisibleItems(8);
+    row2->addWidget(aniListVolumeCombo, 1);
+
+    mainLayout->addLayout(row2);
+
+    // Row 3: Sync button (full width)
     aniListSyncBtn = new QPushButton("Sync to AniList", aniListFrame);
     aniListSyncBtn->setFixedHeight(SIZES.buttonSize);
-    aniListSyncBtn->setStyleSheet("font-size: 10pt; font-weight: bold; padding: 4px 12px;");
+    aniListSyncBtn->setStyleSheet("font-size: 11pt; font-weight: bold; padding: 4px 12px;");
     aniListSyncBtn->setProperty("type", "borderless");
-    bottomRow->addWidget(aniListSyncBtn, 1);
-
-    mainLayout->addLayout(bottomRow);
+    mainLayout->addWidget(aniListSyncBtn);
 
     connect(aniListSyncBtn, &QPushButton::clicked, this, [this]()
     {
@@ -446,12 +452,13 @@ void MangaInfoWidget::setupAniListUI()
             return;
 
         int status = aniListStatusCombo->currentIndex();
-        int progress = aniListProgressSpin->value();
         int score = aniListScoreCombo->currentData().toInt();
+        int chapters = aniListChapterCombo->currentData().toInt();
+        int volumes = aniListVolumeCombo->currentData().toInt();
 
         if (status > 0)
         {
-            aniList->updateProgress(currentAniListMediaId, progress, status);
+            aniList->updateProgress(currentAniListMediaId, chapters, status, volumes);
             if (score > 0)
                 aniList->updateScore(currentAniListMediaId, score);
             aniListSyncBtn->setText("Synced!");
@@ -490,9 +497,20 @@ void MangaInfoWidget::updateAniListTracking()
             currentAniListMediaId = entry.mediaId;
             aniListLabel->setText("AL:");
             aniListStatusCombo->setCurrentIndex(entry.status);
-            aniListProgressSpin->setValue(entry.progress);
-            if (entry.totalChapters > 0)
-                aniListProgressSpin->setMaximum(entry.totalChapters);
+
+            // Populate chapter dropdown
+            aniListChapterCombo->clear();
+            int maxCh = entry.totalChapters > 0 ? entry.totalChapters : qMax(entry.progress + 50, 500);
+            for (int i = 0; i <= maxCh; i++)
+                aniListChapterCombo->addItem("Ch. " + QString::number(i), i);
+            aniListChapterCombo->setCurrentIndex(entry.progress);
+
+            // Populate volume dropdown
+            aniListVolumeCombo->clear();
+            int maxVol = entry.totalVolumes > 0 ? entry.totalVolumes : qMax(entry.progressVolumes + 20, 100);
+            for (int i = 0; i <= maxVol; i++)
+                aniListVolumeCombo->addItem("Vol. " + QString::number(i), i);
+            aniListVolumeCombo->setCurrentIndex(entry.progressVolumes);
 
             int scoreIdx = aniListScoreCombo->findData(entry.score);
             if (scoreIdx >= 0)
@@ -500,10 +518,15 @@ void MangaInfoWidget::updateAniListTracking()
         }
         else
         {
-            // Don't block UI with searchMediaId - just show as not tracked
             aniListLabel->setText("AL:");
             aniListStatusCombo->setCurrentIndex(0);
-            aniListProgressSpin->setValue(0);
+
+            // Default chapter/volume dropdowns
+            aniListChapterCombo->clear();
+            aniListChapterCombo->addItem("Ch. 0", 0);
+            aniListVolumeCombo->clear();
+            aniListVolumeCombo->addItem("Vol. 0", 0);
+
             aniListScoreCombo->setCurrentIndex(0);
         }
     }

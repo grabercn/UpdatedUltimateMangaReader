@@ -107,11 +107,11 @@ void AniList::fetchMangaList()
             MediaListCollection(userId: $userId, type: MANGA) {
                 lists {
                     entries {
-                        id mediaId status progress
+                        id mediaId status progress progressVolumes
                         score(format: POINT_10)
                         media {
                             title { romaji english }
-                            chapters
+                            chapters volumes
                             coverImage { medium }
                         }
                     }
@@ -135,12 +135,13 @@ void AniList::fetchMangaList()
 
     // Find each entry block
     QRegularExpression entryRx(
-        R"lit("id"\s*:\s*(\d+)\s*,\s*"mediaId"\s*:\s*(\d+)\s*,\s*"status"\s*:\s*"(\w+)"\s*,\s*"progress"\s*:\s*(\d+)\s*,\s*"score"\s*:\s*(\d+))lit",
+        R"lit("id"\s*:\s*(\d+)\s*,\s*"mediaId"\s*:\s*(\d+)\s*,\s*"status"\s*:\s*"(\w+)"\s*,\s*"progress"\s*:\s*(\d+)\s*,\s*"progressVolumes"\s*:\s*(\d+)\s*,\s*"score"\s*:\s*(\d+))lit",
         QRegularExpression::DotMatchesEverythingOption);
 
     QRegularExpression titleRx(R"lit("english"\s*:\s*(?:"([^"]*)"|null))lit", QRegularExpression::DotMatchesEverythingOption);
     QRegularExpression romajiRx(R"lit("romaji"\s*:\s*"([^"]*)")lit", QRegularExpression::DotMatchesEverythingOption);
     QRegularExpression chaptersRx(R"lit("chapters"\s*:\s*(?:(\d+)|null))lit");
+    QRegularExpression volumesRx(R"lit("volumes"\s*:\s*(?:(\d+)|null))lit");
     QRegularExpression coverRx(R"lit("medium"\s*:\s*"([^"]*)")lit");
 
     // Split by entry blocks
@@ -162,7 +163,8 @@ void AniList::fetchMangaList()
         else if (statusStr == "REPEATING") entry.status = 6;
 
         entry.progress = m.captured(4).toInt();
-        entry.score = m.captured(5).toInt();
+        entry.progressVolumes = m.captured(5).toInt();
+        entry.score = m.captured(6).toInt();
 
         // Find title near this match
         int searchStart = m.capturedEnd();
@@ -178,6 +180,10 @@ void AniList::fetchMangaList()
         auto cm = chaptersRx.match(titleSlice);
         if (cm.hasMatch() && !cm.captured(1).isEmpty())
             entry.totalChapters = cm.captured(1).toInt();
+
+        auto vm = volumesRx.match(titleSlice);
+        if (vm.hasMatch() && !vm.captured(1).isEmpty())
+            entry.totalVolumes = vm.captured(1).toInt();
 
         auto covm = coverRx.match(titleSlice);
         if (covm.hasMatch())
@@ -247,7 +253,7 @@ AniListEntry AniList::findByTitle(const QString &title) const
     return AniListEntry();
 }
 
-void AniList::updateProgress(int mediaId, int chapters, int status)
+void AniList::updateProgress(int mediaId, int chapters, int status, int volumes)
 {
     if (!isLoggedIn())
         return;
@@ -255,15 +261,31 @@ void AniList::updateProgress(int mediaId, int chapters, int status)
     static const char *statusNames[] = {"", "CURRENT", "PLANNING", "COMPLETED", "DROPPED", "PAUSED", "REPEATING"};
     auto statusStr = (status >= 1 && status <= 6) ? statusNames[status] : "CURRENT";
 
-    auto query = R"(
-        mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus) {
-            SaveMediaListEntry(mediaId: $mediaId, progress: $progress, status: $status) {
-                id progress status
+    QString query, vars;
+    if (volumes >= 0)
+    {
+        query = R"(
+            mutation ($mediaId: Int, $progress: Int, $progressVolumes: Int, $status: MediaListStatus) {
+                SaveMediaListEntry(mediaId: $mediaId, progress: $progress, progressVolumes: $progressVolumes, status: $status) {
+                    id progress progressVolumes status
+                }
             }
-        }
-    )";
-    auto vars = QString(R"({"mediaId":%1,"progress":%2,"status":"%3"})")
+        )";
+        vars = QString(R"({"mediaId":%1,"progress":%2,"progressVolumes":%3,"status":"%4"})")
+                    .arg(mediaId).arg(chapters).arg(volumes).arg(statusStr);
+    }
+    else
+    {
+        query = R"(
+            mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus) {
+                SaveMediaListEntry(mediaId: $mediaId, progress: $progress, status: $status) {
+                    id progress status
+                }
+            }
+        )";
+        vars = QString(R"({"mediaId":%1,"progress":%2,"status":"%3"})")
                     .arg(mediaId).arg(chapters).arg(statusStr);
+    }
 
     auto job = graphqlRequest(query, vars);
     if (!job->await(10000))
@@ -287,6 +309,8 @@ void AniList::updateProgress(int mediaId, int chapters, int status)
         if (e.mediaId == mediaId)
         {
             e.progress = chapters;
+            if (volumes >= 0)
+                e.progressVolumes = volumes;
             e.status = status;
             break;
         }
@@ -440,7 +464,8 @@ void AniList::serialize()
     out << authToken << m_username << userId << (int)m_entries.size();
     for (const auto &e : m_entries)
         out << e.mediaId << e.listEntryId << e.title << e.titleRomaji << e.coverUrl
-            << e.status << e.progress << e.score << e.totalChapters;
+            << e.status << e.progress << e.score << e.totalChapters
+            << e.progressVolumes << e.totalVolumes;
     file.close();
 }
 
@@ -472,6 +497,9 @@ void AniList::deserialize()
             AniListEntry e;
             in >> e.mediaId >> e.listEntryId >> e.title >> e.titleRomaji >> e.coverUrl
                >> e.status >> e.progress >> e.score >> e.totalChapters;
+            // Read new volume fields if available (backwards compatible)
+            if (!in.atEnd())
+                in >> e.progressVolumes >> e.totalVolumes;
             if (in.status() != QDataStream::Ok)
                 break;
             m_entries.append(e);

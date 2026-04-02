@@ -26,12 +26,29 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
         QObject::connect(item, &QCheckBox::clicked, this, &SettingsDialog::updateSettings);
 
     auto *scrollLayout = ui->scrollArea->widget()->layout();
+    auto *vl = qobject_cast<QVBoxLayout *>(scrollLayout);
 
-    // Power management section
-    auto *powerLabel = new QLabel("<b>Power</b>", this);
-    scrollLayout->addWidget(powerLabel);
+    // Helper: add a section divider line
+    auto addDivider = [&]() {
+        auto *line = new QFrame(this);
+        line->setFrameShape(QFrame::HLine);
+        line->setStyleSheet("color: #ccc; margin: 8px 0;");
+        scrollLayout->addWidget(line);
+    };
+
+    // Helper: add a section header
+    auto addHeader = [&](const QString &text) {
+        auto *lbl = new QLabel("<b>" + text + "</b>", this);
+        lbl->setStyleSheet("font-size: 12pt; padding-top: 12px; padding-bottom: 4px;");
+        scrollLayout->addWidget(lbl);
+    };
+
+    // ── Power ──
+    addDivider();
+    addHeader("Power");
 
     auto *suspendRow = new QHBoxLayout();
+    suspendRow->setSpacing(12);
     auto *suspendLabel = new QLabel("Auto sleep after:", this);
     auto *suspendCombo = new QComboBox(this);
     suspendCombo->addItem("5 min", 5);
@@ -40,7 +57,6 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
     suspendCombo->addItem("30 min", 30);
     suspendCombo->addItem("60 min", 60);
     suspendCombo->addItem("Never", 0);
-    // Set current
     for (int i = 0; i < suspendCombo->count(); i++)
         if (suspendCombo->itemData(i).toInt() == settings->autoSuspendMinutes)
             suspendCombo->setCurrentIndex(i);
@@ -56,7 +72,7 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
     });
     suspendRow->addWidget(suspendLabel);
     suspendRow->addWidget(suspendCombo);
-    static_cast<QVBoxLayout *>(scrollLayout)->addLayout(suspendRow);
+    if (vl) vl->addLayout(suspendRow);
 
     auto *wifiDisconnect = new QCheckBox("Disconnect WiFi on sleep", this);
     wifiDisconnect->setChecked(settings->wifiAutoDisconnect);
@@ -84,23 +100,24 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
     });
     scrollLayout->addWidget(autoBootCheck);
 
-    // Detect which launcher is installed
     bool hasKfmon = QDir("/mnt/onboard/.adds/kfmon/config").exists();
     bool hasNm = QDir("/mnt/onboard/.adds/nm").exists();
-    QString launcherInfo = "Detected: ";
+    QString launcherInfo = "Launcher: ";
     if (hasKfmon && hasNm) launcherInfo += "KFMon + NickelMenu";
     else if (hasKfmon) launcherInfo += "KFMon";
     else if (hasNm) launcherInfo += "NickelMenu";
-    else launcherInfo += "None (install KFMon or NickelMenu)";
+    else launcherInfo += "None";
     auto *launcherLabel = new QLabel(launcherInfo, this);
-    launcherLabel->setStyleSheet("font-size: 8pt; color: #888; padding-left: 4px;");
+    launcherLabel->setStyleSheet("font-size: 8pt; color: #888; padding-left: 20px;");
     scrollLayout->addWidget(launcherLabel);
 #endif
 
-    // Internet Archive general books
+    // ── Content Sources ──
+    addDivider();
+    addHeader("Content Sources");
+
     auto *iaBooksCheck = new QCheckBox("Show general books (Internet Archive)", this);
     iaBooksCheck->setChecked(settings->iaGeneralBooksEnabled);
-    iaBooksCheck->setToolTip("Adds an 'IABooks' source that searches all books on archive.org, not just manga/LN");
     connect(iaBooksCheck, &QCheckBox::toggled, this, [this](bool checked)
     {
         if (!internalChange)
@@ -111,14 +128,15 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
     });
     scrollLayout->addWidget(iaBooksCheck);
 
-    auto *iaBooksNote = new QLabel("Requires restart to take effect", this);
-    iaBooksNote->setStyleSheet("font-size: 8pt; color: #888; padding-left: 4px;");
+    auto *iaBooksNote = new QLabel("Searches all books on archive.org, not just manga/LN. Requires restart.", this);
+    iaBooksNote->setWordWrap(true);
+    iaBooksNote->setStyleSheet("font-size: 8pt; color: #888; padding-left: 20px;");
     scrollLayout->addWidget(iaBooksNote);
 
-    // Debug / Testing section
 #ifdef DESKTOP
-    auto *debugLabel = new QLabel("<b>Debug</b>", this);
-    scrollLayout->addWidget(debugLabel);
+    // ── Debug ──
+    addDivider();
+    addHeader("Debug");
 
     auto *offlineCheck = new QCheckBox("Offline Test Mode", this);
     offlineCheck->setChecked(settings->offlineMode);
@@ -133,28 +151,26 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
     scrollLayout->addWidget(offlineCheck);
 #endif
 
-    // AniList section
-    auto *aniLabel = new QLabel("<b>AniList</b>", this);
-    scrollLayout->addWidget(aniLabel);
+    // ── AniList ──
+    addDivider();
+    addHeader("AniList");
 
     aniListStatusLabel = new QLabel("Not logged in", this);
     aniListStatusLabel->setWordWrap(true);
+    aniListStatusLabel->setStyleSheet("font-size: 10pt; padding: 4px 0;");
     scrollLayout->addWidget(aniListStatusLabel);
 
-    // Instructions
     auto *instrLabel = new QLabel(
-        "1. On any browser go to:\n"
-        "anilist.co/api/v2/oauth/authorize\n"
-        "  ?client_id=25108&response_type=token\n"
-        "2. Authorize the app\n"
-        "3. Copy the token from the URL after\n"
-        "   #access_token= and paste below", this);
+        "To connect: visit the URL below in a browser, authorize,\n"
+        "then paste the token from the URL (#access_token=...):\n\n"
+        "anilist.co/api/v2/oauth/authorize?client_id=25108&response_type=token", this);
     instrLabel->setWordWrap(true);
-    instrLabel->setStyleSheet("font-size: 8pt; color: #555; padding: 4px;");
+    instrLabel->setStyleSheet("font-size: 8pt; color: #555; padding: 6px; "
+                              "background: #f8f8f8; border: 1px solid #eee; border-radius: 4px;");
     scrollLayout->addWidget(instrLabel);
 
     aniListTokenEdit = new CLineEdit(this);
-    aniListTokenEdit->setPlaceholderText("Paste or type token here...");
+    aniListTokenEdit->setPlaceholderText("Paste token here...");
     aniListTokenEdit->setFixedHeight(SIZES.buttonSize);
     aniListTokenEdit->installEventFilter(this->parentWidget());
     scrollLayout->addWidget(aniListTokenEdit);
@@ -214,17 +230,17 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
         }
     }
 
-    // Updates section
-    auto *updateLabel = new QLabel("<b>Updates</b>", this);
-    scrollLayout->addWidget(updateLabel);
+    // ── Updates ──
+    addDivider();
+    addHeader("Updates");
 
     auto *versionLabel = new QLabel("Version: " + Updater::currentVersion, this);
-    versionLabel->setStyleSheet("font-size: 9pt; color: #666;");
+    versionLabel->setStyleSheet("font-size: 10pt; color: #666; padding: 2px 0;");
     scrollLayout->addWidget(versionLabel);
 
     auto *updateStatusLabel = new QLabel("", this);
     updateStatusLabel->setWordWrap(true);
-    updateStatusLabel->setStyleSheet("font-size: 9pt; padding: 4px;");
+    updateStatusLabel->setStyleSheet("font-size: 9pt; padding: 6px; color: #c00;");
     scrollLayout->addWidget(updateStatusLabel);
 
     auto *checkUpdateBtn = new QPushButton("Check for Updates", this);

@@ -54,11 +54,28 @@ void DownloadMangaChaptersDialog::show(QSharedPointer<MangaInfo> mangaInfo, int 
     {
         ui->labelTitle->setText("Export " + mangaInfo->title);
         ui->pushButtonConfirm->hide();
+        // Hide the spacer so Export + Cancel fill the width
+        if (ui->horizontalLayout->count() > 0)
+        {
+            auto *spacer = ui->horizontalLayout->itemAt(0)->spacerItem();
+            if (spacer)
+                ui->horizontalLayout->itemAt(0)->widget() ? (void)0 :
+                    spacer->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Fixed);
+        }
+        ui->horizontalLayout->invalidate();
     }
     else
     {
         ui->labelTitle->setText("Download " + mangaInfo->title);
         ui->pushButtonConfirm->show();
+        // Restore spacer
+        if (ui->horizontalLayout->count() > 0)
+        {
+            auto *spacer = ui->horizontalLayout->itemAt(0)->spacerItem();
+            if (spacer)
+                spacer->changeSize(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+        }
+        ui->horizontalLayout->invalidate();
     }
 
     open();

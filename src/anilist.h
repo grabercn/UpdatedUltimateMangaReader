@@ -15,8 +15,10 @@ struct AniListEntry
     QString coverUrl;
     int status = 0;  // 0=none,1=current,2=planning,3=completed,4=dropped,5=paused,6=repeating
     int progress = 0;
+    int progressVolumes = 0;
     int score = 0;
     int totalChapters = 0;
+    int totalVolumes = 0;
 };
 
 class AniList : public QObject
@@ -35,7 +37,7 @@ public:
 
     AniListEntry findByTitle(const QString &title) const;
     int searchMediaId(const QString &title);  // search AniList API for mediaId
-    void updateProgress(int mediaId, int chapters, int status = 1);
+    void updateProgress(int mediaId, int chapters, int status = 1, int volumes = -1);
     void updateStatus(int mediaId, int status);
     void updateScore(int mediaId, int score);
 

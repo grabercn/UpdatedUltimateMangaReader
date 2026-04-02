@@ -357,6 +357,44 @@ bool UltimateMangaReaderCore::exportNovelAsEPUB(QSharedPointer<MangaInfo> manga,
     auto dir = CONF.exportDir();
     QDir().mkpath(dir);
 
+    // Check if chapters are download-only (raw PDFs) - download files directly
+    bool downloadOnly = !manga->chapters.isEmpty() &&
+                        manga->mangaSource->isDownloadOnly(manga->chapters[fromCh].chapterUrl);
+
+    if (downloadOnly)
+    {
+        auto exportDir = dir + makePathLegal(manga->title) + "/";
+        QDir().mkpath(exportDir);
+
+        int exported = 0;
+        for (int c = fromCh; c <= toCh && c < manga->chapters.count(); c++)
+        {
+            auto chapterUrl = manga->chapters[c].chapterUrl;
+            // Build download URL: https://archive.org/download/{identifier}/{filename}
+            auto downloadUrl = "https://archive.org/download/" + chapterUrl;
+            auto filename = chapterUrl.mid(chapterUrl.indexOf('/') + 1);
+            auto localPath = exportDir + makePathLegal(filename);
+
+            qDebug() << "Exporting PDF:" << downloadUrl << "to" << localPath;
+
+            auto job = networkManager->downloadAsFile(downloadUrl, localPath);
+            if (job->await(120000))
+                exported++;
+            else
+                qDebug() << "Download failed:" << job->errorString;
+        }
+
+        if (exported == 0)
+        {
+            emit error("Failed to download any files.");
+            return false;
+        }
+
+        qDebug() << "Exported" << exported << "PDFs to" << exportDir;
+        return true;
+    }
+
+    // Text-based export (TXT chapters, AllNovel, etc.)
     auto filepath = dir + makePathLegal(manga->title) + ".html";
 
     QFile file(filepath);
