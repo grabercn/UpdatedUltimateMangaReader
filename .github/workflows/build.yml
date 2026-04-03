@@ -109,7 +109,7 @@ jobs:
           path: UltimateMangaReader-Kobo.tar.gz
 
   release:
-    needs: [build-windows]
+    needs: [build-windows, build-kobo]
     if: always() && needs.build-windows.result == 'success'
     runs-on: ubuntu-latest
     permissions:
