@@ -399,7 +399,7 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
         {
             revertBtn->setVisible(available);
             if (available)
-                revertBtn->setText("Revert to v" + this->updater->previousVersion());
+                revertBtn->setText("Revert to Previous Stable (v" + this->updater->previousVersion() + ")");
         });
 
         connect(revertBtn, &QPushButton::clicked, this, [this, updateStatusLabel]()
