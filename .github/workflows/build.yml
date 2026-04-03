@@ -132,6 +132,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download Windows artifact
         uses: actions/download-artifact@v4
@@ -182,3 +184,21 @@ jobs:
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump version for next release
+        run: |
+          # Read current version and increment patch
+          VERSION=$(cat VERSION | tr -d '\r\n ')
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          PATCH=$(echo $VERSION | cut -d. -f3)
+          NEXT_PATCH=$((PATCH + 1))
+          NEXT_VERSION="${MAJOR}.${MINOR}.${NEXT_PATCH}"
+          echo "$NEXT_VERSION" > VERSION
+          echo "Bumped version: $VERSION -> $NEXT_VERSION"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add VERSION
+          git commit -m "Auto-bump version to $NEXT_VERSION [skip ci]"
+          git push
