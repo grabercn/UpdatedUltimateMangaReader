@@ -2,6 +2,7 @@
 
 #include <QFile>
 
+#include "sizes.h"
 #include "staticsettings.h"
 
 WelcomeDialog::WelcomeDialog(QWidget *parent)
@@ -9,28 +10,31 @@ WelcomeDialog::WelcomeDialog(QWidget *parent)
 {
     setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
     if (parent)
+    {
         setFixedSize(parent->size());
+        setGeometry(parent->geometry());
+    }
 
     auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(20, 15, 20, 15);
-    layout->setSpacing(10);
+    layout->setContentsMargins(10, 8, 10, 8);
+    layout->setSpacing(6);
 
     contentLabel = new QLabel(this);
     contentLabel->setWordWrap(true);
     contentLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-    contentLabel->setStyleSheet("font-size: 11pt; line-height: 1.6; padding: 10px;");
+    contentLabel->setStyleSheet("padding: 6px;");
     layout->addWidget(contentLabel, 1);
 
     pageIndicator = new QLabel(this);
     pageIndicator->setAlignment(Qt::AlignCenter);
-    pageIndicator->setStyleSheet("font-size: 9pt; color: #888;");
+    pageIndicator->setStyleSheet("color: #888;");
     layout->addWidget(pageIndicator);
 
     auto *btnRow = new QHBoxLayout();
-    btnRow->setSpacing(10);
+    btnRow->setSpacing(6);
 
     prevBtn = new QPushButton("< Back", this);
-    prevBtn->setFixedHeight(40);
+    prevBtn->setFixedHeight(SIZES.buttonSize);
     connect(prevBtn, &QPushButton::clicked, this, [this]()
     {
         if (currentPage > 0)
@@ -38,7 +42,7 @@ WelcomeDialog::WelcomeDialog(QWidget *parent)
     });
 
     nextBtn = new QPushButton("Next >", this);
-    nextBtn->setFixedHeight(40);
+    nextBtn->setFixedHeight(SIZES.buttonSize);
     connect(nextBtn, &QPushButton::clicked, this, [this]()
     {
         if (currentPage < totalPages - 1)
@@ -46,8 +50,8 @@ WelcomeDialog::WelcomeDialog(QWidget *parent)
     });
 
     actionBtn = new QPushButton("Get Started", this);
-    actionBtn->setFixedHeight(40);
-    actionBtn->setStyleSheet("font-weight: bold; font-size: 13pt;");
+    actionBtn->setFixedHeight(SIZES.buttonSize);
+    actionBtn->setStyleSheet("font-weight: bold;");
     connect(actionBtn, &QPushButton::clicked, this, [this]()
     {
         markShown();
@@ -63,8 +67,7 @@ WelcomeDialog::WelcomeDialog(QWidget *parent)
     // Build pages
     pages.append(
         "<h2 style='text-align:center;'>Welcome to<br>Ultimate Manga Reader</h2>"
-        "<p style='text-align:center; font-size:10pt; color:#555;'>Your all-in-one manga and light novel reader</p>"
-        "<br>"
+        "<p style='text-align:center; color:#555;'>Your all-in-one manga and light novel reader</p>"
         "<p>Designed for <b>Kobo e-readers</b> and desktop, this app brings "
         "thousands of manga and light novels to your fingertips.</p>"
         "<p>Read online, download for offline reading, and track your progress "

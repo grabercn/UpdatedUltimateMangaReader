@@ -41,7 +41,7 @@ void MangaInfoWidget::adjustUI()
 
     ui->labelMangaInfoCover->setScaledContents(true);
 
-    ui->labelMangaInfoTitle->setStyleSheet("font-size: 16pt");
+    ui->labelMangaInfoTitle->setStyleSheet("font-weight: bold;");
 
     // set labels bold
     ui->labelMangaInfoLabelAuthor->setProperty("type", "mangainfolabel");
@@ -391,9 +391,8 @@ void MangaInfoWidget::setupAniListUI()
     aniListFrame->setStyleSheet(
         "QFrame#aniListFrame { border: 1px solid #ccc; background: #f5f5f5; "
         "padding: 4px 10px; margin: 0; }"
-        "QComboBox { font-size: 11pt; padding: 6px 8px; min-height: 36px; }"
-        "QComboBox QAbstractItemView { font-size: 11pt; min-height: 36px; }"
-        "QComboBox QAbstractItemView::item { padding: 8px 6px; min-height: 32px; }");
+        "QComboBox { padding: 4px 6px; }"
+        "QComboBox QAbstractItemView::item { padding: 6px 4px; }");
     aniListFrame->setObjectName("aniListFrame");
 
     auto *mainLayout = new QVBoxLayout(aniListFrame);
@@ -405,7 +404,7 @@ void MangaInfoWidget::setupAniListUI()
     row1->setSpacing(8);
 
     aniListLabel = new QLabel("AL:", aniListFrame);
-    aniListLabel->setStyleSheet("font-weight: bold; font-size: 11pt; border: none; background: transparent;");
+    aniListLabel->setStyleSheet("font-weight: bold; border: none; background: transparent;");
     aniListLabel->setFixedWidth(28);
     row1->addWidget(aniListLabel);
 
@@ -442,7 +441,7 @@ void MangaInfoWidget::setupAniListUI()
     // Row 3: Sync button (full width)
     aniListSyncBtn = new QPushButton("Sync to AniList", aniListFrame);
     aniListSyncBtn->setFixedHeight(SIZES.buttonSize);
-    aniListSyncBtn->setStyleSheet("font-size: 11pt; font-weight: bold; padding: 4px 12px;");
+    aniListSyncBtn->setStyleSheet("font-weight: bold; padding: 4px 8px;");
     aniListSyncBtn->setProperty("type", "borderless");
     mainLayout->addWidget(aniListSyncBtn);
 

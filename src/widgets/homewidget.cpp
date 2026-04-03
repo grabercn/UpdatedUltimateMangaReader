@@ -26,7 +26,7 @@ HomeWidget::HomeWidget(QWidget *parent)
 
     // Alt names label between search bar and results
     altNamesLabel = new QLabel(this);
-    altNamesLabel->setStyleSheet("color: #888; font-size: 8pt; padding: 1px 12px;");
+    altNamesLabel->setStyleSheet("color: #888; padding: 1px 12px;");
     altNamesLabel->setWordWrap(false);
     altNamesLabel->hide();
     // Insert into the layout between search bar and list

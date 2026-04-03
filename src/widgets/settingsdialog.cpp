@@ -39,7 +39,7 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
     // Helper: add a section header
     auto addHeader = [&](const QString &text) {
         auto *lbl = new QLabel("<b>" + text + "</b>", this);
-        lbl->setStyleSheet("font-size: 12pt; padding-top: 12px; padding-bottom: 4px;");
+        lbl->setStyleSheet("padding-top: 8px; padding-bottom: 2px;");
         scrollLayout->addWidget(lbl);
     };
 
@@ -108,7 +108,7 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
     else if (hasNm) launcherInfo += "NickelMenu";
     else launcherInfo += "None";
     auto *launcherLabel = new QLabel(launcherInfo, this);
-    launcherLabel->setStyleSheet("font-size: 8pt; color: #888; padding-left: 20px;");
+    launcherLabel->setStyleSheet("color: #888; padding-left: 20px;");
     scrollLayout->addWidget(launcherLabel);
 #endif
 
@@ -130,7 +130,7 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
 
     auto *iaBooksNote = new QLabel("Searches all books on archive.org, not just manga/LN. Requires restart.", this);
     iaBooksNote->setWordWrap(true);
-    iaBooksNote->setStyleSheet("font-size: 8pt; color: #888; padding-left: 20px;");
+    iaBooksNote->setStyleSheet("color: #888; padding-left: 20px;");
     scrollLayout->addWidget(iaBooksNote);
 
 #ifdef DESKTOP
@@ -157,7 +157,7 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
 
     aniListStatusLabel = new QLabel("Not logged in", this);
     aniListStatusLabel->setWordWrap(true);
-    aniListStatusLabel->setStyleSheet("font-size: 10pt; padding: 4px 0;");
+    aniListStatusLabel->setStyleSheet("padding: 4px 0;");
     scrollLayout->addWidget(aniListStatusLabel);
 
     auto *instrLabel = new QLabel(
@@ -165,7 +165,7 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
         "then paste the token from the URL (#access_token=...):\n\n"
         "anilist.co/api/v2/oauth/authorize?client_id=25108&response_type=token", this);
     instrLabel->setWordWrap(true);
-    instrLabel->setStyleSheet("font-size: 8pt; color: #555; padding: 6px; "
+    instrLabel->setStyleSheet("color: #555; padding: 6px; "
                               "background: #f8f8f8; border: 1px solid #eee; border-radius: 4px;");
     scrollLayout->addWidget(instrLabel);
 
@@ -235,12 +235,12 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
     addHeader("Updates");
 
     auto *versionLabel = new QLabel("Version: " + Updater::currentVersion, this);
-    versionLabel->setStyleSheet("font-size: 10pt; color: #666; padding: 2px 0;");
+    versionLabel->setStyleSheet("color: #666; padding: 2px 0;");
     scrollLayout->addWidget(versionLabel);
 
     auto *updateStatusLabel = new QLabel("", this);
     updateStatusLabel->setWordWrap(true);
-    updateStatusLabel->setStyleSheet("font-size: 9pt; padding: 6px; color: #c00;");
+    updateStatusLabel->setStyleSheet("padding: 4px; color: #c00;");
     scrollLayout->addWidget(updateStatusLabel);
 
     auto *checkUpdateBtn = new QPushButton("Check for Updates", this);
@@ -292,7 +292,7 @@ SettingsDialog::~SettingsDialog()
 void SettingsDialog::adjustUI()
 {
     // Title
-    ui->labelTitle->setStyleSheet("font-size: 16pt; font-weight: bold; padding: 12px 0;");
+    ui->labelTitle->setStyleSheet("font-weight: bold; padding: 8px 0;");
 
     // Replace Ok with sticky bottom bar
     ui->pushButtonOk->hide();
@@ -307,7 +307,7 @@ void SettingsDialog::adjustUI()
 
     auto *backBtn = new QPushButton("< Back", bottomBar);
     backBtn->setFixedHeight(36);
-    backBtn->setStyleSheet("font-size: 12pt;");
+    backBtn->setStyleSheet("");
     connect(backBtn, &QPushButton::clicked, this, [this]()
     {
         // Discard: reload saved settings
@@ -317,7 +317,7 @@ void SettingsDialog::adjustUI()
 
     auto *saveBtn = new QPushButton("Save", bottomBar);
     saveBtn->setFixedHeight(36);
-    saveBtn->setStyleSheet("font-size: 12pt; font-weight: bold;");
+    saveBtn->setStyleSheet("font-weight: bold;");
     connect(saveBtn, &QPushButton::clicked, this, [this]()
     {
         settings->serialize();
@@ -335,9 +335,9 @@ void SettingsDialog::adjustUI()
     ui->scrollArea->setStyleSheet("QScrollArea { border: none; }");
 
     // Style all section labels as headers
-    ui->label->setStyleSheet("font-weight: bold; font-size: 11pt; padding-top: 8px;");
+    ui->label->setStyleSheet("font-weight: bold; padding-top: 6px;");
     ui->label->setText("Sources");
-    ui->label_2->setStyleSheet("font-weight: bold; font-size: 11pt; padding-top: 12px;");
+    ui->label_2->setStyleSheet("font-weight: bold; padding-top: 6px;");
     ui->label_2->setText("Page Navigation");
 
     // Remove verbose descriptions, make labels cleaner
@@ -354,7 +354,7 @@ void SettingsDialog::adjustUI()
 
     // Color mode checkbox - add after dithering
     auto *displayLabel = new QLabel("<b>Display</b>", this);
-    displayLabel->setStyleSheet("font-weight: bold; font-size: 11pt; padding-top: 8px;");
+    displayLabel->setStyleSheet("font-weight: bold; padding-top: 6px;");
     auto *colorCheck = new QCheckBox("Color mode (disable greyscale)", this);
     colorCheck->setChecked(settings->colorMode);
     connect(colorCheck, &QCheckBox::toggled, this, [this](bool checked)
@@ -388,7 +388,7 @@ void SettingsDialog::adjustUI()
 
                 // Preload settings
                 auto *preloadLabel = new QLabel("<b>Preloading</b>", this);
-                preloadLabel->setStyleSheet("font-weight: bold; font-size: 11pt; padding-top: 8px;");
+                preloadLabel->setStyleSheet("font-weight: bold; padding-top: 6px;");
                 vl->insertWidget(idx + 2, preloadLabel);
 
                 auto *preloadCheck = new QCheckBox("Enable page preloading", this);

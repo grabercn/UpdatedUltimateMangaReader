@@ -55,7 +55,7 @@ MangaReaderWidget::MangaReaderWidget(QWidget *parent)
         "QProgressBar::chunk { background: #333; border-radius: 2px; }");
 
     textPageLabel = new QLabel("1/1", textBottomBar);
-    textPageLabel->setStyleSheet("font-size: 9pt; color: #444;");
+    textPageLabel->setStyleSheet("color: #444;");
     textPageLabel->setFixedWidth(55);
     textPageLabel->setAlignment(Qt::AlignCenter);
 

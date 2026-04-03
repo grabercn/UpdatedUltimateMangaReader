@@ -551,7 +551,7 @@ void MainWidget::adjustUI()
     ui->toolButtonMenu->setIconSize(QSize(SIZES.menuIconSize, SIZES.menuIconSize));
     ui->toolButtonWifiIcon->setIconSize(QSize(SIZES.wifiIconSize, SIZES.wifiIconSize));
 
-    ui->labelTitle->setStyleSheet("font-size: 16pt");
+    ui->labelTitle->setStyleSheet("font-weight: bold;");
 
 #ifdef KOBO
     koboDevice = KoboPlatformFunctions::getKoboDeviceDescriptor();
@@ -591,39 +591,38 @@ void MainWidget::showEvent(QShowEvent *event)
                 updateDlg.setGeometry(this->geometry());
 
                 auto *layout = new QVBoxLayout(&updateDlg);
-                layout->setContentsMargins(20, 15, 20, 15);
-                layout->setSpacing(12);
+                layout->setContentsMargins(10, 8, 10, 8);
+                layout->setSpacing(6);
 
-                auto *titleLbl = new QLabel("<h2 style='text-align:center;'>Update Available</h2>", &updateDlg);
+                auto *titleLbl = new QLabel("<b>Update Available</b>", &updateDlg);
                 titleLbl->setAlignment(Qt::AlignCenter);
                 layout->addWidget(titleLbl);
 
                 auto *versionLbl = new QLabel(
-                    QString("<p style='text-align:center; font-size:11pt; color:#555;'>"
-                            "Version: %1<br>Date: %2</p>")
+                    QString("Version: %1  |  Date: %2")
                         .arg(core->updater->latestVersion(), core->updater->latestDate()),
                     &updateDlg);
                 versionLbl->setAlignment(Qt::AlignCenter);
+                versionLbl->setStyleSheet("color: #555;");
                 layout->addWidget(versionLbl);
 
                 auto *notesLbl = new QLabel(&updateDlg);
                 notesLbl->setWordWrap(true);
                 notesLbl->setAlignment(Qt::AlignTop | Qt::AlignLeft);
                 notesLbl->setStyleSheet(
-                    "font-size: 11pt; padding: 12px; background: #f8f8f8; "
-                    "border: 1px solid #ddd; border-radius: 4px;");
+                    "padding: 8px; background: #f8f8f8; "
+                    "border: 1px solid #ddd;");
                 QString notes = core->updater->latestNotes();
                 if (notes.length() > 500)
                     notes = notes.left(497) + "...";
-                notesLbl->setText("<b>What's new:</b><br><br>" + notes.toHtmlEscaped().replace("\n", "<br>"));
+                notesLbl->setText("<b>What's new:</b><br>" + notes.toHtmlEscaped().replace("\n", "<br>"));
                 layout->addWidget(notesLbl, 1);
 
                 auto *btnRow = new QHBoxLayout();
-                btnRow->setSpacing(12);
+                btnRow->setSpacing(6);
 
                 auto *skipBtn = new QPushButton("Skip This Version", &updateDlg);
                 skipBtn->setFixedHeight(SIZES.buttonSize);
-                skipBtn->setStyleSheet("font-size: 11pt;");
                 connect(skipBtn, &QPushButton::clicked, &updateDlg, [this, &updateDlg]()
                 {
                     core->updater->skipVersion(core->updater->latestFullSha());
@@ -632,7 +631,7 @@ void MainWidget::showEvent(QShowEvent *event)
 
                 auto *updateBtn = new QPushButton("Update Now", &updateDlg);
                 updateBtn->setFixedHeight(SIZES.buttonSize);
-                updateBtn->setStyleSheet("font-size: 13pt; font-weight: bold;");
+                updateBtn->setStyleSheet("font-weight: bold;");
                 connect(updateBtn, &QPushButton::clicked, &updateDlg, [this, &updateDlg, updateBtn, skipBtn, notesLbl]()
                 {
                     updateBtn->setEnabled(false);
@@ -1099,7 +1098,7 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
 
             auto *titleLbl = new QLabel("<b>History & Stats</b>", &dlg);
             titleLbl->setAlignment(Qt::AlignCenter);
-            titleLbl->setStyleSheet("font-size: 15pt; padding: 6px;");
+            titleLbl->setStyleSheet("font-weight: bold; padding: 4px;");
             layout->addWidget(titleLbl);
 
             // Stats summary
@@ -1123,11 +1122,11 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
             if (!bm.allBookmarks().isEmpty())
             {
                 auto *bmHeader = new QLabel("<b>Bookmarks</b>", &dlg);
-                bmHeader->setStyleSheet("font-size: 11pt; padding-top: 6px;");
+                bmHeader->setStyleSheet("font-weight: bold; padding-top: 4px;");
                 layout->addWidget(bmHeader);
 
                 auto *bmList = new QListWidget(&dlg);
-                bmList->setStyleSheet("font-size: 10pt;");
+                bmList->setStyleSheet("");
                 bmList->setMaximumHeight(120);
                 activateScroller(bmList);
 
@@ -1146,11 +1145,11 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
 
             // History list
             auto *histHeader = new QLabel("<b>Browsing History</b>", &dlg);
-            histHeader->setStyleSheet("font-size: 11pt; padding-top: 6px;");
+            histHeader->setStyleSheet("font-weight: bold; padding-top: 4px;");
             layout->addWidget(histHeader);
 
             auto *list = new QListWidget(&dlg);
-            list->setStyleSheet("font-size: 10pt;");
+            list->setStyleSheet("");
             activateScroller(list);
 
             for (const auto &h : core->browsingHistory)
@@ -1185,7 +1184,7 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
 
             auto *title = new QLabel("<b>AniList</b>", &dlg);
             title->setAlignment(Qt::AlignCenter);
-            title->setStyleSheet("font-size: 15pt; padding: 6px;");
+            title->setStyleSheet("font-weight: bold; padding: 4px;");
             layout->addWidget(title);
 
             if (core->aniList->isLoggedIn())
@@ -1204,7 +1203,7 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
                 layout->addWidget(refreshBtn);
 
                 auto *list = new QListWidget(&dlg);
-                list->setStyleSheet("font-size: 10pt;");
+                list->setStyleSheet("");
                 activateScroller(list);
 
                 int statuses[] = {1, 2, 5, 3, 4, 6};
@@ -1295,7 +1294,7 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
             {
                 auto *info = new QLabel("Not logged in.\nGo to Settings to connect.", &dlg);
                 info->setAlignment(Qt::AlignCenter);
-                info->setStyleSheet("font-size: 12pt; padding: 20px;");
+                info->setStyleSheet("padding: 12px;");
                 layout->addWidget(info);
             }
 
