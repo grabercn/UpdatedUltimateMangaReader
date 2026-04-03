@@ -7,6 +7,8 @@ kobo {
     KOBO_PLATFORM_PLUGIN_PATH = $$PWD/../qt5-kobo-platform-plugin
 
     INCLUDEPATH += $$KOBO_PLATFORM_PLUGIN_PATH/src
+    INCLUDEPATH += /opt/arm-sysroot/usr/include
+    LIBS += -L/opt/arm-sysroot/usr/lib
 
     target.path = /mnt/onboard/.adds/UltimateMangaReader
     INSTALLS += target
