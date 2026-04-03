@@ -624,88 +624,90 @@ void MainWidget::showEvent(QShowEvent *event)
         });
     }
 
-    // Silent background update check on startup
+    // Background update check: once on first boot, then once per day
+    if (core->updater->shouldAutoCheck())
     {
-        QTimer::singleShot(8000, this, [this]()
+        QTimer::singleShot(10000, this, [this]()
         {
-            // Run check in background - don't block UI
             QtConcurrent::run([this]() {
                 core->updater->checkForUpdate();
 
-                // Only show dialog if real update available and not skipped
                 if (!core->updater->updateAvailable())
                     return;
                 if (core->updater->isVersionSkipped(core->updater->latestFullSha()))
                     return;
 
-                // Show dialog on UI thread
                 QMetaObject::invokeMethod(this, [this]() {
-                    QDialog updateDlg(this);
-                    updateDlg.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
-                    updateDlg.resize(this->size());
-                    updateDlg.move(this->pos());
+                    QDialog dlg(this);
+                    dlg.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+                    dlg.resize(this->size());
+                    dlg.move(this->pos());
 
-                    auto *layout = new QVBoxLayout(&updateDlg);
+                    auto *layout = new QVBoxLayout(&dlg);
                     layout->setContentsMargins(10, 8, 10, 8);
-                    layout->setSpacing(6);
+                    layout->setSpacing(8);
 
-                    auto *titleLbl = new QLabel("<b>Update Available</b>", &updateDlg);
+                    layout->addStretch();
+
+                    auto *titleLbl = new QLabel("<b>Update Available</b>", &dlg);
                     titleLbl->setAlignment(Qt::AlignCenter);
                     layout->addWidget(titleLbl);
 
                     auto *versionLbl = new QLabel(
-                        QString("v%1  ->  v%2  (%3)")
-                            .arg(Updater::currentVersion(), core->updater->latestVersion(),
-                                 core->updater->latestDate()),
-                        &updateDlg);
+                        QString("v%1  ->  v%2")
+                            .arg(Updater::currentVersion(), core->updater->latestVersion()),
+                        &dlg);
                     versionLbl->setAlignment(Qt::AlignCenter);
                     layout->addWidget(versionLbl);
 
-                    auto *notesLbl = new QLabel(&updateDlg);
-                    notesLbl->setWordWrap(true);
-                    notesLbl->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-                    notesLbl->setStyleSheet("padding: 8px; background: #f8f8f8; border: 1px solid #ddd;");
                     QString notes = core->updater->latestNotes();
-                    if (notes.length() > 500)
-                        notes = notes.left(497) + "...";
-                    notesLbl->setText("<b>What's new:</b><br>" + notes.toHtmlEscaped().replace("\n", "<br>"));
-                    layout->addWidget(notesLbl, 1);
+                    if (notes.length() > 300)
+                        notes = notes.left(297) + "...";
+                    auto *notesLbl = new QLabel(notes, &dlg);
+                    notesLbl->setWordWrap(true);
+                    notesLbl->setStyleSheet("color: #555; padding: 6px;");
+                    layout->addWidget(notesLbl);
+
+                    layout->addStretch();
 
                     auto *btnRow = new QHBoxLayout();
-                    btnRow->setSpacing(6);
+                    btnRow->setSpacing(8);
 
-                    auto *skipBtn = new QPushButton("Skip This Version", &updateDlg);
+                    auto *skipBtn = new QPushButton("Skip", &dlg);
                     skipBtn->setFixedHeight(SIZES.buttonSize);
-                    connect(skipBtn, &QPushButton::clicked, &updateDlg, [this, &updateDlg]() {
+                    connect(skipBtn, &QPushButton::clicked, &dlg, [this, &dlg]() {
                         core->updater->skipVersion(core->updater->latestFullSha());
-                        updateDlg.reject();
+                        dlg.reject();
                     });
 
-                    auto *updateBtn = new QPushButton("Update Now", &updateDlg);
+                    auto *laterBtn = new QPushButton("Later", &dlg);
+                    laterBtn->setFixedHeight(SIZES.buttonSize);
+                    connect(laterBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
+
+                    auto *updateBtn = new QPushButton("Update", &dlg);
                     updateBtn->setFixedHeight(SIZES.buttonSize);
                     updateBtn->setStyleSheet("font-weight: bold;");
-                    connect(updateBtn, &QPushButton::clicked, &updateDlg,
-                            [this, &updateDlg, updateBtn, skipBtn, notesLbl]() {
+                    connect(updateBtn, &QPushButton::clicked, &dlg,
+                            [this, &dlg, updateBtn, skipBtn, laterBtn, notesLbl]() {
                         updateBtn->setEnabled(false);
                         skipBtn->setEnabled(false);
-                        notesLbl->setText("Downloading update...\nPlease wait.");
+                        laterBtn->setEnabled(false);
+                        notesLbl->setText("Downloading update...");
 #ifdef KOBO
-                        // Run download in background so dialog stays responsive
                         QtConcurrent::run([this]() {
                             core->updater->downloadAndApply();
                         });
 #else
-                        notesLbl->setText("On desktop, rebuild from source:\ngit pull && build-win.bat");
-                        updateBtn->setEnabled(true);
-                        skipBtn->setEnabled(true);
+                        notesLbl->setText("Rebuild from source:\ngit pull && build-win.bat");
 #endif
                     });
 
                     btnRow->addWidget(skipBtn);
+                    btnRow->addWidget(laterBtn);
                     btnRow->addWidget(updateBtn);
                     layout->addLayout(btnRow);
 
-                    updateDlg.exec();
+                    dlg.exec();
                 }, Qt::QueuedConnection);
             });
         });
