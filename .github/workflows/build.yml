@@ -237,6 +237,7 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin master || true
           git add VERSION
-          git commit -m "Auto-bump version to $NEXT_VERSION [skip ci]"
-          git push
+          git commit -m "Auto-bump version to $NEXT_VERSION [skip ci]" || true
+          git push || git pull --rebase origin master && git push || true
