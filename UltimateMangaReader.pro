@@ -82,7 +82,6 @@ FORMS += \
     src/widgets/screensaverdialog.ui \
     src/widgets/settingsdialog.ui \
     src/widgets/updatemangalistsdialog.ui \
-    src/widgets/wifidialog.ui \
 
 
 HEADERS += \

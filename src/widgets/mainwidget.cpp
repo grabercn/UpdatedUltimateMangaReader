@@ -677,6 +677,37 @@ void MainWidget::showEvent(QShowEvent *event)
     }
 
     QTimer::singleShot(500, this, &MainWidget::onResume);
+
+    // Debug screenshot timer
+    if (core->settings.debugScreenshots && !screenshotTimer)
+    {
+        screenshotTimer = new QTimer(this);
+        connect(screenshotTimer, &QTimer::timeout, this, &MainWidget::takeDebugScreenshot);
+        screenshotTimer->start(10000);  // every 10 seconds
+        qDebug() << "Debug screenshots enabled";
+    }
+}
+
+void MainWidget::takeDebugScreenshot()
+{
+    auto dir = CONF.cacheDir + "screenshots/";
+    QDir().mkpath(dir);
+
+    auto pixmap = this->grab();
+    auto filename = dir + QString("screenshot_%1_%2.png")
+                             .arg(screenshotIndex++, 4, 10, QChar('0'))
+                             .arg(QDateTime::currentDateTime().toString("hhmmss"));
+
+    pixmap.save(filename, "PNG");
+
+    // Keep max 50 screenshots, remove oldest
+    QDir screenshotDir(dir);
+    auto files = screenshotDir.entryList({"screenshot_*.png"}, QDir::Files, QDir::Name);
+    while (files.size() > 50)
+    {
+        QFile::remove(dir + files.first());
+        files.removeFirst();
+    }
 }
 
 bool MainWidget::event(QEvent *event)
@@ -858,7 +889,7 @@ void MainWidget::onResume()
 
         if (!core->networkManager->connected)
         {
-            wifiDialog->open();
+            wifiDialog->openFullScreen();
         }
         else
         {
@@ -1349,5 +1380,5 @@ void MainWidget::updateDownloadBadge()
 void MainWidget::on_toolButtonWifiIcon_clicked()
 {
     if (!core->networkManager->checkInternetConnection())
-        wifiDialog->open();
+        wifiDialog->openFullScreen();
 }

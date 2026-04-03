@@ -16,6 +16,7 @@ Settings::Settings()
       ditheringMode(SWDithering),
       colorMode(false),  // greyscale by default for fast page loading
       iaGeneralBooksEnabled(false),
+      debugScreenshots(false),
       preloadEnabled(true),
       preloadPages(3),
       preloadChapters(2),

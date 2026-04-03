@@ -44,6 +44,7 @@ public:
     int autoSuspendMinutes;  // 0 = disabled
     bool wifiAutoDisconnect; // disconnect wifi on sleep
     bool iaGeneralBooksEnabled;  // show general books from Internet Archive
+    bool debugScreenshots;   // periodic screenshots to cache/screenshots/
 
     QMap<QString, bool> enabledMangaSources;
 

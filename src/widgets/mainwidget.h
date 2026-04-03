@@ -121,6 +121,11 @@ private:
 
     QIcon wifiIcons[2];
 
+    // Debug screenshot timer
+    QTimer *screenshotTimer = nullptr;
+    int screenshotIndex = 0;
+    void takeDebugScreenshot();
+
 #ifdef KOBO
     KoboDeviceDescriptor koboDevice;
 #endif

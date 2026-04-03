@@ -133,11 +133,11 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
     iaBooksNote->setStyleSheet("color: #888; padding-left: 20px;");
     scrollLayout->addWidget(iaBooksNote);
 
-#ifdef DESKTOP
     // ── Debug ──
     addDivider();
     addHeader("Debug");
 
+#ifdef DESKTOP
     auto *offlineCheck = new QCheckBox("Offline Test Mode", this);
     offlineCheck->setChecked(settings->offlineMode);
     connect(offlineCheck, &QCheckBox::toggled, this, [this, offlineCheck](bool checked)
@@ -150,6 +150,23 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
     });
     scrollLayout->addWidget(offlineCheck);
 #endif
+
+    auto *screenshotCheck = new QCheckBox("Debug screenshots (every 10s)", this);
+    screenshotCheck->setChecked(settings->debugScreenshots);
+    connect(screenshotCheck, &QCheckBox::toggled, this, [this](bool checked)
+    {
+        if (!internalChange)
+        {
+            this->settings->debugScreenshots = checked;
+            this->settings->scheduleSerialize();
+        }
+    });
+    scrollLayout->addWidget(screenshotCheck);
+
+    auto *screenshotNote = new QLabel("Saves to cache/screenshots/. Requires restart.", this);
+    screenshotNote->setWordWrap(true);
+    screenshotNote->setStyleSheet("color: #888; padding-left: 20px;");
+    scrollLayout->addWidget(screenshotNote);
 
     // ── AniList ──
     addDivider();
