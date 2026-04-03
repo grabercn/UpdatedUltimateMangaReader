@@ -602,6 +602,15 @@ void MainWidget::showEvent(QShowEvent *event)
             "telnetd -l /bin/sh 2>/dev/null"});
         qDebug() << "USB network mode enabled (192.168.2.2)";
     }
+
+    // Start file server on boot if configured
+    if (core->settings.ftpServerEnabled)
+    {
+        QProcess::startDetached("sh", {"-c",
+            "busybox httpd -p 8080 -h /mnt/onboard/.adds/UltimateMangaReader/ 2>/dev/null || "
+            "busybox tcpsvd 0.0.0.0 2121 busybox ftpd -w /mnt/onboard/.adds/UltimateMangaReader/ 2>/dev/null &"});
+        qDebug() << "File server enabled on port 8080";
+    }
 #endif
 
     // Show welcome screen on first boot

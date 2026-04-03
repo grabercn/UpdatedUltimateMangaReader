@@ -46,6 +46,7 @@ public:
     bool iaGeneralBooksEnabled;  // show general books from Internet Archive
     bool debugScreenshots;   // periodic screenshots to cache/screenshots/
     bool usbNetworkMode;     // USB networking over cable (OTG/telnet)
+    bool ftpServerEnabled;   // FTP file server over WiFi
 
     QMap<QString, bool> enabledMangaSources;
 

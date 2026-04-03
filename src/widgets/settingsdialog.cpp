@@ -203,36 +203,43 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
     usbNetNote->setStyleSheet("color: #888; padding-left: 20px;");
     scrollLayout->addWidget(usbNetNote);
 
-    // FTP debug server (over WiFi)
-    auto *ftpCheck = new QCheckBox("FTP server (wireless debug)", this);
-    ftpCheck->setChecked(false);
-    connect(ftpCheck, &QCheckBox::toggled, this, [this, scrollLayout, ftpCheck](bool checked)
+    // FTP/HTTP debug server (over WiFi) - persisted setting
+    auto *ftpCheck = new QCheckBox("File server (wireless debug)", this);
+    ftpCheck->setChecked(settings->ftpServerEnabled);
+    connect(ftpCheck, &QCheckBox::toggled, this, [this, ftpCheck](bool checked)
     {
+        if (!internalChange)
+        {
+            this->settings->ftpServerEnabled = checked;
+            this->settings->scheduleSerialize();
+        }
         if (checked)
         {
-            // Start simple FTP-like file server via busybox ftpd
+            // Try multiple approaches - Kobo has limited tools
             QProcess::startDetached("sh", {"-c",
-                "tcpsvd -vE 0.0.0.0 2121 ftpd -w /mnt/onboard/.adds/UltimateMangaReader/ 2>/dev/null &"
-                " || busybox tcpsvd -vE 0.0.0.0 2121 busybox ftpd -w /mnt/onboard/.adds/UltimateMangaReader/ 2>/dev/null &"});
+                "killall httpd ftpd tcpsvd 2>/dev/null; "
+                // Try busybox httpd first (most reliable on Kobo)
+                "busybox httpd -p 8080 -h /mnt/onboard/.adds/UltimateMangaReader/ 2>/dev/null || "
+                // Fallback: busybox ftpd
+                "busybox tcpsvd 0.0.0.0 2121 busybox ftpd -w /mnt/onboard/.adds/UltimateMangaReader/ 2>/dev/null &"});
 
-            // Get WiFi IP
             QProcess ipProc;
             ipProc.start("sh", {"-c", "ip -4 addr show | grep 'inet ' | grep -v '127.0.0' | awk '{print $2}' | cut -d/ -f1 | head -1"});
             ipProc.waitForFinished(3000);
-            auto ip = ipProc.readAllStandardOutput().trimmed();
-            if (ip.isEmpty()) ip = "unknown";
+            auto ip = QString(ipProc.readAllStandardOutput().trimmed());
+            if (ip.isEmpty()) ip = "device-ip";
 
-            ftpCheck->setText("FTP server ON - ftp://" + ip + ":2121");
+            ftpCheck->setText("ON - http://" + ip + ":8080");
         }
         else
         {
-            QProcess::startDetached("sh", {"-c", "killall tcpsvd 2>/dev/null; killall ftpd 2>/dev/null"});
-            ftpCheck->setText("FTP server (wireless debug)");
+            QProcess::startDetached("sh", {"-c", "killall httpd ftpd tcpsvd 2>/dev/null"});
+            ftpCheck->setText("File server (wireless debug)");
         }
     });
     scrollLayout->addWidget(ftpCheck);
 
-    auto *ftpNote = new QLabel("Connect via FTP client to browse app files over WiFi", this);
+    auto *ftpNote = new QLabel("Browse logs and cache over WiFi. Persists across restarts.", this);
     ftpNote->setWordWrap(true);
     ftpNote->setStyleSheet("color: #888; padding-left: 20px;");
     scrollLayout->addWidget(ftpNote);

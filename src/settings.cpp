@@ -18,6 +18,7 @@ Settings::Settings()
       iaGeneralBooksEnabled(false),
       debugScreenshots(false),
       usbNetworkMode(false),
+      ftpServerEnabled(false),
       preloadEnabled(true),
       preloadPages(3),
       preloadChapters(2),
@@ -127,7 +128,8 @@ QDataStream &operator<<(QDataStream &str, const Settings &m)
     // Extended fields (added in v2.x)
     str << m.colorMode << m.preloadEnabled << m.preloadPages << m.preloadChapters
         << m.autoBootEnabled << m.offlineMode << m.autoSuspendMinutes << m.wifiAutoDisconnect
-        << m.iaGeneralBooksEnabled << m.debugScreenshots << m.usbNetworkMode;
+        << m.iaGeneralBooksEnabled << m.debugScreenshots << m.usbNetworkMode
+        << m.ftpServerEnabled;
 
     return str;
 }
@@ -162,6 +164,7 @@ QDataStream &operator>>(QDataStream &str, Settings &m)
         if (!str.atEnd()) str >> m.iaGeneralBooksEnabled;
         if (!str.atEnd()) str >> m.debugScreenshots;
         if (!str.atEnd()) str >> m.usbNetworkMode;
+        if (!str.atEnd()) str >> m.ftpServerEnabled;
     }
     catch (...)
     {
