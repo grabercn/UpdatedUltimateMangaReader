@@ -1,6 +1,7 @@
 #include "homewidget.h"
 
 #include <QApplication>
+#include <QStandardItemModel>
 
 #include "anilist.h"
 #include "favorite.h"
@@ -669,17 +670,26 @@ void HomeWidget::refreshHomeView()
         }
     }
 
-    // === CONTINUE READING ===
-    if (!downloaded.isEmpty())
+    // Split downloaded into: actively reading vs just cached
+    QList<DownloadedEntry> activelyReading;
+    QList<DownloadedEntry> justCached;
+    for (const auto &d : downloaded)
+    {
+        if (d.progressCh > 0 || d.progressPg > 0)
+            activelyReading.append(d);
+        else
+            justCached.append(d);
+    }
+
+    // === CONTINUE READING (only items with actual progress) ===
+    if (!activelyReading.isEmpty())
     {
         addHeader("CONTINUE READING");
-        for (const auto &d : downloaded)
+        for (const auto &d : activelyReading)
         {
-            QString text = "  " + d.title + "  (" + QString::number(d.chapters) + " ch";
-            if (d.progressCh > 0 || d.progressPg > 0)
-                text += ", Ch." + QString::number(d.progressCh + 1) +
-                        " Pg." + QString::number(d.progressPg + 1);
-            text += ")";
+            QString text = "  " + d.title + "  Ch." +
+                           QString::number(d.progressCh + 1) + " Pg." +
+                           QString::number(d.progressPg + 1);
 
             auto *item = new QStandardItem(text);
             item->setData(DownloadedItem, Qt::UserRole);
@@ -756,6 +766,42 @@ void HomeWidget::refreshHomeView()
         }
     }
 
+    // === RECOMMENDATIONS (cached but unread, not in other sections) ===
+    if (!justCached.isEmpty())
+    {
+        // Collect titles already shown in other sections
+        QSet<QString> shownTitles;
+        for (const auto &d : activelyReading)
+            shownTitles.insert(d.title.toLower());
+        if (favManager)
+            for (const auto &fav : favManager->favorites)
+                shownTitles.insert(fav.title.toLower());
+
+        QList<DownloadedEntry> recommendations;
+        for (const auto &d : justCached)
+        {
+            if (!shownTitles.contains(d.title.toLower()))
+                recommendations.append(d);
+        }
+
+        if (!recommendations.isEmpty())
+        {
+            addHeader("RECOMMENDATIONS");
+            int shown = qMin(5, recommendations.size());
+            for (int i = 0; i < shown; i++)
+            {
+                const auto &d = recommendations[i];
+                QString text = "  " + d.title + "  (" + QString::number(d.chapters) + " ch)";
+
+                auto *item = new QStandardItem(text);
+                item->setData(DownloadedItem, Qt::UserRole);
+                item->setData(d.source, Qt::UserRole + 1);
+                item->setData(d.title, Qt::UserRole + 2);
+                model->appendRow(item);
+            }
+        }
+    }
+
     if (model->rowCount() == 0)
     {
         auto *item = new QStandardItem("Search for manga or light novels above");
@@ -778,14 +824,26 @@ void HomeWidget::showRecentSearches()
     if (searchActive || recentSearches.isEmpty())
         return;
 
-    auto model = dynamic_cast<QStringListModel *>(ui->listViewMangas->model());
-    if (!model)
-        return;
-    QStringList display;
-    display.append("--- Recent Searches ---");
+    // Use QStandardItemModel so items have types and are clickable
+    auto *oldModel = ui->listViewMangas->model();
+    auto *model = new QStandardItemModel(this);
+
+    auto *header = new QStandardItem("--- Recent Searches ---");
+    header->setData(HeaderItem, Qt::UserRole);
+    header->setSelectable(false);
+    model->appendRow(header);
+
     for (const auto &s : recentSearches)
-        display.append(s);
-    model->setStringList(display);
+    {
+        auto *item = new QStandardItem(s);
+        item->setData(SearchItem, Qt::UserRole);
+        item->setData(s, Qt::UserRole + 1);
+        model->appendRow(item);
+    }
+
+    ui->listViewMangas->setModel(model);
+    if (oldModel)
+        oldModel->deleteLater();
 }
 
 void HomeWidget::showOfflineReads()

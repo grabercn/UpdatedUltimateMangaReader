@@ -599,6 +599,16 @@ void MainWidget::showEvent(QShowEvent *event)
     // Show welcome screen on first boot
     if (WelcomeDialog::shouldShow())
     {
+#ifdef KOBO
+        // Set initial brightness: 50% light, full white (no warm tint)
+        if (koboDevice.frontlightSettings.hasFrontLight)
+        {
+            int halfLight = (koboDevice.frontlightSettings.frontlightMin +
+                             koboDevice.frontlightSettings.frontlightMax) / 2;
+            setFrontLight(halfLight, koboDevice.frontlightSettings.naturalLightMin);
+            qDebug() << "First boot: set brightness to" << halfLight;
+        }
+#endif
         QTimer::singleShot(200, this, [this]()
         {
             WelcomeDialog welcome(this);

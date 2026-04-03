@@ -120,9 +120,15 @@ void Settings::serialize()
 
 QDataStream &operator<<(QDataStream &str, const Settings &m)
 {
+    // Original fields (don't reorder - backwards compat)
     str << m.lightValue << m.comflightValue << m.hideErrorMessages << m.tabAdvance << m.swipeAdvance
         << m.buttonAdvance << m.mangaOrder << m.doublePageMode << m.trimPages << m.manhwaMode
         << m.enabledMangaSources << m.ditheringMode << m.aniListToken;
+
+    // Extended fields (added in v2.x)
+    str << m.colorMode << m.preloadEnabled << m.preloadPages << m.preloadChapters
+        << m.autoBootEnabled << m.offlineMode << m.autoSuspendMinutes << m.wifiAutoDisconnect
+        << m.iaGeneralBooksEnabled << m.debugScreenshots << m.usbNetworkMode;
 
     return str;
 }
@@ -144,6 +150,19 @@ QDataStream &operator>>(QDataStream &str, Settings &m)
 
         if (!str.atEnd())
             str >> m.aniListToken;
+
+        // Extended fields (backwards compat - only read if present)
+        if (!str.atEnd()) str >> m.colorMode;
+        if (!str.atEnd()) str >> m.preloadEnabled;
+        if (!str.atEnd()) str >> m.preloadPages;
+        if (!str.atEnd()) str >> m.preloadChapters;
+        if (!str.atEnd()) str >> m.autoBootEnabled;
+        if (!str.atEnd()) str >> m.offlineMode;
+        if (!str.atEnd()) str >> m.autoSuspendMinutes;
+        if (!str.atEnd()) str >> m.wifiAutoDisconnect;
+        if (!str.atEnd()) str >> m.iaGeneralBooksEnabled;
+        if (!str.atEnd()) str >> m.debugScreenshots;
+        if (!str.atEnd()) str >> m.usbNetworkMode;
     }
     catch (...)
     {

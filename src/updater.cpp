@@ -226,10 +226,11 @@ void Updater::downloadAndApply()
         saveSkippedVersion();
 
         emit downloadProgress(100);
-        emit updateLog("Update applied! The app will restart.");
+        emit updateLog("Update applied! Restarting in 3 seconds...");
         emit updateCompleted(true);
 
-        // Restart the application
+        // Give the UI a moment to show the message, then restart
+        QThread::sleep(3);
         QProcess::startDetached(appPath, QCoreApplication::arguments());
         QCoreApplication::quit();
     }
