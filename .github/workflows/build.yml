@@ -152,10 +152,35 @@ jobs:
           ls -la *.zip *.tar.gz 2>/dev/null || echo "No zip/tar.gz found"
           find . -maxdepth 2 -name "*.zip" -o -name "*.tar.gz" 2>/dev/null
 
-      - name: Delete old release
+      - name: Rotate releases (keep previous as backup)
         run: |
-          gh release delete latest --yes 2>/dev/null || true
-          git push origin :refs/tags/latest 2>/dev/null || true
+          # Delete the previous-stable backup if it exists
+          gh release delete previous-stable --yes 2>/dev/null || true
+          git push origin :refs/tags/previous-stable 2>/dev/null || true
+
+          # Rename current latest to previous-stable
+          LATEST_TAG=$(gh release view latest --json tagName -q .tagName 2>/dev/null || echo "")
+          if [ -n "$LATEST_TAG" ]; then
+            LATEST_NAME=$(gh release view latest --json name -q .name 2>/dev/null)
+            LATEST_BODY=$(gh release view latest --json body -q .body 2>/dev/null)
+
+            # Download current latest assets to re-upload as previous
+            mkdir -p /tmp/prev-assets
+            gh release download latest -D /tmp/prev-assets 2>/dev/null || true
+
+            # Create previous-stable from current latest
+            gh release create previous-stable \
+              --title "Previous: $LATEST_NAME" \
+              --notes "Backup of previous stable release.
+
+          $LATEST_BODY" \
+              /tmp/prev-assets/* 2>/dev/null || true
+
+            # Delete current latest
+            gh release delete latest --yes 2>/dev/null || true
+            git push origin :refs/tags/latest 2>/dev/null || true
+            rm -rf /tmp/prev-assets
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
