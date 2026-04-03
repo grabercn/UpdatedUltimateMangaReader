@@ -325,7 +325,8 @@ void MangaReaderWidget::setTextMode(bool textMode)
 {
     isTextMode = textMode;
 
-    // Reparent nav bars to this widget (not mangaImageWidget) so they work in both modes
+    // Always reparent nav bars to this widget (not mangaImageWidget)
+    // mangaImageWidget has a custom paintEvent that draws over its children
     if (ui->readerNavigationBar->parentWidget() != this)
     {
         ui->readerNavigationBar->setParent(this);
@@ -645,20 +646,26 @@ void MangaReaderWidget::showMenuBar(bool show)
     {
         updateMenuBar();
 
-        // If bars are reparented to this widget (text mode), position them manually
-        if (isTextMode && ui->readerNavigationBar->parentWidget() == this)
+        // Always reparent bars to this widget so they render above mangaImageWidget
+        // (mangaImageWidget's paintEvent draws over its own children)
+        if (ui->readerNavigationBar->parentWidget() != this)
+        {
+            ui->readerNavigationBar->setParent(this);
+            ui->readerFrontLightBar->setParent(this);
+        }
+
+        // Position bars manually since they're reparented out of the layout
         {
             int w = this->width();
             int h = this->height();
 
-            // Use fixed heights - sizeHint() is unreliable after reparenting
-            int navH = 120;
-            int flH = 160;
-
-            // Nav bar at the bottom (above the text bottom bar)
-            ui->readerNavigationBar->setGeometry(0, h - navH - textBottomBar->height(), w, navH);
+            // Nav bar at the bottom
+            int bottomOffset = (isTextMode && textBottomBar) ? textBottomBar->height() : 0;
+            int navH = qMax(ui->readerNavigationBar->sizeHint().height(), SIZES.buttonSize * 3);
+            ui->readerNavigationBar->setGeometry(0, h - navH - bottomOffset, w, navH);
 
             // Front light bar at the top
+            int flH = qMax(ui->readerFrontLightBar->sizeHint().height(), SIZES.buttonSize * 4);
             ui->readerFrontLightBar->setGeometry(0, 0, w, flH);
         }
 

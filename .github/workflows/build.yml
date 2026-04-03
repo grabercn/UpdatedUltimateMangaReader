@@ -146,6 +146,19 @@ jobs:
           name: UltimateMangaReader-Kobo
         continue-on-error: true
 
+      - name: List downloaded files
+        run: |
+          echo "=== Files in workspace ==="
+          ls -la *.zip *.tar.gz 2>/dev/null || echo "No zip/tar.gz found"
+          find . -maxdepth 2 -name "*.zip" -o -name "*.tar.gz" 2>/dev/null
+
+      - name: Delete old release
+        run: |
+          gh release delete latest --yes 2>/dev/null || true
+          git push origin :refs/tags/latest 2>/dev/null || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Get release info
         id: info
         run: |
