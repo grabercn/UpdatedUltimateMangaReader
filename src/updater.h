@@ -18,6 +18,8 @@ public:
 
     void checkForUpdate();
     void downloadAndApply();
+    void checkPreviousVersion();
+    void revertToPrevious();
 
     QString latestVersion() const { return m_latestVersion; }
     QString latestFullSha() const { return m_latestFullSha; }
@@ -25,6 +27,9 @@ public:
     QString latestDate() const { return m_latestDate; }
     QString latestDownloadUrl() const { return m_downloadUrl; }
     bool updateAvailable() const { return m_updateAvailable; }
+    bool previousAvailable() const { return m_previousAvailable; }
+    QString previousVersion() const { return m_previousVersion; }
+    QString previousNotes() const { return m_previousNotes; }
 
     void loadLastCheckDate();
     bool shouldAutoCheck() const;
@@ -35,6 +40,7 @@ public:
 
 signals:
     void checkCompleted(bool updateAvailable);
+    void previousCheckCompleted(bool available);
     void downloadProgress(int percent);
     void updateLog(const QString &message);
     void updateCompleted(bool success);
@@ -48,6 +54,10 @@ private:
     QString m_latestDate;
     QString m_downloadUrl;
     bool m_updateAvailable;
+
+    QString m_previousVersion;
+    QString m_previousNotes;
+    bool m_previousAvailable = false;
     QDate lastCheckDate;
     QString m_skippedSha;
 

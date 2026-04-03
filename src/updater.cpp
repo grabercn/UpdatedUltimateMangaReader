@@ -134,6 +134,66 @@ void Updater::checkForUpdate()
     emit checkCompleted(true);
 }
 
+void Updater::checkPreviousVersion()
+{
+    m_previousAvailable = false;
+
+    // Check if previous-stable release exists by fetching its release info
+    auto url = QString("https://api.github.com/repos/%1/%2/releases/tags/previous-stable")
+                   .arg(repoOwner, repoName);
+    auto job = networkManager->downloadAsString(url, 10000);
+
+    if (!job->await(10000) || job->bufferStr.contains("\"Not Found\""))
+    {
+        emit previousCheckCompleted(false);
+        return;
+    }
+
+    // Parse release name for version info
+    QRegularExpression nameRx(R"lit("name"\s*:\s*"([^"]*)")lit");
+    QRegularExpression bodyRx(R"lit("body"\s*:\s*"([^"]*)")lit");
+
+    auto nameMatch = nameRx.match(job->bufferStr);
+    auto bodyMatch = bodyRx.match(job->bufferStr);
+
+    if (nameMatch.hasMatch())
+    {
+        m_previousVersion = nameMatch.captured(1);
+        // Extract version from "Previous: vX.Y.Z (date)"
+        QRegularExpression verRx(R"(v(\d+\.\d+\.\d+))");
+        auto vm = verRx.match(m_previousVersion);
+        if (vm.hasMatch())
+            m_previousVersion = vm.captured(1);
+    }
+    else
+    {
+        m_previousVersion = "previous";
+    }
+
+    m_previousNotes = bodyMatch.hasMatch() ? bodyMatch.captured(1) : "";
+    m_previousNotes.replace("\\n", "\n").replace("\\r", "");
+
+    m_previousAvailable = true;
+    emit previousCheckCompleted(true);
+}
+
+void Updater::revertToPrevious()
+{
+#ifdef KOBO
+    auto url = QString("https://github.com/%1/%2/releases/download/previous-stable/UltimateMangaReader-Kobo.tar.gz")
+                   .arg(repoOwner, repoName);
+
+    // Reuse downloadAndApply logic with the previous-stable URL
+    m_downloadUrl = url;
+    // TODO: Once CI produces a standalone binary artifact, switch to direct binary URL
+    downloadAndApply();
+#else
+    emit updateLog("On desktop, download the previous release manually from:\n"
+                   "github.com/" + repoOwner + "/" + repoName + "/releases/tag/previous-stable");
+    emit updateCompleted(false);
+#endif
+}
+
 void Updater::downloadAndApply()
 {
 #ifdef KOBO

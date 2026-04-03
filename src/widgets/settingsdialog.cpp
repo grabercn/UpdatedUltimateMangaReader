@@ -380,6 +380,44 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
         {
             updateStatusLabel->setText("Error: " + msg);
         });
+
+        // Revert to previous version
+        auto *revertBtn = new QPushButton("Revert to Previous Version", this);
+        revertBtn->setFixedHeight(SIZES.buttonSize);
+        revertBtn->hide();
+        scrollLayout->addWidget(revertBtn);
+
+        auto *revertStatusLabel = new QLabel("", this);
+        revertStatusLabel->setWordWrap(true);
+        revertStatusLabel->setStyleSheet("padding: 2px; color: #888;");
+        scrollLayout->addWidget(revertStatusLabel);
+
+        // Check for previous release on first update check
+        connect(checkUpdateBtn, &QPushButton::clicked, this, [this]()
+        {
+            this->updater->checkPreviousVersion();
+        });
+
+        connect(updater, &Updater::previousCheckCompleted, this,
+                [this, revertBtn, revertStatusLabel](bool available)
+        {
+            revertBtn->setVisible(available);
+            if (available)
+            {
+                revertBtn->setText("Revert to v" + this->updater->previousVersion());
+                QString notes = this->updater->previousNotes();
+                if (notes.length() > 200)
+                    notes = notes.left(197) + "...";
+                if (!notes.isEmpty())
+                    revertStatusLabel->setText(notes);
+            }
+        });
+
+        connect(revertBtn, &QPushButton::clicked, this, [this, updateStatusLabel]()
+        {
+            updateStatusLabel->setText("Reverting to previous version...");
+            this->updater->revertToPrevious();
+        });
     }
 
     // Bottom spacer so content doesn't run into the save/back bar
