@@ -46,6 +46,7 @@ private:
 
     void updateStatus();
     void scanNetworks();
+    void connectToNetwork(const QString &ssid, const QString &password);
 
     QString wifiInterface = "wlan0";
 

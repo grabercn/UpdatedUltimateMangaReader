@@ -553,7 +553,10 @@ void MainWidget::adjustUI()
     ui->toolButtonMenu->setIconSize(QSize(SIZES.menuIconSize, SIZES.menuIconSize));
     ui->toolButtonWifiIcon->setIconSize(QSize(SIZES.wifiIconSize, SIZES.wifiIconSize));
 
+    ui->labelTitle->setText("UMR");
     ui->labelTitle->setStyleSheet("font-weight: bold;");
+    ui->labelTitle->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    ui->labelTitle->setMinimumWidth(0);
 
 #ifdef KOBO
     koboDevice = KoboPlatformFunctions::getKoboDeviceDescriptor();

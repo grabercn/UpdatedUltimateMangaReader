@@ -1,8 +1,8 @@
 #include "wifidialog.h"
 
+#include <QCheckBox>
+#include <QLineEdit>
 #include <QProcess>
-#include <QInputDialog>
-#include <QMessageBox>
 #include <QApplication>
 #include <QScreen>
 
@@ -246,72 +246,65 @@ void WifiDialog::onNetworkSelected(QListWidgetItem *item)
 
     if (secured)
     {
-        // Show password input
-        bool ok = false;
-        QString password = QInputDialog::getText(this, "WiFi Password",
-            "Password for " + ssid + ":", QLineEdit::Password, "", &ok);
-        if (!ok || password.isEmpty())
+        // Show password dialog - full screen for e-ink touch
+        QDialog pwDialog(this);
+        pwDialog.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+        pwDialog.resize(this->size());
+        pwDialog.move(this->pos());
+
+        auto *pwLayout = new QVBoxLayout(&pwDialog);
+        pwLayout->setContentsMargins(10, 8, 10, 8);
+        pwLayout->setSpacing(6);
+
+        auto *pwTitle = new QLabel("<b>Connect to " + ssid + "</b>", &pwDialog);
+        pwTitle->setAlignment(Qt::AlignCenter);
+        pwLayout->addWidget(pwTitle);
+
+        pwLayout->addStretch();
+
+        auto *pwLabel = new QLabel("Enter WiFi password:", &pwDialog);
+        pwLayout->addWidget(pwLabel);
+
+        auto *pwEdit = new QLineEdit(&pwDialog);
+        pwEdit->setEchoMode(QLineEdit::Password);
+        pwEdit->setPlaceholderText("Password...");
+        pwEdit->setFixedHeight(SIZES.buttonSize);
+        pwLayout->addWidget(pwEdit);
+
+        auto *showPwCheck = new QCheckBox("Show password", &pwDialog);
+        QObject::connect(showPwCheck, &QCheckBox::toggled, pwEdit, [pwEdit](bool show) {
+            pwEdit->setEchoMode(show ? QLineEdit::Normal : QLineEdit::Password);
+        });
+        pwLayout->addWidget(showPwCheck);
+
+        pwLayout->addStretch();
+
+        auto *pwBtnRow = new QHBoxLayout();
+        auto *pwCancel = new QPushButton("Cancel", &pwDialog);
+        pwCancel->setFixedHeight(SIZES.buttonSize);
+        QObject::connect(pwCancel, &QPushButton::clicked, &pwDialog, &QDialog::reject);
+
+        auto *pwConnect = new QPushButton("Connect", &pwDialog);
+        pwConnect->setFixedHeight(SIZES.buttonSize);
+        pwConnect->setStyleSheet("font-weight: bold;");
+        QObject::connect(pwConnect, &QPushButton::clicked, &pwDialog, &QDialog::accept);
+
+        pwBtnRow->addWidget(pwCancel);
+        pwBtnRow->addWidget(pwConnect);
+        pwLayout->addLayout(pwBtnRow);
+
+        if (pwDialog.exec() != QDialog::Accepted)
             return;
 
-        statusLabel->setText("Connecting to " + ssid + "...");
-        toggleBtn->setEnabled(false);
+        auto password = pwEdit->text();
+        if (password.isEmpty())
+            return;
 
-        QtConcurrent::run([this, ssid, password]() {
-            // Use wpa_cli to add and connect to network
-            QProcess proc;
-            proc.start("wpa_cli", {"-i", wifiInterface, "add_network"});
-            proc.waitForFinished(5000);
-            auto netId = proc.readAllStandardOutput().trimmed().split('\n').last().trimmed();
-
-            QProcess::execute("wpa_cli", {"-i", wifiInterface, "set_network", netId, "ssid", "\"" + ssid + "\""});
-            QProcess::execute("wpa_cli", {"-i", wifiInterface, "set_network", netId, "psk", "\"" + password + "\""});
-            QProcess::execute("wpa_cli", {"-i", wifiInterface, "enable_network", netId});
-            QProcess::execute("wpa_cli", {"-i", wifiInterface, "select_network", netId});
-            QProcess::execute("wpa_cli", {"-i", wifiInterface, "save_config"});
-
-            // Wait for connection
-            QThread::sleep(3);
-            networkManager->checkInternetConnection();
-
-            if (destroying) return;
-            QMetaObject::invokeMethod(this, [this, ssid]() {
-                if (destroying) return;
-                updateStatus();
-                toggleBtn->setEnabled(true);
-                if (networkManager->connected)
-                    statusLabel->setText("Connected to " + ssid);
-                else
-                    statusLabel->setText("Failed to connect to " + ssid);
-            }, Qt::QueuedConnection);
-        });
+        connectToNetwork(ssid, password);
     }
     else
     {
-        // Open network - just connect
-        statusLabel->setText("Connecting to " + ssid + "...");
-        toggleBtn->setEnabled(false);
-
-        QtConcurrent::run([this, ssid]() {
-            QProcess proc;
-            proc.start("wpa_cli", {"-i", wifiInterface, "add_network"});
-            proc.waitForFinished(5000);
-            auto netId = proc.readAllStandardOutput().trimmed().split('\n').last().trimmed();
-
-            QProcess::execute("wpa_cli", {"-i", wifiInterface, "set_network", netId, "ssid", "\"" + ssid + "\""});
-            QProcess::execute("wpa_cli", {"-i", wifiInterface, "set_network", netId, "key_mgmt", "NONE"});
-            QProcess::execute("wpa_cli", {"-i", wifiInterface, "enable_network", netId});
-            QProcess::execute("wpa_cli", {"-i", wifiInterface, "select_network", netId});
-
-            QThread::sleep(3);
-            networkManager->checkInternetConnection();
-
-            if (destroying) return;
-            QMetaObject::invokeMethod(this, [this, ssid]() {
-                if (destroying) return;
-                updateStatus();
-                toggleBtn->setEnabled(true);
-            }, Qt::QueuedConnection);
-        });
+        connectToNetwork(ssid, "");
     }
 #endif
 }
@@ -319,6 +312,64 @@ void WifiDialog::onNetworkSelected(QListWidgetItem *item)
 void WifiDialog::onCloseClicked()
 {
     close();
+}
+
+void WifiDialog::connectToNetwork(const QString &ssid, const QString &password)
+{
+#ifdef KOBO
+    if (statusLabel) statusLabel->setText("Connecting to " + ssid + "...");
+    if (toggleBtn) toggleBtn->setEnabled(false);
+
+    QtConcurrent::run([this, ssid, password]() {
+        // Add network via wpa_cli
+        QProcess proc;
+        proc.start("wpa_cli", {"-i", wifiInterface, "add_network"});
+        proc.waitForFinished(5000);
+        auto netId = proc.readAllStandardOutput().trimmed().split('\n').last().trimmed();
+        qDebug() << "WiFi: adding network" << ssid << "as id" << netId;
+
+        // Set SSID
+        QProcess::execute("wpa_cli", {"-i", wifiInterface, "set_network", netId,
+                          "ssid", QString("\"%1\"").arg(ssid)});
+
+        if (password.isEmpty())
+        {
+            // Open network
+            QProcess::execute("wpa_cli", {"-i", wifiInterface, "set_network", netId, "key_mgmt", "NONE"});
+        }
+        else
+        {
+            // WPA/WPA2 with password
+            QProcess::execute("wpa_cli", {"-i", wifiInterface, "set_network", netId,
+                              "psk", QString("\"%1\"").arg(password)});
+        }
+
+        QProcess::execute("wpa_cli", {"-i", wifiInterface, "enable_network", netId});
+        QProcess::execute("wpa_cli", {"-i", wifiInterface, "select_network", netId});
+        QProcess::execute("wpa_cli", {"-i", wifiInterface, "save_config"});
+
+        // Wait for DHCP and connection
+        QProcess::execute("sh", {"-c", "udhcpc -i " + wifiInterface + " -t 5 -T 3 -n 2>/dev/null &"});
+        QThread::sleep(5);
+        networkManager->checkInternetConnection();
+
+        if (destroying) return;
+        QMetaObject::invokeMethod(this, [this, ssid]() {
+            if (destroying) return;
+            updateStatus();
+            if (toggleBtn) toggleBtn->setEnabled(true);
+            if (statusLabel)
+            {
+                if (networkManager->connected)
+                    statusLabel->setText("Connected to " + ssid);
+                else
+                    statusLabel->setText("Failed to connect to " + ssid);
+            }
+        }, Qt::QueuedConnection);
+    });
+#else
+    Q_UNUSED(ssid); Q_UNUSED(password);
+#endif
 }
 
 void WifiDialog::updateStatus()
@@ -405,7 +456,66 @@ void WifiDialog::scanNetworks()
             currentSSID = QString(line.mid(5)).trimmed();
     }
 
-    // Parse scan results: bssid / frequency / signal level / flags / ssid
+    // Fallback: if wpa_cli returned nothing, try iwlist
+    if (output.trimmed().split('\n').size() <= 1)
+    {
+        qDebug() << "wpa_cli scan empty, trying iwlist...";
+        QProcess iwProc;
+        iwProc.start("sh", {"-c", "iwlist " + wifiInterface + " scan 2>/dev/null"});
+        iwProc.waitForFinished(10000);
+        auto iwOutput = iwProc.readAllStandardOutput();
+        qDebug() << "iwlist output:" << iwOutput.left(500);
+
+        // Parse iwlist output
+        QString currentCell;
+        int currentSignal = 0;
+        bool currentSecured = false;
+
+        for (const auto &rawLine : iwOutput.split('\n'))
+        {
+            auto line = QString(rawLine).trimmed();
+            if (line.contains("Cell "))
+            {
+                if (!currentCell.isEmpty())
+                {
+                    NetworkInfo net;
+                    net.ssid = currentCell;
+                    net.signal = currentSignal;
+                    net.secured = currentSecured;
+                    net.connected = (currentCell == currentSSID && networkManager->connected);
+                    scannedNetworks.append(net);
+                }
+                currentCell.clear();
+                currentSignal = 0;
+                currentSecured = false;
+            }
+            if (line.startsWith("ESSID:"))
+                currentCell = line.mid(7).chopped(1);  // Remove quotes
+            if (line.contains("Signal level="))
+            {
+                auto idx = line.indexOf("Signal level=") + 13;
+                auto val = line.mid(idx).split(' ').first().split('/').first();
+                int dbm = val.toInt();
+                if (dbm < 0)
+                    currentSignal = qBound(0, 2 * (dbm + 100), 100);
+                else
+                    currentSignal = qBound(0, dbm, 100);
+            }
+            if (line.contains("WPA") || line.contains("WEP"))
+                currentSecured = true;
+        }
+        if (!currentCell.isEmpty())
+        {
+            NetworkInfo net;
+            net.ssid = currentCell;
+            net.signal = currentSignal;
+            net.secured = currentSecured;
+            net.connected = (currentCell == currentSSID && networkManager->connected);
+            scannedNetworks.append(net);
+        }
+    }
+
+    // Parse wpa_cli scan results: bssid / frequency / signal level / flags / ssid
     for (const auto &line : output.split('\n'))
     {
         auto parts = QString(line).split('\t');
