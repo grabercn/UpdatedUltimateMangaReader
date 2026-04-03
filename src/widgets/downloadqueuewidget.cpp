@@ -16,7 +16,7 @@ DownloadQueueWidget::DownloadQueueWidget(QWidget *parent)
     // Header
     auto *headerRow = new QHBoxLayout();
     backBtn = new QPushButton("< Back", this);
-    backBtn->setFixedSize(70, 36);
+    backBtn->setFixedHeight(SIZES.buttonSize);
     backBtn->setProperty("type", "borderless");
     connect(backBtn, &QPushButton::clicked, this, &DownloadQueueWidget::backClicked);
 

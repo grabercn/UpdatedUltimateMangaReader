@@ -27,8 +27,8 @@ MangaReaderWidget::MangaReaderWidget(QWidget *parent)
     textReader = new QTextBrowser(this);
     textReader->setStyleSheet(
         "QTextBrowser { background-color: white; color: #111; "
-        "font-family: 'Georgia','Noto Serif',serif; font-size: 12pt; "
-        "padding: 15px 20px; border: none; }");
+        "font-family: 'Georgia','Noto Serif',serif; "
+        "padding: 10px 12px; border: none; }");
     textReader->setOpenExternalLinks(false);
     textReader->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     textReader->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -38,7 +38,7 @@ MangaReaderWidget::MangaReaderWidget(QWidget *parent)
 
     // Bottom bar: progress + page info + menu button
     textBottomBar = new QWidget(this);
-    textBottomBar->setFixedHeight(44);
+    textBottomBar->setFixedHeight(SIZES.buttonSize + 4);
     textBottomBar->hide();
 
     auto *barLayout = new QHBoxLayout(textBottomBar);
@@ -60,9 +60,8 @@ MangaReaderWidget::MangaReaderWidget(QWidget *parent)
     textPageLabel->setAlignment(Qt::AlignCenter);
 
     textMenuBtn = new QPushButton("Menu", textBottomBar);
-    textMenuBtn->setFixedSize(70, 36);
+    textMenuBtn->setFixedHeight(SIZES.buttonSize);
     textMenuBtn->setFocusPolicy(Qt::NoFocus);
-    textMenuBtn->setStyleSheet("font-size: 10pt; padding: 4px 8px;");
     connect(textMenuBtn, &QPushButton::clicked, this, [this]()
     {
         qDebug() << "Menu button clicked. NavBar visible:" << ui->readerNavigationBar->isVisible()
@@ -87,7 +86,7 @@ MangaReaderWidget::MangaReaderWidget(QWidget *parent)
         bmBtn->setFixedHeight(SIZES.buttonSize);
         bmBtn->setProperty("type", "borderless");
         bmBtn->setFocusPolicy(Qt::NoFocus);
-        bmBtn->setStyleSheet("font-size: 10pt;");
+        bmBtn->setStyleSheet("");
         connect(bmBtn, &QPushButton::clicked, this, [this]() { emit bookmarkRequested(); });
         navLayout->addWidget(bmBtn);
     }
@@ -132,7 +131,7 @@ void MangaReaderWidget::adjustUI()
     ui->horizontalSliderLight->setFixedHeight(SIZES.resourceIconSize);
     ui->horizontalSliderComfLight->setFixedHeight(SIZES.resourceIconSize);
 
-    ui->labelTime->setStyleSheet("font-size: 13pt");
+    ui->labelTime->setStyleSheet("");
 
     ui->toolButtonLessLight->setFixedSize(QSize(SIZES.lightIconSize, SIZES.lightIconSize));
     ui->toolButtonMoreLight->setFixedSize(QSize(SIZES.lightIconSize, SIZES.lightIconSize));
@@ -363,9 +362,9 @@ void MangaReaderWidget::showText(const QString &text, const QString &chapterTitl
     textPageOffsets.clear();
 
     QString html = "<html><head><style>"
-                   "body { font-family: 'Georgia','Noto Serif',serif; font-size: 12pt; "
+                   "body { font-family: 'Georgia','Noto Serif',serif; "
                    "line-height: 1.8; margin: 0; padding: 8px 5px; color: #111; }"
-                   "h2 { text-align: center; font-size: 13pt; margin: 8px 0 16px 0; "
+                   "h2 { text-align: center; margin: 8px 0 16px 0; "
                    "padding-bottom: 8px; border-bottom: 1px solid #ccc; }"
                    "p { text-indent: 2em; margin: 5px 0; }"
                    "img { max-width: 100%; height: auto; display: block; margin: 12px auto; }"

@@ -70,7 +70,7 @@ void WifiDialog::openFullScreen()
     statusLayout->setContentsMargins(6, 4, 6, 4);
 
     statusIcon = new QLabel(this);
-    statusIcon->setFixedWidth(20);
+    statusIcon->setFixedWidth(SIZES.wifiIconSize);
     statusLayout->addWidget(statusIcon);
 
     statusLabel = new QLabel("Checking...", this);

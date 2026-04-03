@@ -10,7 +10,7 @@ MenuDialog::MenuDialog(QWidget *parent) : QDialog(parent), ui(new Ui::MenuDialog
 {
     ui->setupUi(this);
     setWindowFlags(Qt::Popup);
-    setFixedWidth(180);
+    setFixedWidth(SIZES.downloadStatusDialogWidth);
 
     ui->toolButtonMenu->setFixedSize(QSize(SIZES.menuIconSize, SIZES.menuIconSize));
     ui->toolButtonMenu->setIconSize(QSize(SIZES.menuIconSize, SIZES.menuIconSize));
@@ -52,11 +52,11 @@ MenuDialog::MenuDialog(QWidget *parent) : QDialog(parent), ui(new Ui::MenuDialog
     auto addBtn = [&](const QString &text, MenuButton action)
     {
         auto *btn = new QPushButton(text, this);
-        btn->setFixedHeight(38);
+        btn->setFixedHeight(SIZES.buttonSize);
         btn->setFocusPolicy(Qt::NoFocus);
         btn->setStyleSheet(
             "QPushButton { background: white; border: none; text-align: left; "
-            "padding: 0 16px; font-size: 12pt; }"
+            "padding: 0 12px; }"
             "QPushButton:pressed { background: #e8e8e8; }");
         connect(btn, &QPushButton::clicked, this, [this, action]() { done(action); });
         mainLayout->addWidget(btn);
