@@ -54,6 +54,7 @@ public:
 signals:
     void mangaSourceClicked(AbstractMangaSource *source);
     void mangaClicked(const QString &mangaurl, const QString &mangatitle);
+    void readMangaContinueClicked();
     void favoritesCleared();
     void openHistoryRequested();
     void openAniListRequested();

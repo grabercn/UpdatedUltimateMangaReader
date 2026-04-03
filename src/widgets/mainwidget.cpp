@@ -433,6 +433,10 @@ MainWidget::MainWidget(QWidget *parent)
     QObject::connect(ui->mangaInfoWidget, &MangaInfoWidget::readMangaContinueClicked,
                      [this]() { setWidgetTab(MangaReaderTab); });
 
+    // Continue Reading auto-jump from home page
+    QObject::connect(ui->homeWidget, &HomeWidget::readMangaContinueClicked,
+                     [this]() { setWidgetTab(MangaReaderTab); });
+
     QObject::connect(ui->mangaInfoWidget, &MangaInfoWidget::downloadMangaClicked,
                      [this]()
                      {
@@ -810,14 +814,21 @@ bool MainWidget::buttonPressEvent(QKeyEvent *event)
     else if (event->key() == Qt::Key_PageDown || event->key() == Qt::Key_PageUp ||
              event->key() == Qt::Key_Left || event->key() == Qt::Key_Right)
     {
-        // Find the largest visible scrollable area on the current page
+        // Find the largest visible scrollable area (check active dialog first, then stack)
         QAbstractScrollArea *scrollArea = nullptr;
-        auto *stack = ui->stackedWidget;
-        auto *current = stack->currentWidget();
-        if (current)
+        QWidget *searchRoot = nullptr;
+
+        // Check if a modal dialog is active
+        auto *activeWindow = QApplication::activeWindow();
+        if (activeWindow && activeWindow != this)
+            searchRoot = activeWindow;
+        else
+            searchRoot = ui->stackedWidget->currentWidget();
+
+        if (searchRoot)
         {
             int maxHeight = 0;
-            for (auto *sa : current->findChildren<QAbstractScrollArea *>())
+            for (auto *sa : searchRoot->findChildren<QAbstractScrollArea *>())
             {
                 if (sa->isVisible() && sa->height() > maxHeight)
                 {
@@ -1221,6 +1232,7 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
             QDialog dlg(this);
             dlg.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
             dlg.resize(this->size()); dlg.move(this->pos());
+            dlg.installEventFilter(this);  // Page buttons scroll via eventFilter
 
             auto *layout = new QVBoxLayout(&dlg);
             layout->setContentsMargins(10, 8, 10, 8);
@@ -1307,6 +1319,7 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
             QDialog dlg(this);
             dlg.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
             dlg.resize(this->size()); dlg.move(this->pos());
+            dlg.installEventFilter(this);  // Page buttons scroll via eventFilter
 
             auto *layout = new QVBoxLayout(&dlg);
             layout->setContentsMargins(10, 8, 10, 8);

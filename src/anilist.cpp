@@ -198,9 +198,12 @@ void AniList::fetchMangaList()
 
 static QString normalizeTitle(const QString &t)
 {
-    return t.toLower().trimmed()
-        .remove(QRegularExpression(R"([^\w\s])"))  // remove punctuation
-        .replace(QRegularExpression(R"(\s+)"), " ");  // collapse whitespace
+    auto s = t.toLower().trimmed();
+    // Strip common noise
+    s.remove(QRegularExpression(R"(\(manga\)|\(light novel\)|\(ln\)|\(wn\))", QRegularExpression::CaseInsensitiveOption));
+    s.remove(QRegularExpression(R"(\bseason\s*\d+|\bpart\s*\d+)", QRegularExpression::CaseInsensitiveOption));
+    s.remove(QRegularExpression(R"([^\w\s])"));
+    return s.simplified();
 }
 
 AniListEntry AniList::findByTitle(const QString &title) const
@@ -236,7 +239,7 @@ AniListEntry AniList::findByTitle(const QString &title) const
             auto entryWords = normalizeTitle(e.title).split(' ', Qt::SkipEmptyParts).toSet();
             auto common = searchWords & entryWords;
             int minSize = qMin(searchWords.size(), entryWords.size());
-            if (minSize > 0 && common.size() * 100 / minSize >= 60)
+            if (minSize > 0 && common.size() * 100 / minSize >= 40)
                 return e;
 
             if (!e.titleRomaji.isEmpty())

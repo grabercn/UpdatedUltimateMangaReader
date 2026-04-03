@@ -5,6 +5,7 @@
 
 #include "anilist.h"
 #include "favorite.h"
+#include "mangainfo.h"
 #include "favoritesmanager.h"
 #include "ui_homewidget.h"
 
@@ -543,9 +544,9 @@ void HomeWidget::on_listViewMangas_clicked(const QModelIndex &index)
         {
             auto source = index.data(Qt::UserRole + 1).toString();
             auto title = index.data(Qt::UserRole + 2).toString();
+            bool autoContinue = index.data(Qt::UserRole + 3).toBool();
             if (!source.isEmpty() && !title.isEmpty())
             {
-                // Find the source and load cached manga info
                 for (auto *ms : allSources)
                 {
                     if (ms->name == source)
@@ -554,8 +555,15 @@ void HomeWidget::on_listViewMangas_clicked(const QModelIndex &index)
                         if (QFile::exists(infoPath))
                         {
                             emit mangaSourceClicked(ms);
-                            // Build a URL that loadMangaInfo can use
                             emit mangaClicked(infoPath, title);
+
+                            // Auto-continue: jump straight to reading after a short delay
+                            if (autoContinue)
+                            {
+                                QTimer::singleShot(500, this, [this]() {
+                                    emit readMangaContinueClicked();
+                                });
+                            }
                         }
                         break;
                     }
@@ -696,6 +704,7 @@ void HomeWidget::refreshHomeView()
             item->setData(DownloadedItem, Qt::UserRole);
             item->setData(d.source, Qt::UserRole + 1);
             item->setData(d.title, Qt::UserRole + 2);
+            item->setData(true, Qt::UserRole + 3);  // auto-continue flag
             model->appendRow(item);
         }
     }
@@ -903,6 +912,17 @@ static QString normalizeName(const QString &s)
         .replace(QRegularExpression(R"(\s+)"), " ").trimmed();
 }
 
+static QString cleanTitle(const QString &t)
+{
+    // Strip common suffixes and noise for better matching
+    auto s = t.toLower().trimmed();
+    s.remove(QRegularExpression(R"(\(manga\)|\(light novel\)|\(ln\)|\(wn\))", QRegularExpression::CaseInsensitiveOption));
+    s.remove(QRegularExpression(R"(\bseason\s*\d+|\bpart\s*\d+|\bvol\.?\s*\d+)", QRegularExpression::CaseInsensitiveOption));
+    s.remove(QRegularExpression(R"([^\w\s])"));
+    s = s.simplified();
+    return s;
+}
+
 bool HomeWidget::tryMatch(const AniListEntry &entry)
 {
     if (aniListLocalMap.contains(entry.title))
@@ -910,55 +930,102 @@ bool HomeWidget::tryMatch(const AniListEntry &entry)
 
     auto normTitle = normalizeName(entry.title);
     auto normRomaji = normalizeName(entry.titleRomaji);
+    auto cleanEn = cleanTitle(entry.title);
+    auto cleanRo = cleanTitle(entry.titleRomaji);
+
+    // Track best match if we find multiple candidates
+    struct Match { int score; CachedDir dir; };
+    QList<Match> candidates;
 
     for (const auto &c : cachedDirsForMatching)
     {
-        // Exact normalized match
+        auto cleanDir = cleanTitle(c.dirName);
+
+        // Exact normalized match (highest priority)
         if (c.normName == normTitle || (!normRomaji.isEmpty() && c.normName == normRomaji))
         {
-            aniListLocalMap[entry.title] = {c.source, c.dirName, c.path};
-            return true;
+            candidates.append({100, c});
+            continue;
+        }
+
+        // Clean title exact match
+        if (cleanDir == cleanEn || (!cleanRo.isEmpty() && cleanDir == cleanRo))
+        {
+            candidates.append({95, c});
+            continue;
         }
 
         // Substring match (both directions)
-        if ((!normTitle.isEmpty() && (c.normName.contains(normTitle) || normTitle.contains(c.normName))) ||
-            (!normRomaji.isEmpty() && (c.normName.contains(normRomaji) || normRomaji.contains(c.normName))))
+        if ((!normTitle.isEmpty() && normTitle.length() >= 4 &&
+             (c.normName.contains(normTitle) || normTitle.contains(c.normName))) ||
+            (!normRomaji.isEmpty() && normRomaji.length() >= 4 &&
+             (c.normName.contains(normRomaji) || normRomaji.contains(c.normName))))
         {
-            aniListLocalMap[entry.title] = {c.source, c.dirName, c.path};
-            return true;
+            candidates.append({80, c});
+            continue;
         }
 
-        // Word overlap >= 50%
-        auto dirWords = c.normName.split(' ', Qt::SkipEmptyParts).toSet();
-        auto titleWords = normTitle.split(' ', Qt::SkipEmptyParts).toSet();
+        // Word overlap >= 40% (lowered from 50% for more matches)
+        auto dirWords = cleanDir.split(' ', Qt::SkipEmptyParts).toSet();
+        auto titleWords = cleanEn.split(' ', Qt::SkipEmptyParts).toSet();
         if (dirWords.size() >= 2 && titleWords.size() >= 2)
         {
             auto common = dirWords & titleWords;
             int minSz = qMin(dirWords.size(), titleWords.size());
-            if (minSz > 0 && common.size() * 100 / minSz >= 50)
+            if (minSz > 0)
             {
-                aniListLocalMap[entry.title] = {c.source, c.dirName, c.path};
-                return true;
+                int pct = common.size() * 100 / minSz;
+                if (pct >= 40)
+                    candidates.append({pct, c});
             }
         }
 
-        // Also try romaji word overlap
-        if (!normRomaji.isEmpty())
+        // Romaji word overlap
+        if (!cleanRo.isEmpty())
         {
-            auto romajiWords = normRomaji.split(' ', Qt::SkipEmptyParts).toSet();
+            auto romajiWords = cleanRo.split(' ', Qt::SkipEmptyParts).toSet();
             if (dirWords.size() >= 2 && romajiWords.size() >= 2)
             {
                 auto common = dirWords & romajiWords;
                 int minSz = qMin(dirWords.size(), romajiWords.size());
-                if (minSz > 0 && common.size() * 100 / minSz >= 50)
+                if (minSz > 0)
                 {
-                    aniListLocalMap[entry.title] = {c.source, c.dirName, c.path};
-                    return true;
+                    int pct = common.size() * 100 / minSz;
+                    if (pct >= 40)
+                        candidates.append({pct, c});
                 }
             }
         }
     }
-    return false;
+
+    if (candidates.isEmpty())
+        return false;
+
+    // Sort by score, pick best
+    std::sort(candidates.begin(), candidates.end(),
+              [](const Match &a, const Match &b) { return a.score > b.score; });
+
+    // If best match has 0 chapters in its cache, check if another candidate has chapters
+    for (const auto &m : candidates)
+    {
+        // Verify this match has actual chapter data
+        try
+        {
+            auto info = MangaInfo::deserialize(nullptr, m.dir.path + "/mangainfo.dat");
+            if (!info.isNull() && info->chapters.count() > 0)
+            {
+                aniListLocalMap[entry.title] = {m.dir.source, m.dir.dirName, m.dir.path};
+                return true;
+            }
+        }
+        catch (...) {}
+    }
+
+    // Fallback: use best match even if 0 chapters (might load them later)
+    aniListLocalMap[entry.title] = {candidates.first().dir.source,
+                                    candidates.first().dir.dirName,
+                                    candidates.first().dir.path};
+    return true;
 }
 
 void HomeWidget::buildAniListLocalMap()
