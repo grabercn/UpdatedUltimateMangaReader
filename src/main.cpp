@@ -1,4 +1,6 @@
 #include <QtCore>
+#include <atomic>
+#include <thread>
 
 #include "mainwidget.h"
 #include "stacktrace.h"
@@ -55,6 +57,33 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
 
     int ret = 1;
+
+#ifdef KOBO
+    // Watchdog: restart app if main thread freezes for 60 seconds
+    std::atomic<int> watchdogCounter{0};
+    QTimer watchdogFeeder;
+    watchdogFeeder.setInterval(5000);
+    QObject::connect(&watchdogFeeder, &QTimer::timeout, [&watchdogCounter]() {
+        watchdogCounter = 0;  // Reset - main thread is alive
+    });
+    watchdogFeeder.start();
+
+    std::thread watchdogThread([&watchdogCounter, &argv]() {
+        while (true)
+        {
+            std::this_thread::sleep_for(std::chrono::seconds(10));
+            watchdogCounter++;
+            if (watchdogCounter > 6)  // 60 seconds without reset
+            {
+                qDebug() << "WATCHDOG: Main thread frozen for 60s, restarting...";
+                QProcess::startDetached(QString::fromLocal8Bit(argv[0]), {});
+                _exit(1);
+            }
+        }
+    });
+    watchdogThread.detach();
+#endif
+
     try
     {
         MainWidget mainwidget;

@@ -127,11 +127,18 @@ Result<QString, QString> MangaController::getImageUrl(const MangaIndex &index)
     {
         if (index.page >= currentManga->chapters[index.chapter].pageUrlList.count())
             return Err(QString("Page URL index out of bounds."));
-        auto res = currentManga->mangaSource->getImageUrl(
-            currentManga->chapters[index.chapter].pageUrlList.at(index.page));
-        if (!res.isOk())
-            return Err(res.unwrapErr());
-        currentManga->chapters[index.chapter].imageUrlList[index.page] = res.unwrap();
+        try
+        {
+            auto res = currentManga->mangaSource->getImageUrl(
+                currentManga->chapters[index.chapter].pageUrlList.at(index.page));
+            if (!res.isOk())
+                return Err(res.unwrapErr());
+            currentManga->chapters[index.chapter].imageUrlList[index.page] = res.unwrap();
+        }
+        catch (...)
+        {
+            return Err(QString("Crash in getImageUrl."));
+        }
     }
 
     return Ok(currentManga->chapters[index.chapter].imageUrlList[index.page]);

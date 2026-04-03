@@ -389,61 +389,50 @@ void MangaInfoWidget::setupAniListUI()
 
     aniListFrame = new QFrame(this);
     aniListFrame->setStyleSheet(
-        "QFrame#aniListFrame { border: 1px solid #ccc; background: #f5f5f5; "
-        "padding: 4px 10px; margin: 0; }"
-        "QComboBox { padding: 4px 6px; }"
-        "QComboBox QAbstractItemView::item { padding: 6px 4px; }");
+        "QFrame#aniListFrame { border-top: 1px solid #ccc; background: #f5f5f5; "
+        "padding: 1px 4px; margin: 0; }");
     aniListFrame->setObjectName("aniListFrame");
 
     auto *mainLayout = new QVBoxLayout(aniListFrame);
-    mainLayout->setSpacing(8);
-    mainLayout->setContentsMargins(8, 8, 8, 8);
+    mainLayout->setSpacing(2);
+    mainLayout->setContentsMargins(4, 2, 4, 2);
 
-    // Row 1: AniList label + Status
+    // Row 1: Status + Ch + Vol + Score + Sync
     auto *row1 = new QHBoxLayout();
-    row1->setSpacing(8);
+    row1->setSpacing(3);
 
-    aniListLabel = new QLabel("AL:", aniListFrame);
+    aniListLabel = new QLabel("AL", aniListFrame);
     aniListLabel->setStyleSheet("font-weight: bold; border: none; background: transparent;");
-    aniListLabel->setFixedWidth(28);
     row1->addWidget(aniListLabel);
 
     aniListStatusCombo = new QComboBox(aniListFrame);
-    aniListStatusCombo->addItems({"--", "Reading", "Planning", "Completed", "Dropped", "Paused", "Repeating"});
+    aniListStatusCombo->addItems({"--", "Read", "Plan", "Done", "Drop", "Pause"});
     aniListStatusCombo->setFixedHeight(SIZES.buttonSize);
-    row1->addWidget(aniListStatusCombo, 1);
-
-    aniListScoreCombo = new QComboBox(aniListFrame);
-    aniListScoreCombo->addItem("Score", 0);
-    for (int i = 1; i <= 10; i++)
-        aniListScoreCombo->addItem(QString::number(i) + "/10", i);
-    aniListScoreCombo->setFixedHeight(SIZES.buttonSize);
-    row1->addWidget(aniListScoreCombo);
-
-    mainLayout->addLayout(row1);
-
-    // Row 2: Chapter + Volume dropdowns
-    auto *row2 = new QHBoxLayout();
-    row2->setSpacing(8);
+    row1->addWidget(aniListStatusCombo);
 
     aniListChapterCombo = new QComboBox(aniListFrame);
     aniListChapterCombo->setFixedHeight(SIZES.buttonSize);
     aniListChapterCombo->setMaxVisibleItems(8);
-    row2->addWidget(aniListChapterCombo, 1);
+    row1->addWidget(aniListChapterCombo);
 
     aniListVolumeCombo = new QComboBox(aniListFrame);
     aniListVolumeCombo->setFixedHeight(SIZES.buttonSize);
     aniListVolumeCombo->setMaxVisibleItems(8);
-    row2->addWidget(aniListVolumeCombo, 1);
+    row1->addWidget(aniListVolumeCombo);
 
-    mainLayout->addLayout(row2);
+    aniListScoreCombo = new QComboBox(aniListFrame);
+    aniListScoreCombo->addItem("-", 0);
+    for (int i = 1; i <= 10; i++)
+        aniListScoreCombo->addItem(QString::number(i), i);
+    aniListScoreCombo->setFixedHeight(SIZES.buttonSize);
+    row1->addWidget(aniListScoreCombo);
 
-    // Row 3: Sync button (full width)
-    aniListSyncBtn = new QPushButton("Sync to AniList", aniListFrame);
+    aniListSyncBtn = new QPushButton("Sync", aniListFrame);
     aniListSyncBtn->setFixedHeight(SIZES.buttonSize);
-    aniListSyncBtn->setStyleSheet("font-weight: bold; padding: 4px 8px;");
     aniListSyncBtn->setProperty("type", "borderless");
-    mainLayout->addWidget(aniListSyncBtn);
+    row1->addWidget(aniListSyncBtn);
+
+    mainLayout->addLayout(row1);
 
     connect(aniListSyncBtn, &QPushButton::clicked, this, [this]()
     {
@@ -517,16 +506,9 @@ void MangaInfoWidget::updateAniListTracking()
         }
         else
         {
-            aniListLabel->setText("AL:");
-            aniListStatusCombo->setCurrentIndex(0);
-
-            // Default chapter/volume dropdowns
-            aniListChapterCombo->clear();
-            aniListChapterCombo->addItem("Ch. 0", 0);
-            aniListVolumeCombo->clear();
-            aniListVolumeCombo->addItem("Vol. 0", 0);
-
-            aniListScoreCombo->setCurrentIndex(0);
+            // No AniList match found - hide the bar entirely
+            aniListFrame->hide();
+            return;
         }
     }
     catch (...)

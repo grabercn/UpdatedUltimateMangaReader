@@ -111,17 +111,21 @@ Result<QSharedPointer<MangaInfo>, QString> AbstractMangaSource::loadMangaInfo(co
         try
         {
             auto info = MangaInfo::deserialize(this, path);
-            // reload broken favs
-            if (!(info->coverUrl == "" || info->chapters.count() == 0))
+            if (!info.isNull() && !info->title.isEmpty() &&
+                !info->coverUrl.isEmpty() && info->chapters.count() > 0)
             {
                 if (update)
                     info->mangaSource->updateMangaInfoAsync(info);
-
                 return Ok(info);
             }
+            // Corrupt cache - remove it
+            qDebug() << "Removing corrupt cache:" << path;
+            QFile::remove(path);
         }
-        catch (QException &)
+        catch (...)
         {
+            qDebug() << "Crash loading cache, removing:" << path;
+            QFile::remove(path);
         }
     }
 
@@ -149,26 +153,31 @@ Result<QSharedPointer<MangaInfo>, QString> AbstractMangaSource::getMangaInfo(con
         return Err(job->errorString);
 
     int oldnumchapters = info->chapters.count();
-    auto res = updateMangaInfoFinishedLoading(job, info);
-    if (res.isErr())
-        return Err(res.unwrapErr());
-
-    auto newChapters = res.unwrap();
-
-    auto moveMapping = info->chapters.mergeChapters(newChapters);
-
-    if (!moveMapping.empty())
+    try
     {
-        info->updated = true;
-        removeChapterPages(info, moveMapping);
-        reorderChapterPages(info, moveMapping);
+        auto res = updateMangaInfoFinishedLoading(job, info);
+        if (res.isErr())
+            return Err(res.unwrapErr());
+
+        auto newChapters = res.unwrap();
+        auto moveMapping = info->chapters.mergeChapters(newChapters);
+
+        if (!moveMapping.empty())
+        {
+            info->updated = true;
+            removeChapterPages(info, moveMapping);
+            reorderChapterPages(info, moveMapping);
+        }
+
+        info->updateCompeted(info->chapters.count() > oldnumchapters, moveMapping);
+        downloadCoverAsync(info);
+
+        return Ok(info);
     }
-
-    info->updateCompeted(info->chapters.count() > oldnumchapters, moveMapping);
-
-    downloadCoverAsync(info);
-
-    return Ok(info);
+    catch (...)
+    {
+        return Err(QString("Crash in getMangaInfo for " + name));
+    }
 }
 
 void AbstractMangaSource::updateMangaInfoAsync(QSharedPointer<MangaInfo> info, bool updateCover)
@@ -179,8 +188,8 @@ void AbstractMangaSource::updateMangaInfoAsync(QSharedPointer<MangaInfo> info, b
 
     auto lambda = [oldnumchapters, info, job, updateCover, this]
     {
+        try
         {
-            //            QMutexLocker locker(info->updateMutex.get());
             auto res = updateMangaInfoFinishedLoading(job, info);
             if (res.isErr())
                 return;
@@ -197,10 +206,14 @@ void AbstractMangaSource::updateMangaInfoAsync(QSharedPointer<MangaInfo> info, b
 
             bool newchapters = info->chapters.count() > oldnumchapters;
             info->updateCompeted(newchapters, moveMapping);
-        }
 
-        downloadCoverAsync(info, updateCover);
-        info->serialize();
+            downloadCoverAsync(info, updateCover);
+            info->serialize();
+        }
+        catch (...)
+        {
+            qDebug() << "Crash in updateMangaInfoAsync for" << info->title;
+        }
     };
 
     executeOnJobCompletion(job, lambda);
@@ -215,12 +228,18 @@ Result<void, QString> AbstractMangaSource::updatePageList(QSharedPointer<MangaIn
         info->chapters[chapter].imageUrlList.first() != "")
         return Ok();
 
-    auto newpagelistR = getPageList(info->chapters[chapter].chapterUrl);
-
-    if (!newpagelistR.isOk())
-        return Err(newpagelistR.unwrapErr());
-
-    auto newpagelist = newpagelistR.unwrap();
+    QStringList newpagelist;
+    try
+    {
+        auto newpagelistR = getPageList(info->chapters[chapter].chapterUrl);
+        if (!newpagelistR.isOk())
+            return Err(newpagelistR.unwrapErr());
+        newpagelist = newpagelistR.unwrap();
+    }
+    catch (...)
+    {
+        return Err(QString("Crash in getPageList for " + name));
+    }
 
     QMutexLocker locker(info->updateMutex.get());
 
