@@ -26,7 +26,7 @@ unix:!macx {
 }
 
 unix {
-    LIBS += -lturbojpeg -lpng
+    LIBS += -lturbojpeg
 }
 
 win32 {
