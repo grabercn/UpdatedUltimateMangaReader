@@ -558,6 +558,28 @@ void MainWidget::adjustUI()
     ui->labelTitle->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
     ui->labelTitle->setMinimumWidth(0);
 
+    // Add battery percentage label next to battery icon in the top bar
+    if (ui->batteryIcon->percentLabel)
+    {
+        auto *topBar = ui->batteryIcon->parentWidget();
+        if (topBar && topBar->layout())
+        {
+            auto *topLayout = qobject_cast<QHBoxLayout *>(topBar->layout());
+            if (topLayout)
+            {
+                // Find battery icon index and insert label after it
+                for (int i = 0; i < topLayout->count(); i++)
+                {
+                    if (topLayout->itemAt(i)->widget() == ui->batteryIcon)
+                    {
+                        topLayout->insertWidget(i + 1, ui->batteryIcon->percentLabel);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
 #ifdef KOBO
     koboDevice = KoboPlatformFunctions::getKoboDeviceDescriptor();
     // Use logical screen size, not physical pixels

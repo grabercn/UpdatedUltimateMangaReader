@@ -19,6 +19,7 @@ public:
     BatteryIcon(QWidget *parent = nullptr);
 
     void updateIcon();
+    QLabel *percentLabel = nullptr;
 
 protected:
     void mousePressEvent(QMouseEvent *);

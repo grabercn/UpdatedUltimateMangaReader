@@ -11,7 +11,7 @@ ErrorMessageWidget::ErrorMessageWidget(QWidget* parent)
 
     ui->buttonHide->setText("X");
     ui->buttonHide->setFixedSize(SIZES.buttonSize, SIZES.buttonSize);
-    ui->buttonHide->setStyleSheet("font-weight: bold; font-size: 14pt;");
+    ui->buttonHide->setStyleSheet("font-weight: bold;");
 
     hideTimer.setSingleShot(true);
     QObject::connect(&this->hideTimer, &QTimer::timeout, this, &QWidget::hide);

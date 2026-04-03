@@ -13,6 +13,11 @@ BatteryIcon::BatteryIcon(QWidget *parent) : QLabel(parent)
     setScaledContents(true);
     setFixedSize(SIZES.batteryIconHeight * 2, SIZES.batteryIconHeight + 1);
 
+    // Percentage label - will be positioned by parent layout
+    percentLabel = new QLabel("", parent);
+    percentLabel->setStyleSheet("color: #333;");
+    percentLabel->setAlignment(Qt::AlignVCenter | Qt::AlignLeft);
+
     // workaround
     tooltipLabel = new QLabel(parent);
     tooltipLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
@@ -45,6 +50,14 @@ void BatteryIcon::updateIcon()
     QPair<int, bool> batterystate = getBatteryState();
     int bat = batterystate.first;
     bool charging = batterystate.second;
+
+    // Update percentage label
+    if (percentLabel)
+    {
+        QString text = QString::number(bat) + "%";
+        if (charging) text += "+";
+        percentLabel->setText(text);
+    }
 
     if (bat >= 98)
     {
