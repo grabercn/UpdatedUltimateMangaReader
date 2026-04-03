@@ -45,6 +45,7 @@ public:
     bool wifiAutoDisconnect; // disconnect wifi on sleep
     bool iaGeneralBooksEnabled;  // show general books from Internet Archive
     bool debugScreenshots;   // periodic screenshots to cache/screenshots/
+    bool usbNetworkMode;     // USB networking over cable (OTG/telnet)
 
     QMap<QString, bool> enabledMangaSources;
 

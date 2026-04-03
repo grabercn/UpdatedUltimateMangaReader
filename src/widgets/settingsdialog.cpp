@@ -168,6 +168,40 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
     screenshotNote->setStyleSheet("color: #888; padding-left: 20px;");
     scrollLayout->addWidget(screenshotNote);
 
+#ifdef KOBO
+    auto *usbNetCheck = new QCheckBox("USB network mode (telnet over cable)", this);
+    usbNetCheck->setChecked(settings->usbNetworkMode);
+    connect(usbNetCheck, &QCheckBox::toggled, this, [this](bool checked)
+    {
+        if (!internalChange)
+        {
+            this->settings->usbNetworkMode = checked;
+            this->settings->scheduleSerialize();
+            // Apply immediately
+            if (checked)
+            {
+                QProcess::startDetached("sh", {"-c",
+                    "insmod /drivers/$(uname -r)/g_ether.ko 2>/dev/null; "
+                    "ifconfig usb0 192.168.2.2 netmask 255.255.255.0 up 2>/dev/null; "
+                    "telnetd -l /bin/sh 2>/dev/null"});
+            }
+            else
+            {
+                QProcess::startDetached("sh", {"-c",
+                    "killall telnetd 2>/dev/null; "
+                    "ifconfig usb0 down 2>/dev/null; "
+                    "rmmod g_ether 2>/dev/null"});
+            }
+        }
+    });
+    scrollLayout->addWidget(usbNetCheck);
+
+    auto *usbNetNote = new QLabel("Connect via USB, then telnet 192.168.2.2 from PC. Set PC USB IP to 192.168.2.1.", this);
+    usbNetNote->setWordWrap(true);
+    usbNetNote->setStyleSheet("color: #888; padding-left: 20px;");
+    scrollLayout->addWidget(usbNetNote);
+#endif
+
     // ── AniList ──
     addDivider();
     addHeader("AniList");

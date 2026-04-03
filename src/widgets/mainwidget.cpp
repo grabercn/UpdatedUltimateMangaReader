@@ -584,6 +584,18 @@ void MainWidget::showEvent(QShowEvent *event)
     core->updateActiveScources();
     updateDitheringMode();
 
+#ifdef KOBO
+    // Enable USB networking on startup if configured
+    if (core->settings.usbNetworkMode)
+    {
+        QProcess::startDetached("sh", {"-c",
+            "insmod /drivers/$(uname -r)/g_ether.ko 2>/dev/null; "
+            "ifconfig usb0 192.168.2.2 netmask 255.255.255.0 up 2>/dev/null; "
+            "telnetd -l /bin/sh 2>/dev/null"});
+        qDebug() << "USB network mode enabled (192.168.2.2)";
+    }
+#endif
+
     // Show welcome screen on first boot
     if (WelcomeDialog::shouldShow())
     {
@@ -1380,6 +1392,5 @@ void MainWidget::updateDownloadBadge()
 
 void MainWidget::on_toolButtonWifiIcon_clicked()
 {
-    if (!core->networkManager->checkInternetConnection())
-        wifiDialog->openFullScreen();
+    wifiDialog->openFullScreen();
 }
