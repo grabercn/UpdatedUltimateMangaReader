@@ -322,9 +322,13 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
             applyUpdateBtn->setVisible(available);
             if (available)
             {
+                QString notes = this->updater->latestNotes();
+                if (notes.length() > 300)
+                    notes = notes.left(297) + "...";
+
                 updateStatusLabel->setText(
                     "v" + Updater::currentVersion() + " -> v" + this->updater->latestVersion() +
-                    "  (" + this->updater->latestDate() + ")");
+                    "  (" + this->updater->latestDate() + ")\n\n" + notes);
             }
         });
 
