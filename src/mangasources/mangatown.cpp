@@ -139,59 +139,76 @@ Result<MangaChapterCollection, QString> MangaTown::updateMangaInfoFinishedLoadin
 
 Result<QStringList, QString> MangaTown::getPageList(const QString &chapterUrl)
 {
-    auto job = networkManager->downloadAsString(chapterUrl);
-
-    if (!job->await(7000))
-        return Err(job->errorString);
-
-    if (job->bufferStr.isEmpty())
-        return Err(QString("Empty response from MangaTown."));
-
-    // Check if licensed/unavailable
-    if (job->bufferStr.contains("not available in MangaTown") ||
-        job->bufferStr.contains("has been licensed"))
-        return Err(QString("This manga is licensed and not available on MangaTown."));
-
-    // Extract total_pages from JavaScript variable
-    QRegularExpression totalPagesRx(R"(var\s+total_pages\s*=\s*(\d+))");
-    auto totalPagesMatch = totalPagesRx.match(job->bufferStr);
-
-    if (!totalPagesMatch.hasMatch())
+    try
     {
-        // Fallback: try the old select/option method
-        QRegularExpression numPagesRx(
-            R"lit(>(\d+)</option>\s*?(?:<option[^>]*>Featured</option>)?\s*?</select>)lit");
-        auto numPagesRxMatch = numPagesRx.match(job->bufferStr);
-        if (!numPagesRxMatch.hasMatch())
-            return Err(QString("Couldn't process pagelist."));
+        auto job = networkManager->downloadAsString(chapterUrl);
 
-        int numPages = numPagesRxMatch.captured(1).toInt();
+        if (!job->await(7000))
+            return Err(job->errorString);
+
+        if (job->bufferStr.isEmpty())
+            return Err(QString("Empty response from MangaTown."));
+
+        // Check if licensed/unavailable
+        if (job->bufferStr.contains("not available in MangaTown") ||
+            job->bufferStr.contains("has been licensed"))
+            return Err(QString("This manga is licensed and not available on MangaTown."));
+
+        // Extract total_pages from JavaScript variable
+        QRegularExpression totalPagesRx(R"(var\s+total_pages\s*=\s*(\d+))");
+        auto totalPagesMatch = totalPagesRx.match(job->bufferStr);
+
+        if (!totalPagesMatch.hasMatch())
+        {
+            // Fallback: try the old select/option method
+            QRegularExpression numPagesRx(
+                R"lit(>(\d+)</option>\s*?(?:<option[^>]*>Featured</option>)?\s*?</select>)lit");
+            auto numPagesRxMatch = numPagesRx.match(job->bufferStr);
+            if (!numPagesRxMatch.hasMatch())
+                return Err(QString("Couldn't process pagelist."));
+
+            int numPages = numPagesRxMatch.captured(1).toInt();
+            if (numPages <= 0 || numPages > 1000)
+                return Err(QString("Invalid page count: %1").arg(numPages));
+
+            QStringList imageUrls;
+            for (int i = 1; i <= numPages; i++)
+                imageUrls.append(QString("%1%2.html").arg(chapterUrl).arg(i));
+            return Ok(imageUrls);
+        }
+
+        int numPages = totalPagesMatch.captured(1).toInt();
+        if (numPages <= 0 || numPages > 1000)
+            return Err(QString("Invalid page count: %1").arg(numPages));
+
+        // Ensure chapter URL ends with /
+        QString baseChapterUrl = chapterUrl;
+        if (!baseChapterUrl.endsWith('/'))
+            baseChapterUrl += '/';
+
         QStringList imageUrls;
         for (int i = 1; i <= numPages; i++)
-            imageUrls.append(QString("%1%2.html").arg(chapterUrl).arg(i));
+            imageUrls.append(QString("%1%2.html").arg(baseChapterUrl).arg(i));
+
         return Ok(imageUrls);
     }
-
-    int numPages = totalPagesMatch.captured(1).toInt();
-
-    // Ensure chapter URL ends with /
-    QString baseChapterUrl = chapterUrl;
-    if (!baseChapterUrl.endsWith('/'))
-        baseChapterUrl += '/';
-
-    QStringList imageUrls;
-    for (int i = 1; i <= numPages; i++)
-        imageUrls.append(QString("%1%2.html").arg(baseChapterUrl).arg(i));
-
-    return Ok(imageUrls);
+    catch (...)
+    {
+        return Err(QString("Error parsing MangaTown page list."));
+    }
 }
 
 Result<QString, QString> MangaTown::getImageUrl(const QString &pageUrl)
 {
+    try
+    {
     auto job = networkManager->downloadAsString(pageUrl);
 
     if (!job->await(6000))
         return Err(job->errorString);
+
+    if (job->bufferStr.isEmpty())
+        return Err(QString("Empty page response."));
 
     // Try JavaScript-based image URL first (newpicurl or similar)
     QRegularExpression jsImgRx(R"lit((?:src|url)\s*[:=]\s*['"]([^'"]*?mangahere\.com[^'"]*?\.(?:jpg|png|webp))['"]\s*[,;])lit");
@@ -219,4 +236,9 @@ Result<QString, QString> MangaTown::getImageUrl(const QString &pageUrl)
         imageUrl = "https:" + imageUrl;
 
     return Ok(imageUrl);
+    }
+    catch (...)
+    {
+        return Err(QString("Error parsing MangaTown image URL."));
+    }
 }
