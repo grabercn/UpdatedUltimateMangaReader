@@ -135,16 +135,22 @@ jobs:
           tag_name: latest
           name: "Latest Build (${{ steps.commit.outputs.sha_short }} - ${{ steps.commit.outputs.date }})"
           body: |
-            Auto-built from commit ${{ github.sha }}
+            **${{ steps.commit.outputs.message }}**
 
-            ${{ steps.commit.outputs.message }}
+            ---
 
-            ## Downloads
-            - **Windows**: `UltimateMangaReader-Windows.zip` - Extract and run
-            - **Kobo**: `UltimateMangaReader-Kobo.tar.gz` - Extract to Kobo root via USB
+            ## Windows
+            1. Download `UltimateMangaReader-Windows.zip`
+            2. Extract the zip
+            3. Run `release/UltimateMangaReader.exe`
 
-            ## Auto-Update
-            The app checks for updates daily. On Kobo, updates are applied automatically.
+            ## Kobo
+            1. Download `UltimateMangaReader-Kobo.tar.gz`
+            2. Connect Kobo via USB
+            3. Extract the archive to the root of your Kobo drive (the `.adds` folder goes in the root)
+            4. Eject and reboot - launch from NickelMenu
+
+            > Already installed? The app checks for updates on startup and can update itself.
           fail_on_unmatched_files: false
           files: |
             UltimateMangaReader-Windows.zip

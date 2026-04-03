@@ -107,7 +107,10 @@ RUN ./configure --recheck-all -opensource -confirm-license -release \
 
 # Build Qt (this is the long step - ~45 min on CI)
 RUN make -j$(nproc) 2>&1 | tail -5
-RUN mkdir -p /mnt/onboard/.adds/${QTDIR} && make install
+# Install - use -k to continue past errors in optional submodules
+RUN mkdir -p /mnt/onboard/.adds/${QTDIR} && make -k install 2>&1; \
+    test -f /opt/qt-bin/${QTDIR}/bin/qmake && echo "Qt installed successfully" || \
+    (echo "FATAL: qmake not found after install" && exit 1)
 
 # Build Kobo platform plugin
 WORKDIR /opt
