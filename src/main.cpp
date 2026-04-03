@@ -49,10 +49,8 @@ int main(int argc, char *argv[])
     qDebug() << "Log file:" << logPath;
 #endif
 
-#ifdef DESKTOP
     QGuiApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QGuiApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
-#endif
 
     QApplication app(argc, argv);
 
@@ -67,11 +65,7 @@ int main(int argc, char *argv[])
         mainwidget.setStyleSheet(stylesheetFile.readAll());
         stylesheetFile.close();
 
-#ifdef KOBO
-        mainwidget.showFullScreen();
-#else
         mainwidget.show();
-#endif
 
         ret = app.exec();
     }

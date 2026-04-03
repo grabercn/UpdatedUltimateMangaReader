@@ -11,22 +11,19 @@ WelcomeDialog::WelcomeDialog(QWidget *parent)
 {
     setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
     if (parent)
-        setGeometry(parent->geometry());
-    else
     {
-        auto *screen = QApplication::primaryScreen();
-        if (screen)
-            setGeometry(screen->geometry());
+        resize(parent->size());
+        move(parent->pos());
     }
 
     auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(10, 8, 10, 8);
-    layout->setSpacing(6);
+    layout->setContentsMargins(6, 4, 6, 4);
+    layout->setSpacing(2);
 
     contentLabel = new QLabel(this);
     contentLabel->setWordWrap(true);
     contentLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-    contentLabel->setStyleSheet("padding: 6px;");
+    contentLabel->setStyleSheet("padding: 2px;");
     layout->addWidget(contentLabel, 1);
 
     pageIndicator = new QLabel(this);

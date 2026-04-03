@@ -1,6 +1,7 @@
 #include "mainwidget.h"
 
 #include <QListWidget>
+#include <QScreen>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -557,12 +558,16 @@ void MainWidget::adjustUI()
 #ifdef KOBO
     koboDevice = KoboPlatformFunctions::getKoboDeviceDescriptor();
     this->resize(koboDevice.width, koboDevice.height);
+    qDebug() << "Kobo device:" << koboDevice.width << "x" << koboDevice.height;
 #endif
 }
 
 void MainWidget::showEvent(QShowEvent *event)
 {
     QWidget::showEvent(event);
+    qDebug() << "MainWidget size:" << this->size() << "geometry:" << this->geometry()
+             << "screen:" << (QApplication::primaryScreen() ? QApplication::primaryScreen()->geometry() : QRect())
+             << "devicePixelRatio:" << qApp->devicePixelRatio();
     core->updateActiveScources();
     updateDitheringMode();
 
@@ -589,7 +594,7 @@ void MainWidget::showEvent(QShowEvent *event)
                 // Show update splash dialog
                 QDialog updateDlg(this);
                 updateDlg.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
-                updateDlg.setGeometry(this->geometry());
+                updateDlg.resize(this->size()); move(this->pos());
 
                 auto *layout = new QVBoxLayout(&updateDlg);
                 layout->setContentsMargins(10, 8, 10, 8);
@@ -1092,7 +1097,7 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
         {
             QDialog dlg(this);
             dlg.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
-            dlg.setGeometry(this->geometry());
+            dlg.resize(this->size()); move(this->pos());
 
             auto *layout = new QVBoxLayout(&dlg);
             layout->setContentsMargins(10, 8, 10, 8);
@@ -1178,7 +1183,7 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
             // Show AniList management dialog - full screen like history
             QDialog dlg(this);
             dlg.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
-            dlg.setGeometry(this->geometry());
+            dlg.resize(this->size()); move(this->pos());
 
             auto *layout = new QVBoxLayout(&dlg);
             layout->setContentsMargins(10, 8, 10, 8);

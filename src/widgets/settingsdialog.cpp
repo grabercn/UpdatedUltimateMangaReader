@@ -440,7 +440,8 @@ void SettingsDialog::open()
     // Full screen over parent
     if (parentWidget())
     {
-        setGeometry(parentWidget()->geometry());
+        resize(parentWidget()->size());
+        move(parentWidget()->pos());
         setFixedSize(parentWidget()->size());
     }
     QDialog::open();
