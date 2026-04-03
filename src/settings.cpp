@@ -76,22 +76,21 @@ void Settings::writeKfmonAutoboot(bool enabled)
     // NickelMenu config - add/update a menu entry and optionally set as startup
     if (hasNickelMenu)
     {
-        QString nmPath = "/mnt/onboard/.adds/nm/umr.cfg";
+        QString nmPath = "/mnt/onboard/.adds/nm/umr";
         QFile file(nmPath);
         if (file.open(QIODevice::WriteOnly | QIODevice::Text))
         {
             QTextStream out(&file);
-            out << "# UltimateMangaReader NickelMenu config\n";
 
-            // Always add a menu entry to launch the app
-            out << "menu_item :main :Ultimate Manga Reader :cmd_spawn :quiet "
-                << ":/mnt/onboard/.adds/UltimateMangaReader/UltimateMangaReader\n";
+            // Always add a menu entry to launch the app via shell script
+            out << "menu_item :main :Ultimate Manga Reader :cmd_spawn "
+                << ":quiet:/mnt/onboard/.adds/UltimateMangaReader/ultimatemangareader.sh\n";
 
             // Add startup entry if autoboot enabled
             if (enabled)
             {
-                out << "menu_item :startup :Ultimate Manga Reader :cmd_spawn :quiet "
-                    << ":/mnt/onboard/.adds/UltimateMangaReader/UltimateMangaReader\n";
+                out << "menu_item :startup :Ultimate Manga Reader :cmd_spawn "
+                    << ":quiet:/mnt/onboard/.adds/UltimateMangaReader/ultimatemangareader.sh\n";
             }
 
             file.close();

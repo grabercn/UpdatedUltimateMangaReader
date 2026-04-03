@@ -2,6 +2,7 @@
 
 #include <QDirIterator>
 #include <QMessageBox>
+#include <QStorageInfo>
 
 #include "homewidget.h"
 #include "staticsettings.h"
@@ -38,9 +39,16 @@ DownloadQueueWidget::DownloadQueueWidget(QWidget *parent)
     layout->addWidget(activeProgress);
 
     statusLabel = new QLabel("No downloads", this);
-    statusLabel->setStyleSheet("color: #666; font-size: 9pt;");
+    statusLabel->setStyleSheet("color: #666;");
     statusLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(statusLabel);
+
+    // Storage info
+    storageLabel = new QLabel(this);
+    storageLabel->setStyleSheet("color: #888;");
+    storageLabel->setAlignment(Qt::AlignCenter);
+    layout->addWidget(storageLabel);
+    updateStorageInfo();
 
     // Job list
     jobList = new QListWidget(this);
@@ -299,6 +307,7 @@ void DownloadQueueWidget::refreshList()
                                  .arg(activeCount).arg(queuedCount).arg(doneCount));
 
     headerLabel->setText(QString("Downloads (%1)").arg(jobs.size()));
+    updateStorageInfo();
 }
 
 QList<CachedManga> DownloadQueueWidget::scanCachedManga()
@@ -482,6 +491,7 @@ void DownloadQueueWidget::refreshCachedList()
 
     headerLabel->setText(QString("Downloaded (%1)").arg(cached.size()));
     statusLabel->setText(QString("%1 items, %2 MB").arg(cached.size()).arg(totalSize));
+    updateStorageInfo();
 
     // Track check states to distinguish checkbox click from text click
     disconnect(jobList, &QListWidget::itemChanged, nullptr, nullptr);
@@ -519,4 +529,29 @@ void DownloadQueueWidget::refreshCachedList()
         if (!source.isEmpty() && !title.isEmpty())
             emit openMangaRequested(source, title);
     });
+}
+
+void DownloadQueueWidget::updateStorageInfo()
+{
+    // Calculate app cache size
+    qint64 appBytes = 0;
+    QDirIterator it(CONF.cacheDir, QDir::Files, QDirIterator::Subdirectories);
+    while (it.hasNext())
+    {
+        it.next();
+        appBytes += it.fileInfo().size();
+    }
+
+    // Get free space on device
+    QStorageInfo storage(CONF.cacheDir);
+    qint64 freeBytes = storage.bytesAvailable();
+
+    auto formatSize = [](qint64 bytes) -> QString {
+        if (bytes >= 1024LL * 1024 * 1024)
+            return QString::number(bytes / (1024.0 * 1024 * 1024), 'f', 1) + " GB";
+        return QString::number(bytes / (1024.0 * 1024), 'f', 0) + " MB";
+    };
+
+    storageLabel->setText("App data: " + formatSize(appBytes) +
+                          "  |  Free: " + formatSize(freeBytes));
 }

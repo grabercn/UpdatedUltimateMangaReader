@@ -1168,14 +1168,37 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
     switch (button)
     {
         case ExitButton:
+        {
+            // Stop everything immediately
             core->enableTimers(false);
             core->mangaController->cancelAllPreloads();
             core->mangaChapterDownloadManager->cancelDownloads();
+
+            // Stop screenshot timer
+            if (screenshotTimer)
+                screenshotTimer->stop();
+
+            // Kill all pending network requests
+            core->networkManager->networkAccessManager()->setNetworkAccessible(
+                QNetworkAccessManager::NotAccessible);
+
+            // Disable autoboot on manual exit (prevents bootloop)
+            if (core->settings.autoBootEnabled)
+            {
+                core->settings.autoBootEnabled = false;
+                Settings::writeKfmonAutoboot(false);
+            }
+
+            // Save state
             core->settings.serialize();
+            core->readingStats.serialize();
             if (core->aniList)
                 core->aniList->serialize();
-            close();
+
+            // Force quit - don't wait for pending events
+            qApp->quit();
             break;
+        }
         case SettingsButton:
             settingsDialog->open();
             break;

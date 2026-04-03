@@ -71,6 +71,7 @@ private:
     QPushButton *showCachedBtn;
     QPushButton *deleteSelectedBtn;
     QLabel *statusLabel;
+    QLabel *storageLabel;
     QProgressBar *activeProgress;
     bool showingCached;
 
@@ -78,6 +79,7 @@ private:
 
     void refreshList();
     void refreshCachedList();
+    void updateStorageInfo();
     QList<CachedManga> scanCachedManga();
 };
 
