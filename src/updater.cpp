@@ -115,8 +115,38 @@ void Updater::checkForUpdate()
     }
 
     m_updateAvailable = true;
-    m_latestNotes = msgMatch.hasMatch() ? msgMatch.captured(1) : "No description";
-    m_latestNotes.replace("\\n", "\n");
+
+    // Fetch release notes from the release body (has full changelog)
+    auto releaseUrl = QString("https://api.github.com/repos/%1/%2/releases/tags/latest")
+                          .arg(repoOwner, repoName);
+    auto releaseJob = networkManager->downloadAsString(releaseUrl, 10000);
+    if (releaseJob->await(10000))
+    {
+        // Extract "body" field from release JSON
+        QRegularExpression bodyRx(R"lit("body"\s*:\s*"((?:[^"\\]|\\.)*)")lit");
+        auto bodyMatch = bodyRx.match(releaseJob->bufferStr);
+        if (bodyMatch.hasMatch())
+        {
+            m_latestNotes = bodyMatch.captured(1);
+            m_latestNotes.replace("\\n", "\n").replace("\\r", "").replace("\\\"", "\"");
+            // Strip the install instructions - only keep "What's New" section
+            int dashIdx = m_latestNotes.indexOf("\n---");
+            if (dashIdx > 0)
+                m_latestNotes = m_latestNotes.left(dashIdx).trimmed();
+            // Clean up markdown
+            m_latestNotes.remove(QRegularExpression(R"(^## )", QRegularExpression::MultilineOption));
+        }
+        else
+        {
+            m_latestNotes = msgMatch.hasMatch() ? msgMatch.captured(1) : "No description";
+            m_latestNotes.replace("\\n", "\n");
+        }
+    }
+    else
+    {
+        m_latestNotes = msgMatch.hasMatch() ? msgMatch.captured(1) : "No description";
+        m_latestNotes.replace("\\n", "\n");
+    }
 
     // Build download URL for the release binary
     // On Kobo: download the ARM binary from releases

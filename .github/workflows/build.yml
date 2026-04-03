@@ -190,30 +190,55 @@ jobs:
           echo "version=$(cat VERSION | tr -d '\r\n ')" >> $GITHUB_OUTPUT
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
           echo "date=$(date -u +%Y-%m-%d)" >> $GITHUB_OUTPUT
-          echo "message=$(git log -1 --pretty=%B | head -1)" >> $GITHUB_OUTPUT
+
+          # Collect all commit messages since last release, excluding auto-bumps
+          git fetch --tags 2>/dev/null || true
+          LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            CHANGELOG=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s" \
+              | grep -v "\[skip ci\]" \
+              | grep -v "Auto-bump version" \
+              | grep -v "Co-Authored-By" \
+              | head -30)
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s" -20 \
+              | grep -v "\[skip ci\]" \
+              | grep -v "Auto-bump version" \
+              | grep -v "Co-Authored-By" \
+              | head -20)
+          fi
+
+          # Build release body with changelog
+          {
+            echo "## What's New in v$(cat VERSION | tr -d '\r\n ')"
+            echo ""
+            echo "$CHANGELOG"
+            echo ""
+            echo "---"
+            echo ""
+            echo "## Windows"
+            echo "1. Download \`UltimateMangaReader-Windows.zip\`"
+            echo "2. Extract the zip"
+            echo "3. Run \`release/UltimateMangaReader.exe\`"
+            echo ""
+            echo "## Kobo"
+            echo "1. Download \`UltimateMangaReader-Kobo.tar.gz\`"
+            echo "2. Connect Kobo via USB"
+            echo "3. Extract to root of Kobo drive"
+            echo "4. Eject and reboot - launch from NickelMenu"
+            echo ""
+            echo "> Already installed? The app checks for updates on startup."
+          } > /tmp/release-body.md
+
+          echo "Release body:"
+          cat /tmp/release-body.md
 
       - name: Create/Update Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: "v${{ steps.info.outputs.version }} (${{ steps.info.outputs.date }})"
-          body: |
-            **v${{ steps.info.outputs.version }}** — ${{ steps.info.outputs.message }}
-
-            ---
-
-            ## Windows
-            1. Download `UltimateMangaReader-Windows.zip`
-            2. Extract the zip
-            3. Run `release/UltimateMangaReader.exe`
-
-            ## Kobo
-            1. Download `UltimateMangaReader-Kobo.tar.gz`
-            2. Connect Kobo via USB
-            3. Extract the archive to the root of your Kobo drive (the `.adds` folder goes in the root)
-            4. Eject and reboot - launch from NickelMenu
-
-            > Already installed? The app checks for updates on startup and can update itself.
+          body_path: /tmp/release-body.md
           fail_on_unmatched_files: false
           files: |
             UltimateMangaReader-Windows.zip
