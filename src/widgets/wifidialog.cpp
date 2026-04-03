@@ -1,8 +1,9 @@
 #include "wifidialog.h"
 
 #include <QCheckBox>
-#include <QLineEdit>
 #include <QProcess>
+
+#include "clineedit.h"
 #include <QApplication>
 #include <QScreen>
 
@@ -53,36 +54,27 @@ void WifiDialog::openFullScreen()
 
     // Header
     auto *headerRow = new QHBoxLayout();
-    auto *titleLbl = new QLabel("<b>WiFi</b>", this);
-    headerRow->addWidget(titleLbl);
-    headerRow->addStretch();
-
-    closeBtn = new QPushButton("Close", this);
+    // Header row
+    closeBtn = new QPushButton("< Back", this);
     closeBtn->setFixedHeight(SIZES.buttonSize);
     QObject::connect(closeBtn, &QPushButton::clicked, this, &WifiDialog::onCloseClicked);
     headerRow->addWidget(closeBtn);
-    mainLayout->addLayout(headerRow);
 
-    // Status section
-    auto *statusFrame = new QFrame(this);
-    statusFrame->setStyleSheet("QFrame { background: #f5f5f5; border: 1px solid #ddd; padding: 6px; }");
-    auto *statusLayout = new QHBoxLayout(statusFrame);
-    statusLayout->setContentsMargins(6, 4, 6, 4);
-
-    statusIcon = new QLabel(this);
-    statusIcon->setFixedWidth(SIZES.wifiIconSize);
-    statusLayout->addWidget(statusIcon);
-
-    statusLabel = new QLabel("Checking...", this);
-    statusLabel->setWordWrap(true);
-    statusLayout->addWidget(statusLabel, 1);
+    auto *titleLbl = new QLabel("<b>WiFi</b>", this);
+    titleLbl->setAlignment(Qt::AlignCenter);
+    headerRow->addWidget(titleLbl, 1);
 
     toggleBtn = new QPushButton("Connect", this);
     toggleBtn->setFixedHeight(SIZES.buttonSize);
     QObject::connect(toggleBtn, &QPushButton::clicked, this, &WifiDialog::onToggleClicked);
-    statusLayout->addWidget(toggleBtn);
+    headerRow->addWidget(toggleBtn);
+    mainLayout->addLayout(headerRow);
 
-    mainLayout->addWidget(statusFrame);
+    // Status
+    statusLabel = new QLabel("Checking...", this);
+    statusLabel->setAlignment(Qt::AlignCenter);
+    statusLabel->setStyleSheet("padding: 4px; color: #555;");
+    mainLayout->addWidget(statusLabel);
 
     // Scan button
     scanBtn = new QPushButton("Scan for Networks", this);
@@ -94,22 +86,16 @@ void WifiDialog::openFullScreen()
     networkList = new QListWidget(this);
     networkList->setStyleSheet(
         "QListWidget { border: 1px solid #ddd; }"
-        "QListWidget::item { padding: 8px 6px; border-bottom: 1px solid #eee; }");
+        "QListWidget::item { padding: 6px 4px; border-bottom: 1px solid #eee; min-height: "
+        + QString::number(SIZES.buttonSize) + "px; }");
     networkList->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     networkList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     QObject::connect(networkList, &QListWidget::itemClicked, this, &WifiDialog::onNetworkSelected);
     mainLayout->addWidget(networkList, 1);
 
-    // Info label
-    infoLabel = new QLabel(this);
-    infoLabel->setWordWrap(true);
-    infoLabel->setStyleSheet("color: #888; padding: 4px;");
-#ifdef KOBO
-    infoLabel->setText("Tap a network to connect. Networks are managed by the Kobo system.");
-#else
-    infoLabel->setText("WiFi is managed by your OS. This shows connection status only.");
-#endif
-    mainLayout->addWidget(infoLabel);
+    // Remove unused members
+    statusIcon = nullptr;
+    infoLabel = nullptr;
 
     updateStatus();
     open();
@@ -265,10 +251,11 @@ void WifiDialog::onNetworkSelected(QListWidgetItem *item)
         auto *pwLabel = new QLabel("Enter WiFi password:", &pwDialog);
         pwLayout->addWidget(pwLabel);
 
-        auto *pwEdit = new QLineEdit(&pwDialog);
+        auto *pwEdit = new CLineEdit(&pwDialog);
         pwEdit->setEchoMode(QLineEdit::Password);
-        pwEdit->setPlaceholderText("Password...");
+        pwEdit->setPlaceholderText("Tap here to type password...");
         pwEdit->setFixedHeight(SIZES.buttonSize);
+        pwEdit->installEventFilter(this->parentWidget());  // Triggers Kobo virtual keyboard
         pwLayout->addWidget(pwEdit);
 
         auto *showPwCheck = new QCheckBox("Show password", &pwDialog);
