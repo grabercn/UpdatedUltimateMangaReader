@@ -112,11 +112,12 @@ RUN mkdir -p /mnt/onboard/.adds/${QTDIR} && make -k install 2>&1; \
     test -f /opt/qt-bin/${QTDIR}/bin/qmake && echo "Qt installed successfully" || \
     (echo "FATAL: qmake not found after install" && exit 1)
 
-# Build Kobo platform plugin
+# Build Kobo platform plugin (optional - Kobo already has one installed)
 WORKDIR /opt
 RUN git clone --depth 1 https://github.com/Rain92/qt5-kobo-platform-plugin.git
 WORKDIR /opt/qt5-kobo-platform-plugin
-RUN /opt/qt-bin/${QTDIR}/bin/qmake && make -j$(nproc)
+RUN /opt/qt-bin/${QTDIR}/bin/qmake && make -j$(nproc) 2>&1 | tail -10 || \
+    echo "WARNING: Platform plugin build failed (non-fatal - Kobo has existing plugin)"
 
 # Build environment for the app
 WORKDIR /build
