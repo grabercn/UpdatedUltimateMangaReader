@@ -257,15 +257,15 @@ void WifiDialog::onNetworkSelected(QListWidgetItem *item)
         QtConcurrent::run([this, ssid, password]() {
             // Use wpa_cli to add and connect to network
             QProcess proc;
-            proc.start("wpa_cli", {"-i", "wlan0", "add_network"});
+            proc.start("wpa_cli", {"-i", wifiInterface, "add_network"});
             proc.waitForFinished(5000);
             auto netId = proc.readAllStandardOutput().trimmed().split('\n').last().trimmed();
 
-            QProcess::execute("wpa_cli", {"-i", "wlan0", "set_network", netId, "ssid", "\"" + ssid + "\""});
-            QProcess::execute("wpa_cli", {"-i", "wlan0", "set_network", netId, "psk", "\"" + password + "\""});
-            QProcess::execute("wpa_cli", {"-i", "wlan0", "enable_network", netId});
-            QProcess::execute("wpa_cli", {"-i", "wlan0", "select_network", netId});
-            QProcess::execute("wpa_cli", {"-i", "wlan0", "save_config"});
+            QProcess::execute("wpa_cli", {"-i", wifiInterface, "set_network", netId, "ssid", "\"" + ssid + "\""});
+            QProcess::execute("wpa_cli", {"-i", wifiInterface, "set_network", netId, "psk", "\"" + password + "\""});
+            QProcess::execute("wpa_cli", {"-i", wifiInterface, "enable_network", netId});
+            QProcess::execute("wpa_cli", {"-i", wifiInterface, "select_network", netId});
+            QProcess::execute("wpa_cli", {"-i", wifiInterface, "save_config"});
 
             // Wait for connection
             QThread::sleep(3);
@@ -291,14 +291,14 @@ void WifiDialog::onNetworkSelected(QListWidgetItem *item)
 
         QtConcurrent::run([this, ssid]() {
             QProcess proc;
-            proc.start("wpa_cli", {"-i", "wlan0", "add_network"});
+            proc.start("wpa_cli", {"-i", wifiInterface, "add_network"});
             proc.waitForFinished(5000);
             auto netId = proc.readAllStandardOutput().trimmed().split('\n').last().trimmed();
 
-            QProcess::execute("wpa_cli", {"-i", "wlan0", "set_network", netId, "ssid", "\"" + ssid + "\""});
-            QProcess::execute("wpa_cli", {"-i", "wlan0", "set_network", netId, "key_mgmt", "NONE"});
-            QProcess::execute("wpa_cli", {"-i", "wlan0", "enable_network", netId});
-            QProcess::execute("wpa_cli", {"-i", "wlan0", "select_network", netId});
+            QProcess::execute("wpa_cli", {"-i", wifiInterface, "set_network", netId, "ssid", "\"" + ssid + "\""});
+            QProcess::execute("wpa_cli", {"-i", wifiInterface, "set_network", netId, "key_mgmt", "NONE"});
+            QProcess::execute("wpa_cli", {"-i", wifiInterface, "enable_network", netId});
+            QProcess::execute("wpa_cli", {"-i", wifiInterface, "select_network", netId});
 
             QThread::sleep(3);
             networkManager->checkInternetConnection();
@@ -340,26 +340,60 @@ void WifiDialog::scanNetworks()
     scannedNetworks.clear();
 
 #ifdef KOBO
-    // First ensure WiFi hardware is on
+    // Ensure WiFi hardware is on
     try { KoboPlatformFunctions::enableWiFiConnection(); }
     catch (...) {}
 
-    // Give it a moment to initialize
-    QThread::msleep(500);
+    // Wait for WiFi to fully initialize
+    QThread::sleep(2);
+
+    // Detect WiFi interface (usually wlan0 or eth0 on some Kobos)
+    {
+        QProcess ifProc;
+        ifProc.start("sh", {"-c", "ls /sys/class/net/ | grep -E 'wlan|eth' | head -1"});
+        ifProc.waitForFinished(3000);
+        auto detected = ifProc.readAllStandardOutput().trimmed();
+        if (!detected.isEmpty())
+            wifiInterface = detected;
+    }
+    qDebug() << "WiFi scan: using interface" << wifiInterface;
+
+    // Ensure wpa_supplicant is running
+    {
+        QProcess checkWpa;
+        checkWpa.start("sh", {"-c", "pidof wpa_supplicant"});
+        checkWpa.waitForFinished(3000);
+        if (checkWpa.readAllStandardOutput().trimmed().isEmpty())
+        {
+            qDebug() << "wpa_supplicant not running, starting it...";
+            QProcess::execute("sh", {"-c",
+                "wpa_supplicant -B -i " + wifiInterface + " -c /etc/wpa_supplicant/wpa_supplicant.conf "
+                "-D nl80211,wext 2>/dev/null || "
+                "wpa_supplicant -B -i " + wifiInterface + " -c /etc/wpa_supplicant.conf "
+                "-D nl80211,wext 2>/dev/null"});
+            QThread::sleep(2);
+        }
+    }
 
     // Trigger scan
-    QProcess::execute("wpa_cli", {"-i", "wlan0", "scan"});
-    QThread::sleep(2);  // Wait for scan
+    {
+        QProcess scanProc;
+        scanProc.start("wpa_cli", {"-i", wifiInterface, "scan"});
+        scanProc.waitForFinished(5000);
+        qDebug() << "WiFi scan trigger:" << scanProc.readAllStandardOutput().trimmed();
+    }
+    QThread::sleep(3);  // Wait for scan to complete
 
     // Get results
     QProcess proc;
-    proc.start("wpa_cli", {"-i", "wlan0", "scan_results"});
+    proc.start("wpa_cli", {"-i", wifiInterface, "scan_results"});
     proc.waitForFinished(5000);
     auto output = proc.readAllStandardOutput();
+    qDebug() << "WiFi scan results:" << output.left(500);
 
     // Get current network
     QProcess statusProc;
-    statusProc.start("wpa_cli", {"-i", "wlan0", "status"});
+    statusProc.start("wpa_cli", {"-i", wifiInterface, "status"});
     statusProc.waitForFinished(5000);
     auto statusOutput = statusProc.readAllStandardOutput();
     QString currentSSID;

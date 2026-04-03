@@ -47,6 +47,8 @@ private:
     void updateStatus();
     void scanNetworks();
 
+    QString wifiInterface = "wlan0";
+
     // For Kobo wpa_cli integration
     struct NetworkInfo
     {
