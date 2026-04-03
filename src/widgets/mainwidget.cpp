@@ -801,17 +801,27 @@ bool MainWidget::buttonPressEvent(QKeyEvent *event)
     else if (event->key() == Qt::Key_PageDown || event->key() == Qt::Key_PageUp ||
              event->key() == Qt::Key_Left || event->key() == Qt::Key_Right)
     {
-        // Find the currently visible scrollable list
+        // Find the largest visible scrollable area on the current page
         QAbstractScrollArea *scrollArea = nullptr;
         auto *stack = ui->stackedWidget;
         auto *current = stack->currentWidget();
         if (current)
-            scrollArea = current->findChild<QAbstractScrollArea *>();
+        {
+            int maxHeight = 0;
+            for (auto *sa : current->findChildren<QAbstractScrollArea *>())
+            {
+                if (sa->isVisible() && sa->height() > maxHeight)
+                {
+                    maxHeight = sa->height();
+                    scrollArea = sa;
+                }
+            }
+        }
 
         if (scrollArea && scrollArea->verticalScrollBar())
         {
             auto *sb = scrollArea->verticalScrollBar();
-            int step = scrollArea->viewport()->height();
+            int step = scrollArea->viewport()->height() * 0.8;  // 80% page scroll
             bool down = (event->key() == Qt::Key_PageDown || event->key() == Qt::Key_Right);
             sb->setValue(sb->value() + (down ? step : -step));
             return true;

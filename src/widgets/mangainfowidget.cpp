@@ -427,32 +427,39 @@ void MangaInfoWidget::setupAniListUI()
     aniListScoreCombo->setFixedHeight(SIZES.buttonSize);
     row1->addWidget(aniListScoreCombo);
 
-    aniListSyncBtn = new QPushButton("Sync", aniListFrame);
-    aniListSyncBtn->setFixedHeight(SIZES.buttonSize);
-    aniListSyncBtn->setProperty("type", "borderless");
-    row1->addWidget(aniListSyncBtn);
+    aniListSyncBtn = nullptr;  // No sync button - auto-syncs on change
 
     mainLayout->addLayout(row1);
 
-    connect(aniListSyncBtn, &QPushButton::clicked, this, [this]()
+    // Auto-sync on ANY value change (debounced)
+    auto syncFunc = [this]()
     {
         if (!aniList || !aniList->isLoggedIn() || currentAniListMediaId <= 0)
             return;
 
         int status = aniListStatusCombo->currentIndex();
-        int score = aniListScoreCombo->currentData().toInt();
+        if (status <= 0) return;
+
         int chapters = aniListChapterCombo->currentData().toInt();
         int volumes = aniListVolumeCombo->currentData().toInt();
+        int score = aniListScoreCombo->currentData().toInt();
 
-        if (status > 0)
-        {
-            aniList->updateProgress(currentAniListMediaId, chapters, status, volumes);
-            if (score > 0)
-                aniList->updateScore(currentAniListMediaId, score);
-            aniListSyncBtn->setText("Synced!");
-            QTimer::singleShot(2000, this, [this]() { aniListSyncBtn->setText("Sync to AniList"); });
-        }
-    });
+        aniList->updateProgress(currentAniListMediaId, chapters, status, volumes);
+        if (score > 0)
+            aniList->updateScore(currentAniListMediaId, score);
+
+        qDebug() << "AniList auto-synced: ch" << chapters << "vol" << volumes
+                 << "status" << status << "score" << score;
+    };
+
+    connect(aniListStatusCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, syncFunc);
+    connect(aniListChapterCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, syncFunc);
+    connect(aniListVolumeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, syncFunc);
+    connect(aniListScoreCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, syncFunc);
 
     // Insert into main layout: between the cover/info section (index 1) and action buttons (index 2)
     auto *parentLayout = qobject_cast<QVBoxLayout *>(layout());
@@ -483,7 +490,14 @@ void MangaInfoWidget::updateAniListTracking()
         if (entry.mediaId > 0)
         {
             currentAniListMediaId = entry.mediaId;
-            aniListLabel->setText("AL:");
+            aniListLabel->setText("AL");
+
+            // Block signals while populating to prevent auto-sync spam
+            aniListStatusCombo->blockSignals(true);
+            aniListChapterCombo->blockSignals(true);
+            aniListVolumeCombo->blockSignals(true);
+            aniListScoreCombo->blockSignals(true);
+
             aniListStatusCombo->setCurrentIndex(entry.status);
 
             // Populate chapter dropdown
@@ -503,6 +517,12 @@ void MangaInfoWidget::updateAniListTracking()
             int scoreIdx = aniListScoreCombo->findData(entry.score);
             if (scoreIdx >= 0)
                 aniListScoreCombo->setCurrentIndex(scoreIdx);
+
+            // Unblock signals - now user changes will trigger auto-sync
+            aniListStatusCombo->blockSignals(false);
+            aniListChapterCombo->blockSignals(false);
+            aniListVolumeCombo->blockSignals(false);
+            aniListScoreCombo->blockSignals(false);
         }
         else
         {

@@ -112,16 +112,25 @@ void activateScroller(QAbstractScrollArea* pArea)
     if (pArea)
     {
         QScroller* scroller = QScroller::scroller(pArea);
-        // properties won't be set for some reason; has to be hardfixed in the qt source
         QScrollerProperties prop;
-        prop.setScrollMetric(QScrollerProperties::QScrollerProperties::MousePressEventDelay, 0);
+
+        // Small delay so taps aren't eaten by scroll gesture
+        prop.setScrollMetric(QScrollerProperties::MousePressEventDelay, 0.12);
+
+        // Disable overshoot (no bounce on e-ink)
         prop.setScrollMetric(QScrollerProperties::VerticalOvershootPolicy,
                              QScrollerProperties::OvershootAlwaysOff);
         prop.setScrollMetric(QScrollerProperties::HorizontalOvershootPolicy,
                              QScrollerProperties::OvershootAlwaysOff);
-
         prop.setScrollMetric(QScrollerProperties::OvershootDragResistanceFactor, 0);
         prop.setScrollMetric(QScrollerProperties::OvershootDragDistanceFactor, 0);
+
+        // Gentle deceleration for e-ink (less momentum, stops faster)
+        prop.setScrollMetric(QScrollerProperties::DecelerationFactor, 0.3);
+        prop.setScrollMetric(QScrollerProperties::MaximumVelocity, 0.5);
+
+        // Lower drag threshold for more responsive scrolling
+        prop.setScrollMetric(QScrollerProperties::DragStartDistance, 0.004);
 
         scroller->setScrollerProperties(prop);
         scroller->grabGesture(pArea->viewport(), QScroller::LeftMouseButtonGesture);
