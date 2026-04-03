@@ -128,6 +128,32 @@ void MangaReaderWidget::adjustUI()
     ui->pushButtonReaderHome->setFixedHeight(SIZES.buttonSize);
     ui->pushButtonReaderGoto->setFixedHeight(SIZES.buttonSize);
 
+    // Reorder buttons: Back | Home | Favorites (matching bottom bar everywhere else)
+    auto *btnLayout = qobject_cast<QHBoxLayout *>(ui->pushButtonReaderHome->parentWidget()->layout());
+    if (btnLayout)
+    {
+        // Remove all buttons and separators
+        QList<QWidget *> widgets;
+        while (btnLayout->count() > 0)
+        {
+            auto *item = btnLayout->takeAt(0);
+            if (item->widget())
+                widgets.append(item->widget());
+            delete item;
+        }
+        // Re-add in correct order: Back, separator, Home, separator, Favorites
+        btnLayout->addWidget(ui->pushButtonReaderBack);
+        for (auto *w : widgets)
+            if (qobject_cast<QFrame *>(w) && static_cast<QFrame *>(w)->frameShape() == QFrame::VLine)
+                { btnLayout->addWidget(w); break; }
+        btnLayout->addWidget(ui->pushButtonReaderHome);
+        for (auto *w : widgets)
+            if (qobject_cast<QFrame *>(w) && static_cast<QFrame *>(w)->frameShape() == QFrame::VLine
+                && w->parent() != nullptr)
+                { btnLayout->addWidget(w); break; }
+        btnLayout->addWidget(ui->pushButtonReaderFavorites);
+    }
+
     ui->horizontalSliderLight->setFixedHeight(SIZES.resourceIconSize);
     ui->horizontalSliderComfLight->setFixedHeight(SIZES.resourceIconSize);
 
