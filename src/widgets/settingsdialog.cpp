@@ -6,6 +6,7 @@
 #include <QTextStream>
 
 #include "anilist.h"
+#include "staticsettings.h"
 #include "updater.h"
 
 #include "ui_settingsdialog.h"
@@ -220,6 +221,13 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
                               "background: #f8f8f8; border: 1px solid #eee; border-radius: 4px;");
     scrollLayout->addWidget(instrLabel);
 
+    auto *fileNote = new QLabel(
+        "Or place a file named anilist_token.txt in the\n"
+        "UltimateMangaReader folder with your token.", this);
+    fileNote->setWordWrap(true);
+    fileNote->setStyleSheet("color: #888; padding: 2px;");
+    scrollLayout->addWidget(fileNote);
+
     aniListTokenEdit = new CLineEdit(this);
     aniListTokenEdit->setPlaceholderText("Paste token here...");
     aniListTokenEdit->setFixedHeight(SIZES.buttonSize);
@@ -229,6 +237,36 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
     aniListLoginBtn = new QPushButton("Login", this);
     aniListLoginBtn->setFixedHeight(SIZES.buttonSize);
     scrollLayout->addWidget(aniListLoginBtn);
+
+    // Auto-load token from file if not logged in
+    if (aniList && !aniList->isLoggedIn())
+    {
+        QStringList tokenPaths = {
+            CONF.cacheDir + "../anilist_token.txt",       // .adds/UltimateMangaReader/anilist_token.txt
+            CONF.cacheDir + "anilist_token.txt",           // cache/anilist_token.txt
+#ifdef KOBO
+            "/mnt/onboard/anilist_token.txt",              // Kobo root
+            "/mnt/onboard/.adds/UltimateMangaReader/anilist_token.txt",
+#endif
+        };
+
+        for (const auto &path : tokenPaths)
+        {
+            QFile tokenFile(path);
+            if (tokenFile.open(QIODevice::ReadOnly | QIODevice::Text))
+            {
+                auto token = QString(tokenFile.readAll()).trimmed();
+                tokenFile.close();
+                if (!token.isEmpty() && token.length() > 50)
+                {
+                    qDebug() << "Auto-loading AniList token from" << path;
+                    aniListStatusLabel->setText("Logging in from token file...");
+                    aniList->loginWithToken(token);
+                    break;
+                }
+            }
+        }
+    }
 
     connect(aniListLoginBtn, &QPushButton::clicked, this, [this]()
     {
