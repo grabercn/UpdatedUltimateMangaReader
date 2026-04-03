@@ -86,9 +86,11 @@ jobs:
           mkdir -p output
           docker run --rm -v $(pwd):/src:ro -v $(pwd)/output:/output \
             ghcr.io/${{ github.repository_owner }}/umr-kobo-toolchain:latest \
-            sh -c "cp -r /src /build/app && cd /build/app && \
+            sh -c "cp -r /src /build/app && \
+              ln -sf /opt/qt5-kobo-platform-plugin /build/qt5-kobo-platform-plugin && \
+              cd /build/app && \
               \${QMAKE} CONFIG+=kobo 2>&1 && \
-              make -j\$(nproc) 2>&1 | tail -30 && \
+              make -j\$(nproc) 2>&1 | tail -50 && \
               cp UltimateMangaReader /output/"
         timeout-minutes: 30
 
