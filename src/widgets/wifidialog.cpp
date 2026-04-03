@@ -140,11 +140,12 @@ void WifiDialog::connect()
 
 void WifiDialog::onToggleClicked()
 {
+    if (destroying) return;
     if (networkManager->connected)
     {
         // Disconnect
-        statusLabel->setText("Disconnecting...");
-        toggleBtn->setEnabled(false);
+        if (statusLabel) statusLabel->setText("Disconnecting...");
+        if (toggleBtn) toggleBtn->setEnabled(false);
         QtConcurrent::run([this]() {
             networkManager->disconnectWifi();
             if (destroying) return;
@@ -164,6 +165,7 @@ void WifiDialog::onToggleClicked()
 void WifiDialog::onScanClicked()
 {
 #ifdef KOBO
+    if (destroying || !scanBtn || !networkList) return;
     scanBtn->setText("Scanning...");
     scanBtn->setEnabled(false);
     networkList->clear();

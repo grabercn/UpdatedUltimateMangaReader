@@ -160,7 +160,8 @@ void DownloadQueue::resetJobCount()
 
 bool DownloadQueue::awaitCompletion()
 {
-    awaitSignal(this, {SIGNAL(allCompleted())}, -1);
+    // 5 minute timeout to prevent infinite hangs
+    awaitSignal(this, {SIGNAL(allCompleted())}, 300000);
 
     return errors == 0;
 }

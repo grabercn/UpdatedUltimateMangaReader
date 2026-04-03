@@ -38,11 +38,15 @@ bool ScreensaverDialog::event(QEvent *event)
 
 void ScreensaverDialog::showRandomScreensaver()
 {
-    auto parentGeo = static_cast<QWidget *>(this->parent())->geometry();
-    this->setGeometry(parentGeo);
+    auto *parentWidget = qobject_cast<QWidget *>(this->parent());
+    if (!parentWidget)
+        return;
 
-    int w = parentGeo.width();
-    int h = parentGeo.height();
+    this->resize(parentWidget->size());
+    this->move(parentWidget->pos());
+
+    int w = parentWidget->width();
+    int h = parentWidget->height();
 
     QPixmap canvas(w, h);
     canvas.fill(Qt::white);

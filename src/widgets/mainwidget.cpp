@@ -628,7 +628,7 @@ void MainWidget::showEvent(QShowEvent *event)
                 // Show update splash dialog
                 QDialog updateDlg(this);
                 updateDlg.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
-                updateDlg.resize(this->size()); move(this->pos());
+                updateDlg.resize(this->size()); updateDlg.move(this->pos());
 
                 auto *layout = new QVBoxLayout(&updateDlg);
                 layout->setContentsMargins(10, 8, 10, 8);
@@ -851,6 +851,10 @@ void MainWidget::onSuspend()
     core->mangaChapterDownloadManager->cancelDownloads();
     wifiDialog->close();
 
+    // Stop debug screenshot timer
+    if (screenshotTimer)
+        screenshotTimer->stop();
+
     // Save all state before sleeping
     core->settings.serialize();
     core->readingStats.stopReading();
@@ -889,7 +893,11 @@ void MainWidget::onResume()
     screensaverDialog->close();
     core->enableTimers(true);
 
-    // Reconnect WiFi
+    // Restart debug screenshot timer
+    if (screenshotTimer && core->settings.debugScreenshots)
+        screenshotTimer->start(10000);
+
+    // Reconnect WiFi (silently, no dialog)
     wifiDialog->connect();
     QTimer::singleShot(500, this, [this]()
     {
@@ -1155,7 +1163,7 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
         {
             QDialog dlg(this);
             dlg.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
-            dlg.resize(this->size()); move(this->pos());
+            dlg.resize(this->size()); dlg.move(this->pos());
 
             auto *layout = new QVBoxLayout(&dlg);
             layout->setContentsMargins(10, 8, 10, 8);
@@ -1241,7 +1249,7 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
             // Show AniList management dialog - full screen like history
             QDialog dlg(this);
             dlg.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
-            dlg.resize(this->size()); move(this->pos());
+            dlg.resize(this->size()); dlg.move(this->pos());
 
             auto *layout = new QVBoxLayout(&dlg);
             layout->setContentsMargins(10, 8, 10, 8);
