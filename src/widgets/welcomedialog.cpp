@@ -1,6 +1,7 @@
 #include "welcomedialog.h"
 
 #include <QFile>
+#include <QScreen>
 
 #include "sizes.h"
 #include "staticsettings.h"
@@ -10,9 +11,12 @@ WelcomeDialog::WelcomeDialog(QWidget *parent)
 {
     setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
     if (parent)
-    {
-        setFixedSize(parent->size());
         setGeometry(parent->geometry());
+    else
+    {
+        auto *screen = QApplication::primaryScreen();
+        if (screen)
+            setGeometry(screen->geometry());
     }
 
     auto *layout = new QVBoxLayout(this);

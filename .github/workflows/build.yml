@@ -25,13 +25,15 @@ jobs:
           cache: true
 
       - name: Cache vcpkg packages
+        id: vcpkg-cache
         uses: actions/cache@v4
         with:
           path: C:\vcpkg\installed
-          key: vcpkg-win-x64-${{ hashFiles('UltimateMangaReader.pro') }}
+          key: vcpkg-win-x64-v2
           restore-keys: vcpkg-win-x64-
 
       - name: Install vcpkg dependencies
+        if: steps.vcpkg-cache.outputs.cache-hit != 'true'
         run: |
           vcpkg install libjpeg-turbo:x64-windows libpng:x64-windows openssl:x64-windows
         shell: cmd
@@ -41,7 +43,7 @@ jobs:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           set VCPKG_ROOT=C:\vcpkg
           qmake UltimateMangaReader.pro CONFIG+=desktop "VCPKG_INSTALLED=C:/vcpkg/installed/x64-windows" "INCLUDEPATH+=C:/vcpkg/installed/x64-windows/include" "LIBS+=-LC:/vcpkg/installed/x64-windows/lib" "APP_VERSION=${{ steps.version.outputs.version }}"
-          nmake
+          jom -j %NUMBER_OF_PROCESSORS% 2>nul || nmake
         shell: cmd
 
       - name: Deploy Qt
@@ -52,6 +54,7 @@ jobs:
           copy C:\vcpkg\installed\x64-windows\bin\jpeg62.dll deploy\
           copy C:\vcpkg\installed\x64-windows\bin\libpng16.dll deploy\
           copy C:\vcpkg\installed\x64-windows\bin\zlib1.dll deploy\
+          for %%f in (C:\vcpkg\installed\x64-windows\bin\libssl*.dll C:\vcpkg\installed\x64-windows\bin\libcrypto*.dll) do copy %%f deploy\
           windeployqt deploy\UltimateMangaReader.exe --no-translations --no-compiler-runtime
         shell: cmd
 

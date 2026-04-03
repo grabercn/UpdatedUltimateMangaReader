@@ -305,14 +305,14 @@ void SettingsDialog::adjustUI()
 
     // Create bottom bar outside scroll area
     auto *bottomBar = new QWidget(this);
-    bottomBar->setFixedHeight(46);
+    bottomBar->setFixedHeight(SIZES.buttonSize + 10);
     bottomBar->setStyleSheet("QWidget { background: #fafafa; border-top: 1px solid #ccc; }");
     auto *barLayout = new QHBoxLayout(bottomBar);
     barLayout->setContentsMargins(12, 4, 12, 4);
     barLayout->setSpacing(10);
 
     auto *backBtn = new QPushButton("< Back", bottomBar);
-    backBtn->setFixedHeight(36);
+    backBtn->setFixedHeight(SIZES.buttonSize);
     backBtn->setStyleSheet("");
     connect(backBtn, &QPushButton::clicked, this, [this]()
     {
@@ -322,7 +322,7 @@ void SettingsDialog::adjustUI()
     });
 
     auto *saveBtn = new QPushButton("Save", bottomBar);
-    saveBtn->setFixedHeight(36);
+    saveBtn->setFixedHeight(SIZES.buttonSize);
     saveBtn->setStyleSheet("font-weight: bold;");
     connect(saveBtn, &QPushButton::clicked, this, [this]()
     {
@@ -408,7 +408,7 @@ void SettingsDialog::adjustUI()
                 auto *pagesSpin = new QSpinBox(this);
                 pagesSpin->setRange(1, 10);
                 pagesSpin->setValue(settings->preloadPages);
-                pagesSpin->setFixedHeight(36);
+                pagesSpin->setFixedHeight(SIZES.buttonSize);
                 connect(pagesSpin, QOverload<int>::of(&QSpinBox::valueChanged),
                         this, [this](int v) { if (!internalChange) { settings->preloadPages = v; settings->scheduleSerialize(); } });
                 pagesRow->addWidget(pagesSpin);
@@ -416,7 +416,7 @@ void SettingsDialog::adjustUI()
                 auto *chSpin = new QSpinBox(this);
                 chSpin->setRange(0, 5);
                 chSpin->setValue(settings->preloadChapters);
-                chSpin->setFixedHeight(36);
+                chSpin->setFixedHeight(SIZES.buttonSize);
                 connect(chSpin, QOverload<int>::of(&QSpinBox::valueChanged),
                         this, [this](int v) { if (!internalChange) { settings->preloadChapters = v; settings->scheduleSerialize(); } });
                 pagesRow->addWidget(chSpin);
@@ -427,11 +427,11 @@ void SettingsDialog::adjustUI()
 
     // Set all combo boxes to touch-friendly height
     for (auto *combo : this->findChildren<QComboBox *>())
-        combo->setMinimumHeight(36);
+        combo->setMinimumHeight(SIZES.buttonSize);
 
     // Set all checkboxes to touch-friendly size
     for (auto *check : this->findChildren<QCheckBox *>())
-        check->setMinimumHeight(36);
+        check->setMinimumHeight(SIZES.buttonSize);
 }
 
 void SettingsDialog::open()

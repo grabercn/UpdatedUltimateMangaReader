@@ -1,6 +1,9 @@
 #ifndef SIZES_H
 #define SIZES_H
 
+#include <QApplication>
+#include <QScreen>
+
 #define SIZES DPIAwareSizes::get()
 class DPIAwareSizes
 {
@@ -11,41 +14,63 @@ public:
         return instance;
     }
 
+    // Screen-relative sizing: base everything off actual screen height
+    // Kobo Libra H2O: 1680px tall. Desktop default: ~680px.
+    // All sizes scale proportionally to screen height.
+    int screenHeight() const
+    {
+        auto *screen = QApplication::primaryScreen();
+        return screen ? screen->geometry().height() : 680;
+    }
+
+    int screenWidth() const
+    {
+        auto *screen = QApplication::primaryScreen();
+        return screen ? screen->geometry().width() : 510;
+    }
+
+    // Scale factor relative to the 680px reference height
+    float scale() const { return (float)screenHeight() / 680.0f; }
+
+    // Scaled pixel value
+    int sp(float basePx) const { return (int)(basePx * scale()); }
+
     const int screenDPI = 108;
     constexpr int mmToPx(float mm) { return (int)(mm * screenDPI * 0.0393701); }
 
-    const int listSourcesHeight = mmToPx(22);
-    const int mangasourceIconSize = mmToPx(13);
-    const int mangasourceItemWidth = mmToPx(19);
-    const int mangasourceItemHeight = mmToPx(19);
-    const int mangasourceIconSpacing = mmToPx(2);
+    // All sizes use sp() for screen-proportional scaling
+    int listSourcesHeight = sp(60);
+    int mangasourceIconSize = sp(36);
+    int mangasourceItemWidth = sp(52);
+    int mangasourceItemHeight = sp(52);
+    int mangasourceIconSpacing = sp(6);
 
-    const int buttonSize = mmToPx(7);
-    const int buttonSizeToggleFavorite = mmToPx(8);
+    int buttonSize = sp(30);
+    int buttonSizeToggleFavorite = sp(34);
 
-    const int numpadHeight = mmToPx(35);
+    int numpadHeight = sp(150);
 
-    const int resourceIconSize = mmToPx(5);
-    const int lightIconSize = mmToPx(7.5);
-    const int batteryIconHeight = mmToPx(3);
-    const int wifiIconSize = mmToPx(6);
-    const int menuIconSize = mmToPx(10);
+    int resourceIconSize = sp(18);
+    int lightIconSize = sp(26);
+    int batteryIconHeight = sp(10);
+    int wifiIconSize = sp(20);
+    int menuIconSize = sp(34);
 
-    const int coverHeight = mmToPx(50);
-    const int coverWidth = coverHeight * 0.7;
+    int coverHeight = sp(170);
+    int coverWidth = (int)(coverHeight * 0.7f);
 
-    const int favoriteSectonHeight = mmToPx(20);
-    const int favoriteCoverSize = mmToPx(16);
+    int favoriteSectonHeight = sp(68);
+    int favoriteCoverSize = sp(55);
 
-    const int frontlightSliderHandleHeight = mmToPx(8);
+    int frontlightSliderHandleHeight = sp(28);
 
-    const int errormessageWidgetHeight = mmToPx(8);
+    int errormessageWidgetHeight = sp(28);
 
-    const int downloadStatusDialogWidth = mmToPx(80);
-    const int downloadStatusDialogHeight = mmToPx(60);
+    int downloadStatusDialogWidth = sp(270);
+    int downloadStatusDialogHeight = sp(200);
 
-    const float readerPageSideThreshold = 0.4;
-    const float readerBottomMenuThreshold = 0.1;
+    const float readerPageSideThreshold = 0.4f;
+    const float readerBottomMenuThreshold = 0.1f;
 };
 
 #endif  // SIZES_H
