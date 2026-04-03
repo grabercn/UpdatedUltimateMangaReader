@@ -86,13 +86,10 @@ jobs:
           mkdir -p output
           docker run --rm -v $(pwd):/src:ro -v $(pwd)/output:/output \
             ghcr.io/${{ github.repository_owner }}/umr-kobo-toolchain:latest \
-            sh -c "cd /src && \
-              \${QMAKE} CONFIG+=kobo 2>&1 | tee /output/build.log && \
-              make -j\$(nproc) 2>&1 | tee -a /output/build.log && \
-              cp UltimateMangaReader /output/" || true
-          echo "=== LAST 80 LINES OF BUILD LOG ==="
-          tail -80 output/build.log 2>/dev/null || echo "No build log found"
-          test -f output/UltimateMangaReader || (echo "BUILD FAILED" && exit 1)
+            sh -c "cp -r /src /build/app && cd /build/app && \
+              \${QMAKE} CONFIG+=kobo 2>&1 && \
+              make -j\$(nproc) 2>&1 | tail -30 && \
+              cp UltimateMangaReader /output/"
         timeout-minutes: 30
 
       - name: Package Kobo
