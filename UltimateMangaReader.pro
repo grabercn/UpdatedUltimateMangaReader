@@ -8,7 +8,7 @@ kobo {
 
     INCLUDEPATH += $$KOBO_PLATFORM_PLUGIN_PATH/src
     INCLUDEPATH += /opt/arm-sysroot/usr/include
-    LIBS += -L/opt/arm-sysroot/usr/lib -lssl -lcrypto -ldl -lpthread
+    LIBS += -L/opt/arm-sysroot/usr/lib -lssl -lcrypto -lpng -lz -ldl -lpthread
 
     target.path = /mnt/onboard/.adds/UltimateMangaReader
     INSTALLS += target
