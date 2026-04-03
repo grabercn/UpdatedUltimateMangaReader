@@ -562,8 +562,9 @@ void MainWidget::adjustUI()
     auto *screen = QApplication::primaryScreen();
     if (screen)
     {
-        this->resize(screen->geometry().size());
-        qDebug() << "Kobo: using logical screen size:" << screen->geometry().size()
+        auto logicalSize = screen->geometry().size();
+        this->setFixedSize(logicalSize);
+        qDebug() << "Kobo: using logical screen size:" << logicalSize
                  << "physical:" << koboDevice.width << "x" << koboDevice.height
                  << "DPR:" << qApp->devicePixelRatio();
     }

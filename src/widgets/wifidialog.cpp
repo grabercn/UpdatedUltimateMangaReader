@@ -117,8 +117,10 @@ void WifiDialog::openFullScreen()
 
 void WifiDialog::connect()
 {
-    statusLabel->setText("Connecting...");
-    toggleBtn->setEnabled(false);
+    if (statusLabel)
+        statusLabel->setText("Connecting...");
+    if (toggleBtn)
+        toggleBtn->setEnabled(false);
 
     lastConnection = QtConcurrent::run([this]() {
         networkManager->connectWifi();
@@ -128,13 +130,10 @@ void WifiDialog::connect()
         {
             if (destroying)
                 return;
-            updateStatus();
-            toggleBtn->setEnabled(true);
-            if (networkManager->connected)
-            {
-                statusLabel->setText("Connected!");
-                QTimer::singleShot(1500, this, [this]() { close(); });
-            }
+            if (statusLabel)
+                updateStatus();
+            if (toggleBtn)
+                toggleBtn->setEnabled(true);
         }, Qt::QueuedConnection);
     });
 }
