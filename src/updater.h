@@ -12,7 +12,7 @@ class Updater : public QObject
 public:
     explicit Updater(NetworkManager *networkManager, QObject *parent = nullptr);
 
-    static const QString currentVersion;
+    static QString currentVersion();
     static const QString repoOwner;
     static const QString repoName;
 
@@ -53,6 +53,7 @@ private:
 
     void loadSkippedVersion();
     void saveSkippedVersion();
+    static int compareVersions(const QString &a, const QString &b);
 };
 
 #endif  // UPDATER_H

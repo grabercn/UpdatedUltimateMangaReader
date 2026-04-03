@@ -10,7 +10,14 @@
 
 #include "staticsettings.h"
 
-const QString Updater::currentVersion = "2.0.0";
+QString Updater::currentVersion()
+{
+#ifdef APP_VERSION
+    return QStringLiteral(APP_VERSION);
+#else
+    return QStringLiteral("0.0.0");
+#endif
+}
 const QString Updater::repoOwner = "grabercn";
 const QString Updater::repoName = "UpdatedUltimateMangaReader";
 
@@ -49,29 +56,31 @@ void Updater::checkForUpdate()
         return;
     }
 
-    // Use GitHub API to get latest commit on master
+    // Fetch remote VERSION file (raw content, no API rate limits)
+    auto versionUrl = QString("https://raw.githubusercontent.com/%1/%2/master/VERSION")
+                          .arg(repoOwner, repoName);
+    auto versionJob = networkManager->downloadAsString(versionUrl, 10000);
+
+    if (!versionJob->await(10000))
+    {
+        emit error("Couldn't connect to GitHub: " + versionJob->errorString);
+        emit checkCompleted(false);
+        return;
+    }
+
+    auto remoteVersion = versionJob->bufferStr.trimmed();
+    if (remoteVersion.isEmpty() || !remoteVersion.contains('.'))
+    {
+        emit error("Invalid version info from server.");
+        emit checkCompleted(false);
+        return;
+    }
+
+    // Also fetch latest commit info for the update notes
     auto apiUrl = QString("https://api.github.com/repos/%1/%2/commits/master")
                       .arg(repoOwner, repoName);
-
     auto job = networkManager->downloadAsString(apiUrl, 15000);
-
-    if (!job->await(15000))
-    {
-        QString errMsg = job->errorString;
-        if (errMsg.isEmpty())
-            errMsg = "Connection timed out";
-        emit error("Couldn't connect to GitHub: " + errMsg);
-        emit checkCompleted(false);
-        return;
-    }
-
-    // Check for HTTP errors in response
-    if (job->bufferStr.contains("\"message\"") && job->bufferStr.contains("\"Not Found\""))
-    {
-        emit error("GitHub repository not found. Check repo settings.");
-        emit checkCompleted(false);
-        return;
-    }
+    job->await(15000);  // best-effort, don't fail if API is rate-limited
 
     // Save check date
     lastCheckDate = QDate::currentDate();
@@ -83,7 +92,7 @@ void Updater::checkForUpdate()
         dateFile.close();
     }
 
-    // Parse commit SHA and message
+    // Parse commit info (best-effort)
     QRegularExpression shaRx(R"lit("sha"\s*:\s*"([a-f0-9]{40})")lit");
     QRegularExpression msgRx(R"lit("message"\s*:\s*"([^"]*)")lit");
     QRegularExpression dateRx(R"lit("date"\s*:\s*"([^"]*)")lit");
@@ -92,31 +101,15 @@ void Updater::checkForUpdate()
     auto msgMatch = msgRx.match(job->bufferStr);
     auto dateMatch = dateRx.match(job->bufferStr);
 
-    if (!shaMatch.hasMatch())
-    {
-        emit error("Couldn't parse update info from GitHub.");
-        emit checkCompleted(false);
-        return;
-    }
-
-    m_latestFullSha = shaMatch.captured(1);
-    m_latestVersion = m_latestFullSha.left(7);  // short SHA
+    m_latestVersion = remoteVersion;
+    m_latestFullSha = shaMatch.hasMatch() ? shaMatch.captured(1) : "";
     m_latestDate = dateMatch.hasMatch() ? dateMatch.captured(1).left(10) : "unknown";
 
-    // Read our stored version SHA
-    QFile versionFile(CONF.cacheDir + "installed_version.dat");
-    QString installedSha;
-    if (versionFile.open(QIODevice::ReadOnly))
-    {
-        QDataStream in(&versionFile);
-        in >> installedSha;
-        versionFile.close();
-    }
-
-    if (installedSha == m_latestFullSha)
+    // Compare version numbers (semver: major.minor.patch)
+    if (compareVersions(currentVersion(), remoteVersion) >= 0)
     {
         m_updateAvailable = false;
-        emit updateLog("You're up to date! (v" + currentVersion + " / " + m_latestVersion + ")");
+        emit updateLog("You're up to date! (v" + currentVersion() + ")");
         emit checkCompleted(false);
         return;
     }
@@ -290,4 +283,19 @@ void Updater::saveSkippedVersion()
         out << m_skippedSha;
         file.close();
     }
+}
+
+int Updater::compareVersions(const QString &a, const QString &b)
+{
+    auto partsA = a.split('.');
+    auto partsB = b.split('.');
+    int len = qMax(partsA.size(), partsB.size());
+    for (int i = 0; i < len; i++)
+    {
+        int va = (i < partsA.size()) ? partsA[i].toInt() : 0;
+        int vb = (i < partsB.size()) ? partsB[i].toInt() : 0;
+        if (va != vb)
+            return va - vb;
+    }
+    return 0;
 }

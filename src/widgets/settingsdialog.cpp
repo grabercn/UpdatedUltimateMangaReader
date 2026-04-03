@@ -234,13 +234,13 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
     addDivider();
     addHeader("Updates");
 
-    auto *versionLabel = new QLabel("Version: " + Updater::currentVersion, this);
-    versionLabel->setStyleSheet("color: #666; padding: 2px 0;");
+    auto *versionLabel = new QLabel("Installed: v" + Updater::currentVersion(), this);
+    versionLabel->setStyleSheet("padding: 2px 0;");
     scrollLayout->addWidget(versionLabel);
 
     auto *updateStatusLabel = new QLabel("", this);
     updateStatusLabel->setWordWrap(true);
-    updateStatusLabel->setStyleSheet("padding: 4px; color: #c00;");
+    updateStatusLabel->setStyleSheet("padding: 4px;");
     scrollLayout->addWidget(updateStatusLabel);
 
     auto *checkUpdateBtn = new QPushButton("Check for Updates", this);
@@ -266,9 +266,15 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
         });
 
         connect(updater, &Updater::checkCompleted, this,
-                [applyUpdateBtn](bool available)
+                [this, applyUpdateBtn, updateStatusLabel](bool available)
         {
             applyUpdateBtn->setVisible(available);
+            if (available)
+            {
+                updateStatusLabel->setText(
+                    "v" + Updater::currentVersion() + " -> v" + this->updater->latestVersion() +
+                    "  (" + this->updater->latestDate() + ")");
+            }
         });
 
         connect(applyUpdateBtn, &QPushButton::clicked, this, [this, updateStatusLabel]()

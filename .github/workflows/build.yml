@@ -10,6 +10,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Read version
+        id: version
+        run: echo "version=$(cat VERSION | tr -d '\r\n ')" >> $GITHUB_OUTPUT
+        shell: bash
+
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
@@ -17,6 +22,14 @@ jobs:
           host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2019_64'
+          cache: true
+
+      - name: Cache vcpkg packages
+        uses: actions/cache@v4
+        with:
+          path: C:\vcpkg\installed
+          key: vcpkg-win-x64-${{ hashFiles('UltimateMangaReader.pro') }}
+          restore-keys: vcpkg-win-x64-
 
       - name: Install vcpkg dependencies
         run: |
@@ -27,7 +40,7 @@ jobs:
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           set VCPKG_ROOT=C:\vcpkg
-          qmake UltimateMangaReader.pro CONFIG+=desktop "VCPKG_INSTALLED=C:/vcpkg/installed/x64-windows" "INCLUDEPATH+=C:/vcpkg/installed/x64-windows/include" "LIBS+=-LC:/vcpkg/installed/x64-windows/lib"
+          qmake UltimateMangaReader.pro CONFIG+=desktop "VCPKG_INSTALLED=C:/vcpkg/installed/x64-windows" "INCLUDEPATH+=C:/vcpkg/installed/x64-windows/include" "LIBS+=-LC:/vcpkg/installed/x64-windows/lib" "APP_VERSION=${{ steps.version.outputs.version }}"
           nmake
         shell: cmd
 
@@ -128,9 +141,10 @@ jobs:
           name: UltimateMangaReader-Kobo
         continue-on-error: true
 
-      - name: Get commit info
-        id: commit
+      - name: Get release info
+        id: info
         run: |
+          echo "version=$(cat VERSION | tr -d '\r\n ')" >> $GITHUB_OUTPUT
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
           echo "date=$(date -u +%Y-%m-%d)" >> $GITHUB_OUTPUT
           echo "message=$(git log -1 --pretty=%B | head -1)" >> $GITHUB_OUTPUT
@@ -139,9 +153,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: "Latest Build (${{ steps.commit.outputs.sha_short }} - ${{ steps.commit.outputs.date }})"
+          name: "v${{ steps.info.outputs.version }} (${{ steps.info.outputs.date }})"
           body: |
-            **${{ steps.commit.outputs.message }}**
+            **v${{ steps.info.outputs.version }}** — ${{ steps.info.outputs.message }}
 
             ---
 

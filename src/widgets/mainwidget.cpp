@@ -4,6 +4,7 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 
+#include "updater.h"
 #include "ui_mainwidget.h"
 
 MainWidget::MainWidget(QWidget *parent)
@@ -599,11 +600,11 @@ void MainWidget::showEvent(QShowEvent *event)
                 layout->addWidget(titleLbl);
 
                 auto *versionLbl = new QLabel(
-                    QString("Version: %1  |  Date: %2")
-                        .arg(core->updater->latestVersion(), core->updater->latestDate()),
+                    QString("v%1  ->  v%2  (%3)")
+                        .arg(Updater::currentVersion(), core->updater->latestVersion(),
+                             core->updater->latestDate()),
                     &updateDlg);
                 versionLbl->setAlignment(Qt::AlignCenter);
-                versionLbl->setStyleSheet("color: #555;");
                 layout->addWidget(versionLbl);
 
                 auto *notesLbl = new QLabel(&updateDlg);

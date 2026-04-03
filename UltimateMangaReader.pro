@@ -20,6 +20,14 @@ else { # default is desktop
 QT    += core gui widgets network svg concurrent
 CONFIG += c++17
 
+# Auto-version from VERSION file or environment
+isEmpty(APP_VERSION) {
+    APP_VERSION = $$cat($$PWD/VERSION)
+    APP_VERSION = $$first(APP_VERSION)
+}
+isEmpty(APP_VERSION): APP_VERSION = "0.0.0"
+DEFINES += APP_VERSION=\\\"$$APP_VERSION\\\"
+
 # Platform-specific linker flags and libraries
 unix:!macx {
     QMAKE_LFLAGS += -rdynamic
