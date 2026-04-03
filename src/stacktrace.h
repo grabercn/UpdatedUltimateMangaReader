@@ -82,6 +82,11 @@ void doBacktrace(int signo)
     std::cerr << std::endl;
 
     free(messages);
+
+    // Restore framebuffer depth on Kobo before exiting
+    // The app changes fb depth; if we crash without restoring, Nickel gets wrong resolution
+    system("/mnt/onboard/.adds/UltimateMangaReader/fbdepth -d 32 2>/dev/null");
+
     exit(0);
 }
 

@@ -198,10 +198,44 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
     });
     scrollLayout->addWidget(usbNetCheck);
 
-    auto *usbNetNote = new QLabel("Connect via USB, then telnet 192.168.2.2 from PC. Set PC USB IP to 192.168.2.1.", this);
+    auto *usbNetNote = new QLabel("USB: telnet 192.168.2.2 (set PC to 192.168.2.1)", this);
     usbNetNote->setWordWrap(true);
     usbNetNote->setStyleSheet("color: #888; padding-left: 20px;");
     scrollLayout->addWidget(usbNetNote);
+
+    // FTP debug server (over WiFi)
+    auto *ftpCheck = new QCheckBox("FTP server (wireless debug)", this);
+    ftpCheck->setChecked(false);
+    connect(ftpCheck, &QCheckBox::toggled, this, [this, scrollLayout, ftpCheck](bool checked)
+    {
+        if (checked)
+        {
+            // Start simple FTP-like file server via busybox ftpd
+            QProcess::startDetached("sh", {"-c",
+                "tcpsvd -vE 0.0.0.0 2121 ftpd -w /mnt/onboard/.adds/UltimateMangaReader/ 2>/dev/null &"
+                " || busybox tcpsvd -vE 0.0.0.0 2121 busybox ftpd -w /mnt/onboard/.adds/UltimateMangaReader/ 2>/dev/null &"});
+
+            // Get WiFi IP
+            QProcess ipProc;
+            ipProc.start("sh", {"-c", "ip -4 addr show | grep 'inet ' | grep -v '127.0.0' | awk '{print $2}' | cut -d/ -f1 | head -1"});
+            ipProc.waitForFinished(3000);
+            auto ip = ipProc.readAllStandardOutput().trimmed();
+            if (ip.isEmpty()) ip = "unknown";
+
+            ftpCheck->setText("FTP server ON - ftp://" + ip + ":2121");
+        }
+        else
+        {
+            QProcess::startDetached("sh", {"-c", "killall tcpsvd 2>/dev/null; killall ftpd 2>/dev/null"});
+            ftpCheck->setText("FTP server (wireless debug)");
+        }
+    });
+    scrollLayout->addWidget(ftpCheck);
+
+    auto *ftpNote = new QLabel("Connect via FTP client to browse app files over WiFi", this);
+    ftpNote->setWordWrap(true);
+    ftpNote->setStyleSheet("color: #888; padding-left: 20px;");
+    scrollLayout->addWidget(ftpNote);
 #endif
 
     // ── AniList ──
@@ -409,9 +443,9 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
         });
     }
 
-    // Bottom spacer so content doesn't run into the save/back bar
+    // Bottom spacer so content doesn't get hidden behind the sticky save/back bar
     auto *bottomSpacer = new QWidget(this);
-    bottomSpacer->setFixedHeight(SIZES.buttonSize * 2);
+    bottomSpacer->setFixedHeight(SIZES.buttonSize * 4);
     scrollLayout->addWidget(bottomSpacer);
 }
 

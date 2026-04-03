@@ -53,8 +53,10 @@ DownloadQueueWidget::DownloadQueueWidget(QWidget *parent)
     // Job list
     jobList = new QListWidget(this);
     jobList->setStyleSheet(
-        "QListWidget { border: none; font-size: 11pt; }"
-        "QListWidget::item { padding: 10px 8px; min-height: 36px; border-bottom: 1px solid #ddd; }"
+        "QListWidget { border: none; }"
+        "QListWidget::item { padding: 8px 6px; border-bottom: 1px solid #ddd; color: #111; }"
+        "QListWidget::item:selected { background: transparent; color: #111; }"
+        "QListWidget::item:checked { background: transparent; color: #111; }"
         "QListWidget::indicator { width: 28px; height: 28px; }"
         "QListWidget::indicator:unchecked { image: url(:/images/icons/checkbox-unchecked.png); }"
         "QListWidget::indicator:checked { image: url(:/images/icons/checkbox-checked.png); }");

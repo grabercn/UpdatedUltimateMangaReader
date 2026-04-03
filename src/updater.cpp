@@ -270,23 +270,43 @@ void Updater::downloadAndApply()
     {
         auto extractDir = appPath + ".extract";
         QDir().mkpath(extractDir);
+
+        // Use system tar with full path
         QProcess tar;
-        tar.setWorkingDirectory(extractDir);
-        tar.start("tar", {"xzf", tempPath});
-        tar.waitForFinished(30000);
+        tar.start("sh", {"-c", "cd " + extractDir + " && tar xzf " + tempPath + " 2>&1"});
+        tar.waitForFinished(60000);
+        auto tarOutput = tar.readAllStandardOutput() + tar.readAllStandardError();
+        qDebug() << "tar extract:" << tar.exitCode() << tarOutput.left(200);
+
         QFile::remove(tempPath);
 
         // Find the binary inside the extracted archive
         auto binaryPath = extractDir + "/.adds/UltimateMangaReader/UltimateMangaReader";
         if (!QFile::exists(binaryPath))
         {
+            qDebug() << "Binary not found at:" << binaryPath;
+            // Try listing what was extracted
+            QProcess ls;
+            ls.start("sh", {"-c", "find " + extractDir + " -type f 2>&1"});
+            ls.waitForFinished(5000);
+            qDebug() << "Extracted files:" << ls.readAllStandardOutput().left(500);
+
             emit updateLog("Couldn't find binary in update archive.");
             QDir(extractDir).removeRecursively();
             emit updateCompleted(false);
             return;
         }
-        // Move extracted binary to temp path
-        QFile::rename(binaryPath, tempPath);
+
+        // Copy (not rename - may be different filesystem)
+        QFile::remove(tempPath);
+        if (!QFile::copy(binaryPath, tempPath))
+        {
+            qDebug() << "Failed to copy binary from" << binaryPath << "to" << tempPath;
+            emit updateLog("Failed to copy update binary.");
+            QDir(extractDir).removeRecursively();
+            emit updateCompleted(false);
+            return;
+        }
         QDir(extractDir).removeRecursively();
     }
 

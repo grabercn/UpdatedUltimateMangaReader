@@ -35,17 +35,12 @@ void WifiDialog::openFullScreen()
         move(parentWidget()->pos());
     }
 
-    // Build UI fresh each time (in case screen size changed)
-    // Clear existing layout
+    // Only build UI once
     if (layout())
     {
-        QLayoutItem *item;
-        while ((item = layout()->takeAt(0)))
-        {
-            delete item->widget();
-            delete item;
-        }
-        delete layout();
+        updateStatus();
+        open();
+        return;
     }
 
     auto *mainLayout = new QVBoxLayout(this);
