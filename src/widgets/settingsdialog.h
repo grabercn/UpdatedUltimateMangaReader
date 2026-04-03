@@ -54,6 +54,7 @@ private:
 
     void resetUI();
     void adjustUI();
+    void keyPressEvent(QKeyEvent *event) override;
 
     void updateSettings();
     void updateActiveMangasSettings(const QString &name, bool enabled);

@@ -144,6 +144,9 @@ Result<QStringList, QString> MangaTown::getPageList(const QString &chapterUrl)
     if (!job->await(7000))
         return Err(job->errorString);
 
+    if (job->bufferStr.isEmpty())
+        return Err(QString("Empty response from MangaTown."));
+
     // Check if licensed/unavailable
     if (job->bufferStr.contains("not available in MangaTown") ||
         job->bufferStr.contains("has been licensed"))

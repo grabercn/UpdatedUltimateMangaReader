@@ -1,6 +1,7 @@
 #include "settingsdialog.h"
 
 #include <QDir>
+#include <QKeyEvent>
 #include <QScrollBar>
 #include <QSpinBox>
 #include <QTextStream>
@@ -673,4 +674,22 @@ void SettingsDialog::setupSourcesList()
 void SettingsDialog::on_pushButtonOk_clicked()
 {
     close();
+}
+
+void SettingsDialog::keyPressEvent(QKeyEvent *event)
+{
+    // Page buttons scroll the settings scroll area
+    if (event->key() == Qt::Key_PageDown || event->key() == Qt::Key_PageUp ||
+        event->key() == Qt::Key_Down || event->key() == Qt::Key_Up)
+    {
+        if (ui->scrollArea && ui->scrollArea->verticalScrollBar())
+        {
+            auto *sb = ui->scrollArea->verticalScrollBar();
+            int step = ui->scrollArea->viewport()->height();
+            bool down = (event->key() == Qt::Key_PageDown || event->key() == Qt::Key_Down);
+            sb->setValue(sb->value() + (down ? step : -step));
+            return;
+        }
+    }
+    QDialog::keyPressEvent(event);
 }

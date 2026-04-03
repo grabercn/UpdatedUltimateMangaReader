@@ -60,15 +60,25 @@ Result<void, QString> MangaController::assurePagesLoaded()
     if (currentManga->mangaSource->contentType == ContentLightNovel)
         return Ok();
 
-    if (!currentIndex.currentChapter().pagesLoaded ||
-        currentIndex.currentChapter().imageUrlList[currentIndex.page] == "")
+    try
     {
-        auto res = currentManga->mangaSource->updatePageList(currentManga, currentIndex.chapter);
+        auto &chapter = currentIndex.currentChapter();
+        bool needsLoad = !chapter.pagesLoaded ||
+                         chapter.imageUrlList.isEmpty() ||
+                         (currentIndex.page < chapter.imageUrlList.count() &&
+                          chapter.imageUrlList[currentIndex.page].isEmpty());
 
-        if (!res.isOk())
-            return res;
-
-        currentManga->serialize();
+        if (needsLoad)
+        {
+            auto res = currentManga->mangaSource->updatePageList(currentManga, currentIndex.chapter);
+            if (!res.isOk())
+                return res;
+            currentManga->serialize();
+        }
+    }
+    catch (...)
+    {
+        return Err(QString("Error loading page list."));
     }
 
     if (currentIndex.chapter >= currentManga->chapters.count() || currentIndex.chapter < 0)
