@@ -562,27 +562,6 @@ void MainWidget::adjustUI()
     ui->labelTitle->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
     ui->labelTitle->setMinimumWidth(0);
 
-    // Add battery percentage label next to battery icon in the top bar
-    if (ui->batteryIcon->percentLabel)
-    {
-        auto *topBar = ui->batteryIcon->parentWidget();
-        if (topBar && topBar->layout())
-        {
-            auto *topLayout = qobject_cast<QHBoxLayout *>(topBar->layout());
-            if (topLayout)
-            {
-                // Find battery icon index and insert label after it
-                for (int i = 0; i < topLayout->count(); i++)
-                {
-                    if (topLayout->itemAt(i)->widget() == ui->batteryIcon)
-                    {
-                        topLayout->insertWidget(i + 1, ui->batteryIcon->percentLabel);
-                        break;
-                    }
-                }
-            }
-        }
-    }
 
 #ifdef KOBO
     koboDevice = KoboPlatformFunctions::getKoboDeviceDescriptor();
@@ -645,85 +624,90 @@ void MainWidget::showEvent(QShowEvent *event)
         });
     }
 
-    // Always check for updates on startup (after welcome dialog, give SSL time to init)
+    // Silent background update check on startup
     {
         QTimer::singleShot(8000, this, [this]()
         {
-            core->updater->checkForUpdate();
+            // Run check in background - don't block UI
+            QtConcurrent::run([this]() {
+                core->updater->checkForUpdate();
 
-            if (core->updater->updateAvailable() &&
-                !core->updater->isVersionSkipped(core->updater->latestFullSha()))
-            {
-                // Show update splash dialog
-                QDialog updateDlg(this);
-                updateDlg.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
-                updateDlg.resize(this->size()); updateDlg.move(this->pos());
+                // Only show dialog if real update available and not skipped
+                if (!core->updater->updateAvailable())
+                    return;
+                if (core->updater->isVersionSkipped(core->updater->latestFullSha()))
+                    return;
 
-                auto *layout = new QVBoxLayout(&updateDlg);
-                layout->setContentsMargins(10, 8, 10, 8);
-                layout->setSpacing(6);
+                // Show dialog on UI thread
+                QMetaObject::invokeMethod(this, [this]() {
+                    QDialog updateDlg(this);
+                    updateDlg.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+                    updateDlg.resize(this->size());
+                    updateDlg.move(this->pos());
 
-                auto *titleLbl = new QLabel("<b>Update Available</b>", &updateDlg);
-                titleLbl->setAlignment(Qt::AlignCenter);
-                layout->addWidget(titleLbl);
+                    auto *layout = new QVBoxLayout(&updateDlg);
+                    layout->setContentsMargins(10, 8, 10, 8);
+                    layout->setSpacing(6);
 
-                auto *versionLbl = new QLabel(
-                    QString("v%1  ->  v%2  (%3)")
-                        .arg(Updater::currentVersion(), core->updater->latestVersion(),
-                             core->updater->latestDate()),
-                    &updateDlg);
-                versionLbl->setAlignment(Qt::AlignCenter);
-                layout->addWidget(versionLbl);
+                    auto *titleLbl = new QLabel("<b>Update Available</b>", &updateDlg);
+                    titleLbl->setAlignment(Qt::AlignCenter);
+                    layout->addWidget(titleLbl);
 
-                auto *notesLbl = new QLabel(&updateDlg);
-                notesLbl->setWordWrap(true);
-                notesLbl->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-                notesLbl->setStyleSheet(
-                    "padding: 8px; background: #f8f8f8; "
-                    "border: 1px solid #ddd;");
-                QString notes = core->updater->latestNotes();
-                if (notes.length() > 500)
-                    notes = notes.left(497) + "...";
-                notesLbl->setText("<b>What's new:</b><br>" + notes.toHtmlEscaped().replace("\n", "<br>"));
-                layout->addWidget(notesLbl, 1);
+                    auto *versionLbl = new QLabel(
+                        QString("v%1  ->  v%2  (%3)")
+                            .arg(Updater::currentVersion(), core->updater->latestVersion(),
+                                 core->updater->latestDate()),
+                        &updateDlg);
+                    versionLbl->setAlignment(Qt::AlignCenter);
+                    layout->addWidget(versionLbl);
 
-                auto *btnRow = new QHBoxLayout();
-                btnRow->setSpacing(6);
+                    auto *notesLbl = new QLabel(&updateDlg);
+                    notesLbl->setWordWrap(true);
+                    notesLbl->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+                    notesLbl->setStyleSheet("padding: 8px; background: #f8f8f8; border: 1px solid #ddd;");
+                    QString notes = core->updater->latestNotes();
+                    if (notes.length() > 500)
+                        notes = notes.left(497) + "...";
+                    notesLbl->setText("<b>What's new:</b><br>" + notes.toHtmlEscaped().replace("\n", "<br>"));
+                    layout->addWidget(notesLbl, 1);
 
-                auto *skipBtn = new QPushButton("Skip This Version", &updateDlg);
-                skipBtn->setFixedHeight(SIZES.buttonSize);
-                connect(skipBtn, &QPushButton::clicked, &updateDlg, [this, &updateDlg]()
-                {
-                    core->updater->skipVersion(core->updater->latestFullSha());
-                    updateDlg.reject();
-                });
+                    auto *btnRow = new QHBoxLayout();
+                    btnRow->setSpacing(6);
 
-                auto *updateBtn = new QPushButton("Update Now", &updateDlg);
-                updateBtn->setFixedHeight(SIZES.buttonSize);
-                updateBtn->setStyleSheet("font-weight: bold;");
-                connect(updateBtn, &QPushButton::clicked, &updateDlg, [this, &updateDlg, updateBtn, skipBtn, notesLbl]()
-                {
-                    updateBtn->setEnabled(false);
-                    skipBtn->setEnabled(false);
-                    notesLbl->setText("<p style='text-align:center; font-size:12pt;'>"
-                                     "Downloading update...<br>Please wait.</p>");
+                    auto *skipBtn = new QPushButton("Skip This Version", &updateDlg);
+                    skipBtn->setFixedHeight(SIZES.buttonSize);
+                    connect(skipBtn, &QPushButton::clicked, &updateDlg, [this, &updateDlg]() {
+                        core->updater->skipVersion(core->updater->latestFullSha());
+                        updateDlg.reject();
+                    });
+
+                    auto *updateBtn = new QPushButton("Update Now", &updateDlg);
+                    updateBtn->setFixedHeight(SIZES.buttonSize);
+                    updateBtn->setStyleSheet("font-weight: bold;");
+                    connect(updateBtn, &QPushButton::clicked, &updateDlg,
+                            [this, &updateDlg, updateBtn, skipBtn, notesLbl]() {
+                        updateBtn->setEnabled(false);
+                        skipBtn->setEnabled(false);
+                        notesLbl->setText("Downloading update...\nPlease wait.");
 #ifdef KOBO
-                    core->updater->downloadAndApply();
+                        // Run download in background so dialog stays responsive
+                        QtConcurrent::run([this]() {
+                            core->updater->downloadAndApply();
+                        });
 #else
-                    notesLbl->setText("<p style='text-align:center; font-size:11pt;'>"
-                                     "On desktop, please rebuild from source:<br>"
-                                     "<b>git pull && build-win.bat</b></p>");
-                    updateBtn->setEnabled(true);
-                    skipBtn->setEnabled(true);
+                        notesLbl->setText("On desktop, rebuild from source:\ngit pull && build-win.bat");
+                        updateBtn->setEnabled(true);
+                        skipBtn->setEnabled(true);
 #endif
-                });
+                    });
 
-                btnRow->addWidget(skipBtn);
-                btnRow->addWidget(updateBtn);
-                layout->addLayout(btnRow);
+                    btnRow->addWidget(skipBtn);
+                    btnRow->addWidget(updateBtn);
+                    layout->addLayout(btnRow);
 
-                updateDlg.exec();
-            }
+                    updateDlg.exec();
+                }, Qt::QueuedConnection);
+            });
         });
     }
 
