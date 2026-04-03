@@ -203,10 +203,11 @@ void HomeWidget::doLiveSearch(const QString &query)
 
     searchResults.clear();
 
-    // Show spinner
+    // Show static loading overlay (no animation - e-ink friendly)
     if (!searchSpinner)
         searchSpinner = new SpinnerWidget(ui->listViewMangas);
     searchSpinner->setFixedSize(ui->listViewMangas->size());
+    searchSpinner->setMessage("Searching \"" + query + "\"...");
     searchSpinner->start();
     QApplication::processEvents();
 

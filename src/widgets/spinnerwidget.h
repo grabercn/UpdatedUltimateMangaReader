@@ -2,9 +2,7 @@
 #define SPINNERWIDGET_H
 
 #include <QPainter>
-#include <QTimer>
 #include <QWidget>
-#include <QtMath>
 
 class SpinnerWidget : public QWidget
 {
@@ -12,72 +10,59 @@ class SpinnerWidget : public QWidget
 
 public:
     explicit SpinnerWidget(QWidget *parent = nullptr)
-        : QWidget(parent), angle(0), timer(this)
+        : QWidget(parent)
     {
         setAttribute(Qt::WA_TransparentForMouseEvents, false);
         setFixedSize(parent ? parent->size() : QSize(400, 400));
-        connect(&timer, &QTimer::timeout, this, &SpinnerWidget::rotate);
     }
 
     void start()
     {
-        angle = 0;
         if (parentWidget())
             setFixedSize(parentWidget()->size());
         raise();
         show();
-        timer.start(50);
+        // Single repaint - no animation, no timer, no flashing
+        repaint();
     }
 
     void stop()
     {
-        timer.stop();
         hide();
     }
+
+    void setMessage(const QString &msg) { message = msg; }
 
 protected:
     void paintEvent(QPaintEvent *) override
     {
         QPainter p(this);
-        p.setRenderHint(QPainter::Antialiasing);
 
-        // Semi-transparent background
-        p.fillRect(rect(), QColor(255, 255, 255, 200));
+        // White overlay
+        p.fillRect(rect(), QColor(255, 255, 255, 230));
 
-        // Draw spinner in center
-        int size = qMin(width(), height()) / 6;
-        if (size < 30) size = 30;
-        if (size > 80) size = 80;
+        // Static text in center - no animation
+        p.setPen(QColor(80, 80, 80));
+        auto f = p.font();
+        f.setBold(true);
+        p.setFont(f);
 
-        QPoint center = rect().center();
-        int numDots = 8;
-        int dotRadius = size / 6;
+        QString text = message.isEmpty() ? "Searching..." : message;
+        p.drawText(rect(), Qt::AlignCenter, text);
 
-        for (int i = 0; i < numDots; i++)
-        {
-            qreal a = (360.0 / numDots) * i + angle;
-            qreal rad = qDegreesToRadians(a);
-            int x = center.x() + static_cast<int>(size * qCos(rad));
-            int y = center.y() + static_cast<int>(size * qSin(rad));
-
-            // Fade dots: the one at current angle is darkest
-            int alpha = 40 + (215 * ((numDots - i) % numDots)) / numDots;
-            p.setBrush(QColor(0, 0, 0, alpha));
-            p.setPen(Qt::NoPen);
-            p.drawEllipse(QPoint(x, y), dotRadius, dotRadius);
-        }
-    }
-
-private slots:
-    void rotate()
-    {
-        angle = (angle + 30) % 360;
-        update();
+        // Simple static dots below text (not animated)
+        int cx = rect().center().x();
+        int cy = rect().center().y() + 24;
+        int dotR = 3;
+        p.setBrush(QColor(60, 60, 60));
+        p.setPen(Qt::NoPen);
+        p.drawEllipse(QPoint(cx - 16, cy), dotR, dotR);
+        p.drawEllipse(QPoint(cx, cy), dotR, dotR);
+        p.drawEllipse(QPoint(cx + 16, cy), dotR, dotR);
     }
 
 private:
-    int angle;
-    QTimer timer;
+    QString message;
 };
 
 #endif  // SPINNERWIDGET_H
