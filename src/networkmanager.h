@@ -44,6 +44,7 @@ signals:
     void connectionStatusChanged(bool connected);
     void activity();
     void downloadedImage(const QString &path, QSharedPointer<QImage> img);
+    void networkError(const QString &message);
 
 private:
     QNetworkAccessManager *networkManager;

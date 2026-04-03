@@ -110,7 +110,11 @@ bool NetworkManager::checkInternetConnection()
         connected = false;
 
     if (oldstatus != connected)
+    {
         emit connectionStatusChanged(connected);
+        if (!connected && oldstatus)
+            emit networkError("Connection lost");
+    }
 
     return connected;
 }

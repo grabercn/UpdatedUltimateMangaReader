@@ -1,5 +1,9 @@
 #include "mangachapterdownloadmanager.h"
 
+#include <QStorageInfo>
+
+#include "staticsettings.h"
+
 MangaChapterDownloadManager::MangaChapterDownloadManager(NetworkManager *networkManager, QObject *parent)
     : QObject(parent),
       cancelled(false),
@@ -65,6 +69,17 @@ void MangaChapterDownloadManager::processNextJob()
 {
     if (cancelled || downloadJobs.empty() || running)
         return;
+
+    // Check available storage before starting
+    QStorageInfo storage(CONF.cacheDir);
+    qint64 freeMB = storage.bytesAvailable() / (1024 * 1024);
+    if (freeMB < 50)
+    {
+        emit error(QString("Low storage! Only %1 MB free. Free up space before downloading.").arg(freeMB));
+        downloadJobs.clear();
+        return;
+    }
+
     running = true;
     failedImages = 0;
 

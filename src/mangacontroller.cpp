@@ -231,6 +231,7 @@ void MangaController::updateCurrentImage()
 
         if (imagePath.isOk())
         {
+            autoRetryCount = 0;
             emit currentImageChanged(imagePath.unwrap());
             return;
         }
@@ -272,6 +273,27 @@ void MangaController::updateCurrentImage()
     }
 
     emit currentImageChanged("error");
+
+    // Auto-retry up to 3 times with increasing delay
+    if (autoRetryCount < 3)
+    {
+        autoRetryCount++;
+        int delay = autoRetryCount * 5000;  // 5s, 10s, 15s
+        emit error(QString("Image failed to load. Retry %1/3 in %2s...")
+                       .arg(autoRetryCount).arg(delay / 1000));
+
+        QTimer::singleShot(delay, this, [this]() {
+            if (!currentManga || !currentManga->mangaSource)
+                return;
+            qDebug() << "Auto-retry" << autoRetryCount << "for page" << currentIndex.page;
+            updateCurrentImage();
+        });
+    }
+    else
+    {
+        emit error("Image failed after all retries. Tap to try again.");
+        autoRetryCount = 0;
+    }
 }
 
 void MangaController::advanceMangaPage(PageTurnDirection direction)

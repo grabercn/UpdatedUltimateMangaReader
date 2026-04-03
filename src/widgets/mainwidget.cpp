@@ -188,6 +188,10 @@ MainWidget::MainWidget(QWidget *parent)
                          ui->toolButtonWifiIcon->setIcon(icon);
                      });
 
+    // Network error toasts
+    QObject::connect(core->networkManager, &NetworkManager::networkError,
+                     this, &MainWidget::showErrorMessage);
+
     // MangaChapterDownloadManager - log errors but don't spam popups
     QObject::connect(core->mangaChapterDownloadManager, &MangaChapterDownloadManager::error, this,
                      [](const QString &msg) { qDebug() << "Download error:" << msg; });

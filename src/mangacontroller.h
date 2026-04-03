@@ -57,6 +57,7 @@ private:
     void serializeProgress();
     NetworkManager *networkManager;
     DownloadQueue preloadQueue;
+    int autoRetryCount = 0;
 };
 
 #endif  // MANGACONTROLLER_H
