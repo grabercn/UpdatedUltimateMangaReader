@@ -616,8 +616,7 @@ void MainWidget::showEvent(QShowEvent *event)
         });
     }
 
-    // Auto-check for updates on startup (after welcome dialog, give SSL time to init)
-    if (core->updater->shouldAutoCheck())
+    // Always check for updates on startup (after welcome dialog, give SSL time to init)
     {
         QTimer::singleShot(8000, this, [this]()
         {
@@ -910,16 +909,9 @@ void MainWidget::onResume()
         }
 #endif
 
-        if (!core->networkManager->connected)
-        {
-            wifiDialog->openFullScreen();
-        }
-        else
-        {
-            // Back online - sync AniList
-            if (core->aniList && core->aniList->isLoggedIn())
-                QTimer::singleShot(2000, core->aniList, &AniList::syncOfflineChanges);
-        }
+        // Sync AniList if online (don't auto-open WiFi dialog - let user tap WiFi icon)
+        if (core->networkManager->connected && core->aniList && core->aniList->isLoggedIn())
+            QTimer::singleShot(2000, core->aniList, &AniList::syncOfflineChanges);
 
         // Update battery icon
         ui->batteryIcon->updateIcon();

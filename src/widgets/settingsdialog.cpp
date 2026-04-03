@@ -298,7 +298,7 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
     checkUpdateBtn->setFixedHeight(SIZES.buttonSize);
     scrollLayout->addWidget(checkUpdateBtn);
 
-    auto *applyUpdateBtn = new QPushButton("Download & Apply Update", this);
+    auto *applyUpdateBtn = new QPushButton("Update Now", this);
     applyUpdateBtn->setFixedHeight(SIZES.buttonSize);
     applyUpdateBtn->hide();
     scrollLayout->addWidget(applyUpdateBtn);
@@ -339,6 +339,11 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
             updateStatusLabel->setText("Error: " + msg);
         });
     }
+
+    // Bottom spacer so content doesn't run into the save/back bar
+    auto *bottomSpacer = new QWidget(this);
+    bottomSpacer->setFixedHeight(SIZES.buttonSize * 2);
+    scrollLayout->addWidget(bottomSpacer);
 }
 
 SettingsDialog::~SettingsDialog()

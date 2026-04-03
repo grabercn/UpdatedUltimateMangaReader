@@ -766,39 +766,61 @@ void HomeWidget::refreshHomeView()
         }
     }
 
-    // === RECOMMENDATIONS (cached but unread, not in other sections) ===
-    if (!justCached.isEmpty())
+    // === FOR YOU (AniList Planning list + cached unread) ===
     {
-        // Collect titles already shown in other sections
         QSet<QString> shownTitles;
         for (const auto &d : activelyReading)
             shownTitles.insert(d.title.toLower());
         if (favManager)
             for (const auto &fav : favManager->favorites)
                 shownTitles.insert(fav.title.toLower());
+        // Also exclude anything in AniList Reading
+        if (aniList && aniList->isLoggedIn())
+            for (const auto &e : aniList->entriesByStatus(1))
+                shownTitles.insert(e.title.toLower());
 
-        QList<DownloadedEntry> recommendations;
-        for (const auto &d : justCached)
-        {
-            if (!shownTitles.contains(d.title.toLower()))
-                recommendations.append(d);
-        }
+        bool headerAdded = false;
 
-        if (!recommendations.isEmpty())
+        // AniList Planning entries (manga user wants to read)
+        if (aniList && aniList->isLoggedIn())
         {
-            addHeader("RECOMMENDATIONS");
-            int shown = qMin(5, recommendations.size());
-            for (int i = 0; i < shown; i++)
+            auto planning = aniList->entriesByStatus(2);  // Planning
+            int shown = 0;
+            for (const auto &e : planning)
             {
-                const auto &d = recommendations[i];
-                QString text = "  " + d.title + "  (" + QString::number(d.chapters) + " ch)";
+                if (shownTitles.contains(e.title.toLower()))
+                    continue;
+                if (!headerAdded) { addHeader("FOR YOU"); headerAdded = true; }
+
+                QString text = "  " + e.title;
+                if (e.totalChapters > 0) text += "  (" + QString::number(e.totalChapters) + " ch)";
 
                 auto *item = new QStandardItem(text);
-                item->setData(DownloadedItem, Qt::UserRole);
-                item->setData(d.source, Qt::UserRole + 1);
-                item->setData(d.title, Qt::UserRole + 2);
+                item->setData(AniListItem, Qt::UserRole);
+                item->setData(e.title, Qt::UserRole + 1);
                 model->appendRow(item);
+
+                shownTitles.insert(e.title.toLower());
+                if (++shown >= 5) break;
             }
+        }
+
+        // Cached but unread content
+        for (const auto &d : justCached)
+        {
+            if (shownTitles.contains(d.title.toLower()))
+                continue;
+            if (!headerAdded) { addHeader("FOR YOU"); headerAdded = true; }
+
+            QString text = "  " + d.title + "  (" + QString::number(d.chapters) + " ch)";
+
+            auto *item = new QStandardItem(text);
+            item->setData(DownloadedItem, Qt::UserRole);
+            item->setData(d.source, Qt::UserRole + 1);
+            item->setData(d.title, Qt::UserRole + 2);
+            model->appendRow(item);
+
+            shownTitles.insert(d.title.toLower());
         }
     }
 
