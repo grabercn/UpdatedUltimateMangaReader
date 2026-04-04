@@ -622,19 +622,12 @@ void AniList::flushOfflineQueue()
 
     for (const auto &ps : latest)
     {
-        // Check online progress first - use latest wins
-        auto entry = findByTitle("");  // won't match, just for structure
-        for (const auto &e : m_entries)
-        {
-            if (e.mediaId == ps.mediaId)
-            {
-                // Local timestamp is newer - push our data
-                updateProgress(ps.mediaId, ps.progress, ps.status);
-                if (ps.score > 0)
-                    updateScore(ps.mediaId, ps.score);
-                break;
-            }
-        }
+        // Push offline update to server
+        updateProgress(ps.mediaId, ps.progress, ps.status);
+        if (ps.score > 0)
+            updateScore(ps.mediaId, ps.score);
+        qDebug() << "Flushed offline sync: mediaId" << ps.mediaId
+                 << "progress" << ps.progress;
     }
 
     // Clear the queue file

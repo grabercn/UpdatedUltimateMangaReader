@@ -336,14 +336,7 @@ MainWidget::MainWidget(QWidget *parent)
                                  // But if on ch.0 pg.0, don't track yet (just opened)
                                  int completed = currentCh;
                                  if (completed > 0 || progress.index.page > 0)
-                                 {
-                                     if (progress.index.page > 0)
-                                         completed = currentCh;  // still reading this chapter
-                                     else
-                                         completed = currentCh;  // moved to next chapter
-
                                      core->aniList->trackReading(manga->title, completed);
-                                 }
 
                                  // Auto-complete if at the last chapter's last page
                                  if (currentCh >= totalCh - 1 && totalCh > 0)

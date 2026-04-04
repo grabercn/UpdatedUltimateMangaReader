@@ -144,6 +144,8 @@ Result<MangaList, QString> MangaDex::searchManga(const QString &query, int maxRe
         auto data = doc["data"].GetArray();
         for (const auto &r : data)
         {
+            if (!r.HasMember("attributes") || !r["attributes"].IsObject())
+                continue;
             auto title = getStringSafe(r["attributes"]["title"], "en");
             if (title.isEmpty())
             {
@@ -236,10 +238,14 @@ bool MangaDex::updateMangaList(UpdateProgressToken *token)
                 if (doc.HasMember("result") && QString(doc["result"].GetString()) == "error")
                     return false;
 
+                if (!doc.HasMember("data") || !doc["data"].IsArray())
+                    return false;
                 auto results = doc["data"].GetArray();
 
                 for (const auto &r : results)
                 {
+                    if (!r.HasMember("attributes") || !r["attributes"].IsObject())
+                        continue;
                     auto title = getStringSafe(r["attributes"]["title"], "en");
                     auto id = getStringSafe(r, "id");
                     auto url = QString("/manga/") + id;
@@ -452,11 +458,20 @@ Result<QStringList, QString> MangaDex::getPageList(const QString &chapterUrl)
         if (serverBaseUrl.isEmpty())
             serverBaseUrl = "https://uploads.mangadex.org";
 
-        auto hash = getStringSafe(chapterdoc["chapter"], "hash");
+        if (!chapterdoc.HasMember("chapter") || !chapterdoc["chapter"].IsObject())
+            return Err(QString("Invalid chapter response from MangaDex."));
+
+        auto &chapterObj = chapterdoc["chapter"];
+        auto hash = getStringSafe(chapterObj, "hash");
+
+        if (!chapterObj.HasMember("data") || !chapterObj["data"].IsArray())
+            return Err(QString("No page data in MangaDex response."));
 
         // Use full quality data first, with data-saver filenames stored for fallback
-        auto pages = chapterdoc["chapter"]["data"].GetArray();
-        auto saverPages = chapterdoc["chapter"]["dataSaver"].GetArray();
+        auto pages = chapterObj["data"].GetArray();
+        auto saverPages = chapterObj.HasMember("dataSaver") && chapterObj["dataSaver"].IsArray()
+                              ? chapterObj["dataSaver"].GetArray()
+                              : pages;  // fallback to full quality if no saver
 
         for (int i = 0; i < (int)pages.Size(); i++)
         {
