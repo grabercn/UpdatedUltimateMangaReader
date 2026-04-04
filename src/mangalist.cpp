@@ -64,6 +64,7 @@ void MangaList::append(const QString &title, const QString &url, const QString &
 QDataStream &operator<<(QDataStream &str, const MangaList &m)
 {
     str << m.titles << m.urls << m.popularityRanks << m.absoluteUrls << m.size;
+    str << m.altTitles;
 
     return str;
 }
@@ -76,6 +77,10 @@ QDataStream &operator>>(QDataStream &str, MangaList &m)
     m.popularityRanks.clear();
 
     str >> m.titles >> m.urls >> m.popularityRanks >> m.absoluteUrls >> m.size;
+
+    // Backwards compat: altTitles added after original fields
+    if (!str.atEnd())
+        str >> m.altTitles;
 
     return str;
 }

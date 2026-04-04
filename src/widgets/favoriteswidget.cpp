@@ -128,14 +128,17 @@ static QPair<QString, QString> getSmartStatus(const QSharedPointer<MangaInfo> &f
 
 void FavoritesWidget::updateStatus(int row)
 {
-    if (row >= favoritesManager->favoriteinfos.size())
+    if (row >= favoritesManager->favoriteinfos.size() ||
+        row >= ui->tableWidget->rowCount())
         return;
 
     auto &fav = favoritesManager->favoriteinfos.at(row);
     auto [status, progress] = getSmartStatus(fav, aniList);
 
-    ui->tableWidget->item(row, 2)->setText(status);
-    ui->tableWidget->item(row, 3)->setText(progress);
+    if (ui->tableWidget->item(row, 2))
+        ui->tableWidget->item(row, 2)->setText(status);
+    if (ui->tableWidget->item(row, 3))
+        ui->tableWidget->item(row, 3)->setText(progress);
 }
 
 void FavoritesWidget::insertRow(const QSharedPointer<MangaInfo> &fav, int row)
