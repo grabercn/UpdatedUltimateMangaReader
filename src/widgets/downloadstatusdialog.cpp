@@ -45,7 +45,7 @@ void DownloadStatusDialog::downloadPagelistProgress(int completed, int total)
 {
     ui->labelStep->setText("Step 1:");
     ui->labelStatus->setText(QString("Downloading pagelists.\nChapter %1 of %2.").arg(completed).arg(total));
-    ui->progressBar->setValue(0 + 10.0 * completed / total);
+    ui->progressBar->setValue(total > 0 ? 0 + 10.0 * completed / total : 0);
     checkFreeMem();
 }
 
@@ -56,7 +56,7 @@ void DownloadStatusDialog::downloadPagesProgress(int completed, int total, int e
         QString("Downloading page details.\nChapter %1 of %2.").arg(completed).arg(total));
     pageDownloadErrors = errors;
     ui->labelDownloadErrors->setText(QString::number(pageDownloadErrors + imageDownloadErrors));
-    ui->progressBar->setValue(10 + 10.0 * completed / total);
+    ui->progressBar->setValue(total > 0 ? 10 + 10.0 * completed / total : 10);
 }
 
 void DownloadStatusDialog::downloadImagesProgress(int completed, int total, int errors)
@@ -65,7 +65,7 @@ void DownloadStatusDialog::downloadImagesProgress(int completed, int total, int 
     ui->labelStatus->setText(QString("Downloading pages.\n%1 of %2.").arg(completed).arg(total));
     imageDownloadErrors = errors;
     ui->labelDownloadErrors->setText(QString::number(pageDownloadErrors + imageDownloadErrors));
-    ui->progressBar->setValue(20 + 80.0 * completed / total);
+    ui->progressBar->setValue(total > 0 ? 20 + 80.0 * completed / total : 20);
     checkFreeMem();
 }
 

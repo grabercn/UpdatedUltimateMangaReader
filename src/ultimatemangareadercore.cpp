@@ -365,7 +365,7 @@ bool UltimateMangaReaderCore::exportNovelAsEPUB(QSharedPointer<MangaInfo> manga,
         auto exportDir = dir + makePathLegal(manga->title) + "/";
         QDir().mkpath(exportDir);
 
-        int exported = 0;
+        int exported = 0, failed = 0;
         for (int c = fromCh; c <= toCh && c < manga->chapters.count(); c++)
         {
             auto chapterUrl = manga->chapters[c].chapterUrl;
@@ -380,7 +380,7 @@ bool UltimateMangaReaderCore::exportNovelAsEPUB(QSharedPointer<MangaInfo> manga,
             if (job->await(120000))
                 exported++;
             else
-                qDebug() << "Download failed:" << job->errorString;
+                failed++;
         }
 
         if (exported == 0)
@@ -388,6 +388,9 @@ bool UltimateMangaReaderCore::exportNovelAsEPUB(QSharedPointer<MangaInfo> manga,
             emit error("Failed to download any files.");
             return false;
         }
+
+        if (failed > 0)
+            emit error(QString("Exported %1 files, but %2 failed to download.").arg(exported).arg(failed));
 
         qDebug() << "Exported" << exported << "PDFs to" << exportDir;
         return true;
@@ -415,12 +418,15 @@ bool UltimateMangaReaderCore::exportNovelAsEPUB(QSharedPointer<MangaInfo> manga,
         << "<h1>" << manga->title.toHtmlEscaped() << "</h1>\n"
         << "<p>Author: " << manga->author.toHtmlEscaped() << "</p>\n";
 
-    int exported = 0;
+    int exported = 0, failed = 0;
     for (int c = fromCh; c <= toCh && c < manga->chapters.count(); c++)
     {
         auto textResult = manga->mangaSource->getChapterText(manga->chapters[c].chapterUrl);
         if (!textResult.isOk())
+        {
+            failed++;
             continue;
+        }
 
         out << "<h2>" << manga->chapters[c].chapterTitle.toHtmlEscaped() << "</h2>\n";
         auto text = textResult.unwrap();
@@ -442,6 +448,9 @@ bool UltimateMangaReaderCore::exportNovelAsEPUB(QSharedPointer<MangaInfo> manga,
         emit error("Couldn't fetch chapter text for export.");
         return false;
     }
+
+    if (failed > 0)
+        emit error(QString("Exported %1 chapters, but %2 failed to fetch.").arg(exported).arg(failed));
 
     qDebug() << "Exported" << exported << "chapters to" << filepath;
     return true;
