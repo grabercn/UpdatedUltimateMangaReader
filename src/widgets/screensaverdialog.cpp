@@ -120,33 +120,18 @@ void ScreensaverDialog::showRandomScreensaver()
         p.drawText(titleRect, Qt::AlignCenter, "Ultimate Manga Reader");
     }
 
-    // Bottom bar: time and battery
-    p.setPen(QColor(100, 100, 100));
-    QFont bottomFont("sans-serif", 10);
+    // Bottom: "Sleeping since" timestamp (static, no updates needed)
+    p.setPen(QColor(140, 140, 140));
+    QFont bottomFont("sans-serif", 9);
     p.setFont(bottomFont);
 
-    // Time
-    QString timeStr = QTime::currentTime().toString("h:mm AP");
-    QRect timeRect(20, h - 40, w / 2 - 20, 30);
-    p.drawText(timeRect, Qt::AlignLeft | Qt::AlignVCenter, timeStr);
+    QString sleepTime = "Sleeping since " + QTime::currentTime().toString("h:mm AP");
+    QRect timeRect(20, h - 35, w - 40, 25);
+    p.drawText(timeRect, Qt::AlignCenter, sleepTime);
 
-    // Battery
-    QString batStr = QString::number(battery) + "%";
-    QRect batRect(w / 2, h - 40, w / 2 - 20, 30);
-    p.drawText(batRect, Qt::AlignRight | Qt::AlignVCenter, batStr);
-
-    // Battery icon
-    int batX = w - 60;
-    int batY = h - 34;
-    p.setPen(QPen(QColor(100, 100, 100), 1));
-    p.drawRect(batX, batY, 30, 16);
-    p.drawRect(batX + 30, batY + 4, 3, 8);
-    int fillW = battery * 28 / 100;
-    p.fillRect(batX + 1, batY + 1, fillW, 14, QColor(80, 80, 80));
-
-    // Separator line
-    p.setPen(QColor(200, 200, 200));
-    p.drawLine(20, h - 50, w - 20, h - 50);
+    // Thin separator
+    p.setPen(QColor(210, 210, 210));
+    p.drawLine(40, h - 42, w - 40, h - 42);
 
     p.end();
 

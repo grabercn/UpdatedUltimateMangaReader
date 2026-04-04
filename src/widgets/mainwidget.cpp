@@ -807,6 +807,12 @@ bool MainWidget::buttonReleaseEvent(QKeyEvent *event)
     }
     else if (event->key() == SLEEPCOVERBUTTON)
     {
+        // Debounce: ignore rapid sleep cover events (noisy magnetic sensor)
+        static QElapsedTimer lastCoverEvent;
+        if (lastCoverEvent.isValid() && lastCoverEvent.elapsed() < 2000)
+            return true;
+        lastCoverEvent.restart();
+
         qDebug() << "Sleep cover opened - resuming";
         if (core->suspendManager->sleeping)
             core->suspendManager->resume();
@@ -826,6 +832,12 @@ bool MainWidget::buttonPressEvent(QKeyEvent *event)
     }
     else if (event->key() == SLEEPCOVERBUTTON)
     {
+        // Debounce: ignore rapid sleep cover events
+        static QElapsedTimer lastCoverEvent;
+        if (lastCoverEvent.isValid() && lastCoverEvent.elapsed() < 2000)
+            return true;
+        lastCoverEvent.restart();
+
         qDebug() << "Sleep cover closed - suspending";
         if (!core->suspendManager->sleeping)
             core->suspendManager->suspend();
@@ -924,21 +936,28 @@ void MainWidget::onSuspend()
 {
     qDebug() << "Suspending...";
 
-    // Stop all background activity
+    // AGGRESSIVE SLEEP: stop everything to maximize battery life
     core->enableTimers(false);
     core->mangaController->cancelAllPreloads();
     core->mangaChapterDownloadManager->cancelDownloads();
     wifiDialog->close();
 
-    // Stop all timers
+    // Stop ALL timers
     if (screenshotTimer)
         screenshotTimer->stop();
     ui->homeWidget->pauseTimers();
 
+    // Clear image cache to free RAM (will reload on resume)
+    ui->mangaReaderWidget->clearCache();
+
+    // Kill all network activity
+    core->networkManager->networkAccessManager()->setNetworkAccessible(
+        QNetworkAccessManager::NotAccessible);
+
 #ifdef KOBO
-    // Stop file server during sleep
-    if (core->settings.ftpServerEnabled)
-        QProcess::startDetached("sh", {"-c", "killall httpd ftpd tcpsvd 2>/dev/null"});
+    // Kill ALL background processes aggressively
+    QProcess::execute("sh", {"-c",
+        "killall -9 httpd ftpd tcpsvd telnetd dhcpcd wpa_supplicant udhcpc 2>/dev/null"});
 #endif
 
     // Save all state before sleeping
@@ -968,15 +987,8 @@ void MainWidget::onSuspend()
 
     disableFrontLight();
 
-    // Always disconnect WiFi during sleep for battery optimization
-    core->networkManager->disconnectWifi();
-
-#ifdef KOBO
-    // Kill any background processes that drain battery
-    QProcess::startDetached("sh", {"-c",
-        "killall dhcpcd wpa_supplicant udhcpc 2>/dev/null; "
-        "killall telnetd httpd ftpd tcpsvd 2>/dev/null"});
-#endif
+    // WiFi already killed aggressively above - just update state
+    core->networkManager->connected = false;
 }
 
 void MainWidget::onResume()
@@ -985,6 +997,10 @@ void MainWidget::onResume()
 
     screensaverDialog->close();
     core->enableTimers(true);
+
+    // Re-enable network access (was disabled on suspend)
+    core->networkManager->networkAccessManager()->setNetworkAccessible(
+        QNetworkAccessManager::Accessible);
 
     // Restart timers
     if (screenshotTimer && core->settings.debugScreenshots)

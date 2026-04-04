@@ -3,8 +3,9 @@
 SuspendManager::SuspendManager(NetworkManager *networkManager, QObject *parent)
     : QObject(parent), sleeping(false), networkManager(networkManager), timer()
 {
-    timer.setInterval(60 * 5000);
-    connect(&timer, &QTimer::timeout, this, &SuspendManager::suspendInternal);
+    // No periodic re-suspend timer - single suspend-to-RAM is sufficient
+    // The old 5-minute timer was waking the device from RAM sleep repeatedly,
+    // causing massive battery drain (CPU + WiFi module power up each cycle)
 }
 
 bool SuspendManager::suspend()
@@ -20,10 +21,8 @@ bool SuspendManager::suspend()
     sleeping = true;
 
     // Give e-ink display time to render the screensaver
-    QThread::msleep(200);
+    QThread::msleep(500);
     qApp->processEvents();
-
-    timer.start();
 
     return suspendInternal();
 }
