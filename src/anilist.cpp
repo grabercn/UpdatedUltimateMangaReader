@@ -177,7 +177,7 @@ void AniList::fetchMangaList()
 
         // Find title near this match
         int searchStart = m.capturedEnd();
-        int searchEnd = qMin(searchStart + 500, data.length());
+        int searchEnd = qMin(searchStart + 2000, data.length());
         auto titleSlice = data.mid(searchStart, searchEnd - searchStart);
 
         auto tm = titleRx.match(titleSlice);

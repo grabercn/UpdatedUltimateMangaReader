@@ -128,6 +128,10 @@ void MangaChapterDownloadManager::processNextJob()
         if (!mangaInfo->chapters[c].pagesLoaded)
             continue;
 
+        // Ensure imageUrlList matches pageUrlList size
+        while (mangaInfo->chapters[c].imageUrlList.count() < mangaInfo->chapters[c].pageUrlList.count())
+            mangaInfo->chapters[c].imageUrlList.append("");
+
         for (int p = 0; p < mangaInfo->chapters[c].pageUrlList.count() && !cancelled; p++)
         {
             if (mangaInfo->chapters[c].imageUrlList[p] == "")
