@@ -933,8 +933,15 @@ void MainWidget::onSuspend()
 
     disableFrontLight();
 
-    if (core->settings.wifiAutoDisconnect)
-        core->networkManager->disconnectWifi();
+    // Always disconnect WiFi during sleep for battery optimization
+    core->networkManager->disconnectWifi();
+
+#ifdef KOBO
+    // Kill any background processes that drain battery
+    QProcess::startDetached("sh", {"-c",
+        "killall dhcpcd wpa_supplicant udhcpc 2>/dev/null; "
+        "killall telnetd httpd ftpd tcpsvd 2>/dev/null"});
+#endif
 }
 
 void MainWidget::onResume()
