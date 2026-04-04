@@ -543,10 +543,8 @@ void AniList::deserialize()
         {
             AniListEntry e;
             in >> e.mediaId >> e.listEntryId >> e.title >> e.titleRomaji >> e.coverUrl
-               >> e.status >> e.progress >> e.score >> e.totalChapters;
-            // Read new volume fields if available (backwards compatible)
-            if (!in.atEnd())
-                in >> e.progressVolumes >> e.totalVolumes;
+               >> e.status >> e.progress >> e.score >> e.totalChapters
+               >> e.progressVolumes >> e.totalVolumes;
             if (in.status() != QDataStream::Ok)
                 break;
             m_entries.append(e);
