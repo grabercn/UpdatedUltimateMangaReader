@@ -10,6 +10,8 @@ void MangaList::filter()
         {
             titles.removeAt(i);
             urls.removeAt(i);
+            if (i < altTitles.size())
+                altTitles.removeAt(i);
             popularityRanks.removeAt(i);
             size--;
             i--;
@@ -44,6 +46,8 @@ void MangaList::sortBy(MangaOrderMethod method)
 
             titles.swapItemsAt(i, j);
             urls.swapItemsAt(i, j);
+            if (i < altTitles.size() && j < altTitles.size())
+                altTitles.swapItemsAt(i, j);
             popularityRanks.swapItemsAt(i, j);
             indicesInv.swapItemsAt(i, j);
         }

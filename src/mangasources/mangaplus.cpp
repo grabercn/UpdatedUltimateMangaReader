@@ -25,18 +25,18 @@ void MangaPlus::invalidatePagelist()
             continue;
         try
         {
-        auto mi = MangaInfo::deserialize(this, mangaPath);
-        if (!mi)
-            continue;
-        for (int i = 0; i < mi->chapters.size(); i++)
-        {
-            if (!mi->chapters[i].pagesLoaded)
+            auto mi = MangaInfo::deserialize(this, mangaPath);
+            if (!mi)
                 continue;
+            for (int i = 0; i < mi->chapters.size(); i++)
+            {
+                if (!mi->chapters[i].pagesLoaded)
+                    continue;
 
-            for (int c = 0; c < mi->chapters[i].imageUrlList.size(); c++)
-                mi->chapters[i].imageUrlList[c] = "";
-        }
-        mi->serialize();
+                for (int c = 0; c < mi->chapters[i].imageUrlList.size(); c++)
+                    mi->chapters[i].imageUrlList[c] = "";
+            }
+            mi->serialize();
         }
         catch (...) { continue; }
     }
