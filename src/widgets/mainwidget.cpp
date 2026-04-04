@@ -811,8 +811,9 @@ bool MainWidget::buttonPressEvent(QKeyEvent *event)
         return true;
     }
     // Page buttons scroll lists when not in reader
+    // Use PageDown/PageUp + Down/Up arrows (Left/Right reserved for text cursor)
     else if (event->key() == Qt::Key_PageDown || event->key() == Qt::Key_PageUp ||
-             event->key() == Qt::Key_Left || event->key() == Qt::Key_Right)
+             event->key() == Qt::Key_Down || event->key() == Qt::Key_Up)
     {
         // Find the largest visible scrollable area (check active dialog first, then stack)
         QAbstractScrollArea *scrollArea = nullptr;
@@ -842,7 +843,7 @@ bool MainWidget::buttonPressEvent(QKeyEvent *event)
         {
             auto *sb = scrollArea->verticalScrollBar();
             int step = scrollArea->viewport()->height() * 0.8;  // 80% page scroll
-            bool down = (event->key() == Qt::Key_PageDown || event->key() == Qt::Key_Right);
+            bool down = (event->key() == Qt::Key_PageDown || event->key() == Qt::Key_Down);
             sb->setValue(sb->value() + (down ? step : -step));
             return true;
         }
@@ -1131,7 +1132,8 @@ void MainWidget::setWidgetTab(WidgetTab tab)
             ui->navigationBar->setVisible(true);
             ui->frameHeader->setVisible(true);
             lastTab = HomeTab;
-            // Refresh home view to update stars etc
+            // Force fresh AniList data on every home return
+            ui->homeWidget->aniListCacheValid = false;
             ui->homeWidget->refreshHomeView();
             break;
         case FavoritesTab:

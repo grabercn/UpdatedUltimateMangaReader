@@ -52,6 +52,7 @@ public:
     void resetAniListLinks();
     void pauseTimers();
     void resumeTimers();
+    bool aniListCacheValid = false;
 
 signals:
     void mangaSourceClicked(AbstractMangaSource *source);
@@ -129,7 +130,6 @@ private:
     enum HomeItemType { HeaderItem = 0, SearchItem, DownloadedItem, AniListItem };
     // Cached AniList reading list (only refresh on navigate away/back)
     QStringList cachedAniListReading;
-    bool aniListCacheValid = false;
 
     QList<QStandardItem *> listViewItemfromMangaSource(AbstractMangaSource *source, bool selected);
 };

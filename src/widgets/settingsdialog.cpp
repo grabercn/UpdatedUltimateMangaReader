@@ -114,27 +114,6 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
     scrollLayout->addWidget(launcherLabel);
 #endif
 
-    // ── Content Sources ──
-    addDivider();
-    addHeader("Content Sources");
-
-    auto *iaBooksCheck = new QCheckBox("Show general books (Internet Archive)", this);
-    iaBooksCheck->setChecked(settings->iaGeneralBooksEnabled);
-    connect(iaBooksCheck, &QCheckBox::toggled, this, [this](bool checked)
-    {
-        if (!internalChange)
-        {
-            this->settings->iaGeneralBooksEnabled = checked;
-            this->settings->scheduleSerialize();
-        }
-    });
-    scrollLayout->addWidget(iaBooksCheck);
-
-    auto *iaBooksNote = new QLabel("Searches all books on archive.org, not just manga/LN. Requires restart.", this);
-    iaBooksNote->setWordWrap(true);
-    iaBooksNote->setStyleSheet("color: #888; padding-left: 20px;");
-    scrollLayout->addWidget(iaBooksNote);
-
     // ── Debug ──
     addDivider();
     addHeader("Debug");

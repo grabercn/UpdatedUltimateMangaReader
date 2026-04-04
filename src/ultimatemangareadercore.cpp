@@ -29,13 +29,8 @@ UltimateMangaReaderCore::UltimateMangaReaderCore(QObject* parent)
     mangaSources.append(QSharedPointer<AbstractMangaSource>(new AllNovel(networkManager)));
     mangaSources.append(QSharedPointer<AbstractMangaSource>(
         new InternetArchive(networkManager, "IANovels", "light novel", ContentLightNovel)));
-
-    // General books from Internet Archive - disabled by default, enabled via settings
-    if (settings.iaGeneralBooksEnabled)
-    {
-        mangaSources.append(QSharedPointer<AbstractMangaSource>(
-            new InternetArchive(networkManager, "IABooks", "", ContentLightNovel)));
-    }
+    mangaSources.append(QSharedPointer<AbstractMangaSource>(
+        new InternetArchive(networkManager, "IABooks (Beta)", "", ContentLightNovel)));
 
     currentMangaSource = mangaSources.isEmpty() ? nullptr : mangaSources.first().get();
 
@@ -134,7 +129,11 @@ void UltimateMangaReaderCore::updateActiveScources()
     for (const auto& ms : qAsConst(mangaSources))
     {
         if (!settings.enabledMangaSources.contains(ms->name))
-            enabledMangaSources.insert(ms->name, true);
+        {
+            // IABooks defaults to disabled (beta)
+            bool defaultEnabled = !ms->name.contains("Beta");
+            enabledMangaSources.insert(ms->name, defaultEnabled);
+        }
         else
             enabledMangaSources.insert(ms->name, settings.enabledMangaSources[ms->name]);
 
