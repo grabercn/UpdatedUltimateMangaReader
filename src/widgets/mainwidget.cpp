@@ -970,12 +970,29 @@ void MainWidget::onResume()
     }
 #endif
 
-    // Restore frontlight after a delay (hardware needs time to wake)
+    // Restore frontlight - but skip on first boot (let Nickel's values persist)
+    static bool firstResume = true;
     QTimer::singleShot(1000, this, [this]()
     {
-        setupFrontLight();
-        // Double-set after another delay to ensure warmth sticks
-        QTimer::singleShot(500, this, [this]() { setupFrontLight(); });
+        if (firstResume)
+        {
+            firstResume = false;
+            // On first boot, read Nickel's current frontlight into our settings
+            // so we preserve the user's preferred warmth
+#ifdef KOBO
+            // Don't call setupFrontLight - leave Nickel's values alone
+            // Just set up the slider panel with current values
+            ui->mangaReaderWidget->setFrontLightPanelState(
+                koboDevice.frontlightSettings.frontlightMin, koboDevice.frontlightSettings.frontlightMax,
+                core->settings.lightValue, koboDevice.frontlightSettings.naturalLightMin,
+                koboDevice.frontlightSettings.naturalLightMax, core->settings.comflightValue);
+#endif
+        }
+        else
+        {
+            setupFrontLight();
+            QTimer::singleShot(500, this, [this]() { setupFrontLight(); });
+        }
 
 #ifdef KOBO
         // Check battery on wake - shutdown if critically low

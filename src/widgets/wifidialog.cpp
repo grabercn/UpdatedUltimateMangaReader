@@ -35,6 +35,13 @@ void WifiDialog::openFullScreen()
         move(parentWidget()->pos());
     }
 
+    // Wait for any pending async operations to finish
+    if (lastConnection.isRunning())
+    {
+        qDebug() << "WiFi: waiting for pending connection...";
+        lastConnection.waitForFinished();
+    }
+
     // Only build UI once - check if we already have widgets
     if (statusLabel)
     {

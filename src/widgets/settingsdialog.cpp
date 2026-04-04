@@ -182,10 +182,25 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
     usbNetNote->setStyleSheet("color: #888; padding-left: 20px;");
     scrollLayout->addWidget(usbNetNote);
 
-    // FTP/HTTP debug server (over WiFi) - persisted setting
+    // File server (over WiFi) - persisted setting
     auto *ftpCheck = new QCheckBox("File server (wireless debug)", this);
     ftpCheck->setChecked(settings->ftpServerEnabled);
-    connect(ftpCheck, &QCheckBox::toggled, this, [this, ftpCheck](bool checked)
+
+    // Helper to get current IP and update label
+    auto updateFtpLabel = [ftpCheck]() {
+        QProcess ipProc;
+        ipProc.start("sh", {"-c", "ip -4 addr show | grep 'inet ' | grep -v '127.0.0' | awk '{print $2}' | cut -d/ -f1 | head -1"});
+        ipProc.waitForFinished(3000);
+        auto ip = QString(ipProc.readAllStandardOutput().trimmed());
+        if (ip.isEmpty()) ip = "device-ip";
+        ftpCheck->setText("File server ON - http://" + ip + ":8080");
+    };
+
+    // Show IP immediately if already enabled
+    if (settings->ftpServerEnabled)
+        updateFtpLabel();
+
+    connect(ftpCheck, &QCheckBox::toggled, this, [this, ftpCheck, updateFtpLabel](bool checked)
     {
         if (!internalChange)
         {
@@ -194,21 +209,11 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
         }
         if (checked)
         {
-            // Try multiple approaches - Kobo has limited tools
             QProcess::startDetached("sh", {"-c",
                 "killall httpd ftpd tcpsvd 2>/dev/null; "
-                // Try busybox httpd first (most reliable on Kobo)
                 "busybox httpd -p 8080 -h /mnt/onboard/.adds/UltimateMangaReader/ 2>/dev/null || "
-                // Fallback: busybox ftpd
                 "busybox tcpsvd 0.0.0.0 2121 busybox ftpd -w /mnt/onboard/.adds/UltimateMangaReader/ 2>/dev/null &"});
-
-            QProcess ipProc;
-            ipProc.start("sh", {"-c", "ip -4 addr show | grep 'inet ' | grep -v '127.0.0' | awk '{print $2}' | cut -d/ -f1 | head -1"});
-            ipProc.waitForFinished(3000);
-            auto ip = QString(ipProc.readAllStandardOutput().trimmed());
-            if (ip.isEmpty()) ip = "device-ip";
-
-            ftpCheck->setText("ON - http://" + ip + ":8080");
+            updateFtpLabel();
         }
         else
         {
