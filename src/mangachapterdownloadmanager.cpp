@@ -94,7 +94,7 @@ void MangaChapterDownloadManager::processNextJob()
 
     emit downloadStart(mangaInfo->title);
 
-    for (int c = fromChapter; c <= toChapterInclusive && !cancelled; c++)
+    for (int c = fromChapter; c <= toChapterInclusive && c < mangaInfo->chapters.count() && !cancelled; c++)
     {
         for (int i = 0; i < 3; i++)
         {
@@ -123,7 +123,7 @@ void MangaChapterDownloadManager::processNextJob()
     mangaInfo->serialize();
 
     QList<FileDownloadDescriptor> imageDescriptors;
-    for (int c = fromChapter; c <= toChapterInclusive && !cancelled; c++)
+    for (int c = fromChapter; c <= toChapterInclusive && c < mangaInfo->chapters.count() && !cancelled; c++)
     {
         if (!mangaInfo->chapters[c].pagesLoaded)
             continue;

@@ -57,7 +57,8 @@ bool FavoritesManager::toggleFavorite(QSharedPointer<MangaInfo> info)
         if (favorites[i].hostname == info->hostname && favorites[i].title == info->title)
         {
             favorites.removeAt(i);
-            favoriteinfos.removeAt(i);
+            if (i < favoriteinfos.length())
+                favoriteinfos.removeAt(i);
 
             serialize();
 
