@@ -482,6 +482,16 @@ void HomeWidget::on_listViewMangas_clicked(const QModelIndex &index)
         if (!sr.absoluteUrl)
             mangaUrl.prepend(sr.source->baseUrl);
 
+        // If we have a pending AniList link, create it now
+        if (!pendingLinkAniListTitle.isEmpty())
+        {
+            auto infoPath = CONF.mangainfodir(sr.source->name, sr.title);
+            aniListLocalMap[pendingLinkAniListTitle] = {sr.source->name, sr.title, infoPath};
+            saveAniListLocalMap();
+            qDebug() << "Manual AniList link:" << pendingLinkAniListTitle << "->" << sr.source->name << sr.title;
+            pendingLinkAniListTitle.clear();
+        }
+
         emit mangaSourceClicked(sr.source);
         emit mangaClicked(mangaUrl, sr.title);
         return;
@@ -518,7 +528,8 @@ void HomeWidget::on_listViewMangas_clicked(const QModelIndex &index)
                         }
                     }
                 }
-                // Fallback: search
+                // Not linked - search and set pending link
+                pendingLinkAniListTitle = title;
                 ui->lineEditFilter->setText(title);
                 on_pushButtonFilter_clicked();
             }
@@ -597,6 +608,19 @@ void HomeWidget::setAniList(AniList *al)
             buildAniListLocalMap();
             refreshHomeView();
         });
+
+        // Auto-refresh AniList every 15 minutes
+        aniListRefreshTimer = new QTimer(this);
+        aniListRefreshTimer->setInterval(15 * 60 * 1000);
+        connect(aniListRefreshTimer, &QTimer::timeout, this, [this]()
+        {
+            if (aniList && aniList->isLoggedIn())
+            {
+                qDebug() << "Auto-refreshing AniList...";
+                aniList->fetchMangaList();
+            }
+        });
+        aniListRefreshTimer->start();
     }
 }
 
@@ -933,6 +957,26 @@ bool HomeWidget::tryMatch(const AniListEntry &entry)
     auto cleanEn = cleanTitle(entry.title);
     auto cleanRo = cleanTitle(entry.titleRomaji);
 
+    // Priority 1: Check favorites first
+    if (favManager)
+    {
+        for (const auto &fav : favManager->favorites)
+        {
+            auto favNorm = normalizeName(fav.title);
+            auto favClean = cleanTitle(fav.title);
+            if (favNorm == normTitle || favNorm == normRomaji ||
+                favClean == cleanEn || (!cleanRo.isEmpty() && favClean == cleanRo) ||
+                (!normTitle.isEmpty() && normTitle.length() >= 4 &&
+                 (favNorm.contains(normTitle) || normTitle.contains(favNorm))))
+            {
+                auto infoPath = CONF.mangainfodir(fav.hostname, fav.title);
+                aniListLocalMap[entry.title] = {fav.hostname, fav.title, infoPath};
+                qDebug() << "AniList linked via favorite:" << entry.title << "->" << fav.title;
+                return true;
+            }
+        }
+    }
+
     // Track best match if we find multiple candidates
     struct Match { int score; CachedDir dir; };
     QList<Match> candidates;
@@ -1030,7 +1074,19 @@ bool HomeWidget::tryMatch(const AniListEntry &entry)
 
 void HomeWidget::buildAniListLocalMap()
 {
-    aniListLocalMap.clear();
+    // Preserve manually-created links, remove stale auto-links
+    QMap<QString, LocalMangaMatch> preserved;
+    for (auto it = aniListLocalMap.begin(); it != aniListLocalMap.end(); ++it)
+    {
+        // Keep if the cached info file still exists
+        auto checkPath = it.value().infoPath;
+        if (!checkPath.endsWith("mangainfo.dat"))
+            checkPath += "/mangainfo.dat";
+        if (QFile::exists(checkPath))
+            preserved[it.key()] = it.value();
+    }
+    aniListLocalMap = preserved;
+
     if (!aniList || !aniList->isLoggedIn())
         return;
 

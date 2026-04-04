@@ -117,6 +117,12 @@ private:
     QLabel *altNamesLabel = nullptr;
     class FavoritesManager *favManager = nullptr;
 
+    // Manual AniList linking: user searches then clicks to create link
+    QString pendingLinkAniListTitle;
+
+    // Auto-refresh AniList periodically
+    QTimer *aniListRefreshTimer = nullptr;
+
     // Home view item types stored in Qt::UserRole
     enum HomeItemType { HeaderItem = 0, SearchItem, DownloadedItem, AniListItem };
     // Cached AniList reading list (only refresh on navigate away/back)
