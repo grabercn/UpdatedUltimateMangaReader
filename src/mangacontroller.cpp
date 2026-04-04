@@ -120,9 +120,6 @@ Result<QString, QString> MangaController::getImageUrl(const MangaIndex &index)
     if (currentManga->mangaSource->contentType == ContentLightNovel)
         return Err(QString("Light novel - use text reader."));
 
-    if (index.chapter < 0 || index.chapter >= currentManga->chapters.count())
-        return Err(QString("Chapter index out of bounds."));
-
     if (!currentManga->chapters[index.chapter].pagesLoaded)
     {
         if (!currentManga->mangaSource)

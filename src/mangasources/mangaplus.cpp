@@ -54,6 +54,11 @@ bool MangaPlus::updateMangaList(UpdateProgressToken *token)
     picoproto::Message message;
 
     token->sendProgress(50);
+    if (job->buffer.isEmpty())
+    {
+        token->sendError("Empty response from MangaPlus.");
+        return false;
+    }
     message.ParseFromBytes((uint8_t *)job->buffer.data(), job->buffer.size());
 
     if (!message.CheckFieldForType(1, picoproto::FIELD_BYTES))
@@ -127,6 +132,9 @@ bool MangaPlus::updateMangaList(UpdateProgressToken *token)
 Result<MangaChapterCollection, QString> MangaPlus::updateMangaInfoFinishedLoading(
     QSharedPointer<DownloadStringJob> job, QSharedPointer<MangaInfo> info)
 {
+    if (job->buffer.isEmpty())
+        return Err(QString("Empty response from MangaPlus."));
+
     picoproto::Message message;
 
     message.ParseFromBytes((uint8_t *)job->buffer.data(), job->buffer.size());
@@ -202,6 +210,9 @@ Result<QStringList, QString> MangaPlus::getPageList(const QString &chapterUrl)
 
     if (!job->await(7000))
         return Err(job->errorString);
+
+    if (job->buffer.isEmpty())
+        return Err(QString("Empty response from MangaPlus."));
 
     picoproto::Message message;
     message.ParseFromBytes((uint8_t *)job->buffer.data(), job->buffer.size());
