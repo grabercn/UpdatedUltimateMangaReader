@@ -81,9 +81,12 @@ private:
 
     void action()
     {
+        if (job.isNull())
+            return;  // guard against double-call
+
         if (lambda)
             lambda();
-        if (lambda2)
+        else if (lambda2)
             lambda2(job);
         job.get()->disconnect();
         job.clear();

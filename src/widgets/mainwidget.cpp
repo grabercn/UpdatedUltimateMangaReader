@@ -2,6 +2,7 @@
 
 #include <QListWidget>
 #include <QScreen>
+#include <QTime>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -981,6 +982,61 @@ void MainWidget::timerTick()
     {
         ui->mangaReaderWidget->updateMenuBar();
     }
+
+    // Bedtime auto-amber: check every tick (1 min) if we're in bedtime window
+#ifdef KOBO
+    {
+        static bool wasBedtime = false;
+        static int savedComflight = -1;
+
+        if (core->settings.bedtimeEnabled && koboDevice.frontlightSettings.hasFrontLight)
+        {
+            int nowMinutes = QTime::currentTime().hour() * 60 + QTime::currentTime().minute();
+            int start = core->settings.bedtimeStartMinutes;
+            int end = core->settings.bedtimeEndMinutes;
+
+            // Handle wrap-around midnight (e.g. 22:00 to 07:00)
+            bool isBedtime;
+            if (start < end)
+                isBedtime = (nowMinutes >= start && nowMinutes < end);
+            else if (start > end)
+                isBedtime = (nowMinutes >= start || nowMinutes < end);
+            else
+                isBedtime = false;  // start == end means disabled
+
+            if (isBedtime && !wasBedtime)
+            {
+                // Entering bedtime: save user's comfort value, push max amber to hardware only
+                savedComflight = core->settings.comflightValue;
+                int maxAmber = koboDevice.frontlightSettings.naturalLightMax;
+                int comfHw = koboDevice.frontlightSettings.naturalLightInverted
+                                 ? 0 : maxAmber;
+                KoboPlatformFunctions::setFrontlightLevel(core->settings.lightValue, comfHw);
+                qDebug() << "Bedtime: amber set to max" << maxAmber;
+            }
+            else if (!isBedtime && wasBedtime)
+            {
+                // Exiting bedtime: restore user's saved comfort light
+                if (savedComflight >= 0)
+                    core->settings.comflightValue = savedComflight;
+                savedComflight = -1;
+                setupFrontLight();
+                qDebug() << "Bedtime ended: restored comfort light to" << core->settings.comflightValue;
+            }
+            wasBedtime = isBedtime;
+        }
+        else if (wasBedtime)
+        {
+            // Feature was disabled mid-bedtime: restore original comfort light
+            if (savedComflight >= 0)
+                core->settings.comflightValue = savedComflight;
+            savedComflight = -1;
+            wasBedtime = false;
+            if (koboDevice.frontlightSettings.hasFrontLight)
+                setupFrontLight();
+        }
+    }
+#endif
 
     // Periodic state save every 10 minutes (was 5 - reduces flash writes)
     static int saveCounter = 0;

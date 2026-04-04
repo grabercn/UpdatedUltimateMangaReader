@@ -50,6 +50,11 @@ public:
     bool ftpServerEnabled;   // FTP file server over WiFi
     bool downloadWhileSleeping;  // Keep WiFi on during sleep for downloads
 
+    // Bedtime warmth (like Nickel's bedtime feature)
+    bool bedtimeEnabled;
+    int bedtimeStartMinutes;  // minutes from midnight (e.g. 22*60 = 22:00)
+    int bedtimeEndMinutes;    // minutes from midnight (e.g. 7*60 = 07:00)
+
     QMap<QString, bool> enabledMangaSources;
 
     static void writeKfmonAutoboot(bool enabled);

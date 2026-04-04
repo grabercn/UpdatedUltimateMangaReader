@@ -21,6 +21,9 @@ Settings::Settings()
       usbNetworkMode(false),
       ftpServerEnabled(false),
       downloadWhileSleeping(false),
+      bedtimeEnabled(false),
+      bedtimeStartMinutes(22 * 60),  // 10:00 PM
+      bedtimeEndMinutes(7 * 60),     // 7:00 AM
       preloadEnabled(true),
       preloadPages(3),
       preloadChapters(2),
@@ -197,7 +200,8 @@ QDataStream &operator<<(QDataStream &str, const Settings &m)
     str << m.colorMode << m.preloadEnabled << m.preloadPages << m.preloadChapters
         << m.autoBootEnabled << m.offlineMode << m.autoSuspendMinutes << m.wifiAutoDisconnect
         << m.iaGeneralBooksEnabled << m.debugScreenshots << m.usbNetworkMode
-        << m.ftpServerEnabled << m.downloadWhileSleeping << m.trimLevel;
+        << m.ftpServerEnabled << m.downloadWhileSleeping << m.trimLevel
+        << m.bedtimeEnabled << m.bedtimeStartMinutes << m.bedtimeEndMinutes;
 
     return str;
 }
@@ -235,6 +239,9 @@ QDataStream &operator>>(QDataStream &str, Settings &m)
         if (!str.atEnd()) str >> m.ftpServerEnabled;
         if (!str.atEnd()) str >> m.downloadWhileSleeping;
         if (!str.atEnd()) str >> m.trimLevel;
+        if (!str.atEnd()) str >> m.bedtimeEnabled;
+        if (!str.atEnd()) str >> m.bedtimeStartMinutes;
+        if (!str.atEnd()) str >> m.bedtimeEndMinutes;
     }
     catch (...)
     {

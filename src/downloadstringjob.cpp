@@ -31,6 +31,8 @@ void DownloadStringJob::downloadFinished()
         {
             QUrl base(this->url);
             base.setPath(redirect.path());
+            if (redirect.hasQuery())
+                base.setQuery(redirect.query());
             this->url = base.toString();
         }
         this->restart();

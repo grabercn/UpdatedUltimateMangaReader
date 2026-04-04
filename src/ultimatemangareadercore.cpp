@@ -111,7 +111,8 @@ void UltimateMangaReaderCore::enableTimers(bool enabled)
 
 void UltimateMangaReaderCore::activity()
 {
-    autoSuspendTimer.start();
+    if (autoSuspendTimer.interval() > 0 && settings.autoSuspendMinutes > 0)
+        autoSuspendTimer.start();
 }
 
 void UltimateMangaReaderCore::timerTick()

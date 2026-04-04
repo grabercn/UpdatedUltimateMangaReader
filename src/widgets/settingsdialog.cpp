@@ -105,6 +105,92 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
     dlSleepNote->setStyleSheet("color: #888; padding-left: 20px;");
     scrollLayout->addWidget(dlSleepNote);
 
+    // ── Bedtime ──
+    addDivider();
+    addHeader("Bedtime");
+
+    auto *bedtimeCheck = new QCheckBox("Auto warm light at bedtime", this);
+    bedtimeCheck->setChecked(settings->bedtimeEnabled);
+    scrollLayout->addWidget(bedtimeCheck);
+
+    auto *bedtimeNote = new QLabel(
+        "Automatically sets maximum amber warmth during bedtime hours, "
+        "like Nickel's bedtime feature. Restores your normal setting outside bedtime.", this);
+    bedtimeNote->setWordWrap(true);
+    bedtimeNote->setStyleSheet("color: #888; padding-left: 20px;");
+    scrollLayout->addWidget(bedtimeNote);
+
+    // Bedtime start time
+    auto *startRow = new QHBoxLayout();
+    startRow->setSpacing(8);
+    auto *startLabel = new QLabel("Starts at:", this);
+    auto *startHour = new QSpinBox(this);
+    startHour->setRange(0, 23);
+    startHour->setValue(settings->bedtimeStartMinutes / 60);
+    startHour->setSuffix("h");
+    startHour->setFixedHeight(SIZES.buttonSize);
+    auto *startMin = new QSpinBox(this);
+    startMin->setRange(0, 59);
+    startMin->setValue(settings->bedtimeStartMinutes % 60);
+    startMin->setSuffix("m");
+    startMin->setFixedHeight(SIZES.buttonSize);
+    startRow->addWidget(startLabel);
+    startRow->addWidget(startHour);
+    startRow->addWidget(startMin);
+    startRow->addStretch();
+    if (vl) vl->addLayout(startRow);
+
+    // Bedtime end time
+    auto *endRow = new QHBoxLayout();
+    endRow->setSpacing(8);
+    auto *endLabel = new QLabel("Ends at:", this);
+    endLabel->setMinimumWidth(startLabel->minimumSizeHint().width());
+    auto *endHour = new QSpinBox(this);
+    endHour->setRange(0, 23);
+    endHour->setValue(settings->bedtimeEndMinutes / 60);
+    endHour->setSuffix("h");
+    endHour->setFixedHeight(SIZES.buttonSize);
+    auto *endMin = new QSpinBox(this);
+    endMin->setRange(0, 59);
+    endMin->setValue(settings->bedtimeEndMinutes % 60);
+    endMin->setSuffix("m");
+    endMin->setFixedHeight(SIZES.buttonSize);
+    endRow->addWidget(endLabel);
+    endRow->addWidget(endHour);
+    endRow->addWidget(endMin);
+    endRow->addStretch();
+    if (vl) vl->addLayout(endRow);
+
+    // Enable/disable time pickers based on checkbox
+    auto updateBedtimeWidgets = [=]() {
+        bool en = bedtimeCheck->isChecked();
+        startHour->setEnabled(en);
+        startMin->setEnabled(en);
+        endHour->setEnabled(en);
+        endMin->setEnabled(en);
+    };
+    updateBedtimeWidgets();
+
+    connect(bedtimeCheck, &QCheckBox::toggled, this, [=](bool checked) {
+        if (!internalChange) {
+            this->settings->bedtimeEnabled = checked;
+            updateBedtimeWidgets();
+            this->settings->scheduleSerialize();
+        }
+    });
+
+    auto saveBedtimeTimes = [=]() {
+        if (!internalChange) {
+            this->settings->bedtimeStartMinutes = startHour->value() * 60 + startMin->value();
+            this->settings->bedtimeEndMinutes = endHour->value() * 60 + endMin->value();
+            this->settings->scheduleSerialize();
+        }
+    };
+    connect(startHour, QOverload<int>::of(&QSpinBox::valueChanged), this, saveBedtimeTimes);
+    connect(startMin, QOverload<int>::of(&QSpinBox::valueChanged), this, saveBedtimeTimes);
+    connect(endHour, QOverload<int>::of(&QSpinBox::valueChanged), this, saveBedtimeTimes);
+    connect(endMin, QOverload<int>::of(&QSpinBox::valueChanged), this, saveBedtimeTimes);
+
 #ifdef KOBO
     auto *autoBootCheck = new QCheckBox("Auto-start on boot", this);
     autoBootCheck->setChecked(settings->autoBootEnabled);

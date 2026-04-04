@@ -629,8 +629,12 @@ void AniList::flushOfflineQueue()
                  << "progress" << ps.progress;
     }
 
-    // Clear the queue file
-    QFile::remove(QString(CONF.cacheDir) + "/anilist_queue.dat");
+    // Save remaining failed items (if any were re-queued by updateProgress)
+    // or clear the file if queue is now empty
+    if (offlineQueue.isEmpty())
+        QFile::remove(QString(CONF.cacheDir) + "/anilist_queue.dat");
+    else
+        saveOfflineQueue();
 }
 
 void AniList::syncOfflineChanges()

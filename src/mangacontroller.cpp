@@ -464,6 +464,10 @@ void MangaController::completedImagePreload(const QString &, const QString &path
 
 void MangaController::serializeProgress()
 {
+    if (!currentManga || currentIndex.chapter < 0 ||
+        currentIndex.chapter >= currentManga->chapters.count())
+        return;
+
     ReadingProgress c(currentIndex, currentManga->chapters.count(),
                       currentIndex.currentChapter().pageUrlList.count());
     c.serialize(currentManga->hostname, currentManga->title);
@@ -471,7 +475,11 @@ void MangaController::serializeProgress()
 
 void MangaController::deserializeProgress()
 {
+    if (!currentManga)
+        return;
+
     ReadingProgress progress(currentManga->hostname, currentManga->title);
-    currentIndex.chapter = progress.index.chapter;
-    currentIndex.page = progress.index.page;
+    currentIndex.chapter = qBound(0, progress.index.chapter,
+                                   qMax(0, currentManga->chapters.count() - 1));
+    currentIndex.page = qMax(0, progress.index.page);
 }
