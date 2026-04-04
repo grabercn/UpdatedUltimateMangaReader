@@ -93,11 +93,12 @@ void MangaInfo::sendCoverLoaded()
 
 QString MangaInfo::coverThumbnailPath() const
 {
-    if (coverPath == "" || coverPath.length() < 4)
+    if (coverPath.isEmpty())
         return "";
 
-    QString scpath = coverPath;
-    scpath.insert(scpath.length() - 4, "_scaled");
+    int dotIndex = coverPath.lastIndexOf('.');
+    if (dotIndex <= 0)
+        return coverPath + "_scaled";
 
-    return scpath;
+    return coverPath.left(dotIndex) + "_scaled" + coverPath.mid(dotIndex);
 }

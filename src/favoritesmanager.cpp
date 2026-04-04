@@ -133,7 +133,7 @@ void FavoritesManager::updateInfos()
 {
     for (int i = 0; i < favoriteinfos.length(); i++)
     {
-        if (!favoriteinfos[i].isNull())
+        if (!favoriteinfos[i].isNull() && mangasources.contains(favoriteinfos[i]->hostname))
         {
             mangasources[favoriteinfos[i]->hostname]->updateMangaInfoAsync(favoriteinfos[i], false);
         }

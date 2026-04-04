@@ -14,8 +14,6 @@ struct Favorite
 
     Favorite(const QString &hostname, const QString &title, const QString &mangaUrl);
 
-    QString coverpathscaled() const;
-
     static Favorite fromMangaInfo(MangaInfo *info)
     {
         return Favorite(info->hostname, info->title, info->url);

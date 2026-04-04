@@ -295,8 +295,10 @@ void UltimateMangaReaderCore::updateMangaLists(QSharedPointer<UpdateProgressToke
             continue;
 
         progressToken->currentSourceName = name;
+        if (!activeMangaSources.contains(name))
+            continue;
         auto ms = activeMangaSources[name];
-        if (ms->updateMangaList(progressToken.get()))
+        if (ms && ms->updateMangaList(progressToken.get()))
         {
             ms->mangaList.filter();
             ms->serializeMangaList();
