@@ -97,10 +97,10 @@ MangaReaderWidget::MangaReaderWidget(QWidget *parent)
             [this]() { ui->horizontalSliderLight->setValue(ui->horizontalSliderLight->value() + 1); });
     connect(ui->toolButtonLessComfLight, &QToolButton::clicked,
             [this]()
-            { ui->horizontalSliderComfLight->setValue(ui->horizontalSliderComfLight->value() + 1); });
+            { ui->horizontalSliderComfLight->setValue(ui->horizontalSliderComfLight->value() - 1); });
     connect(ui->toolButtonMoreComfLight, &QToolButton::clicked,
             [this]()
-            { ui->horizontalSliderComfLight->setValue(ui->horizontalSliderComfLight->value() - 1); });
+            { ui->horizontalSliderComfLight->setValue(ui->horizontalSliderComfLight->value() + 1); });
 
 #ifdef DESKTOP
     QGestureRecognizer::registerRecognizer(new TapGestureRecognizer());

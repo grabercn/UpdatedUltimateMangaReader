@@ -191,7 +191,7 @@ QImage processImageQt(const QByteArray &array, const QString &filepath, QSize sc
             if (trimLevel > 0)
             {
                 auto arrayT = QByteArray::fromRawData((const char *)greyImg.bits(), greyImg.sizeInBytes());
-                auto trimRect = getTrimRect(arrayT, img.width(), img.height(), greyImg.bytesPerLine(), trimLevel);
+                auto trimRect = getTrimRect(arrayT, greyImg.width(), greyImg.height(), greyImg.bytesPerLine(), trimLevel);
                 if (trimRect.isValid() && trimRect.width() > 10 && trimRect.height() > 10)
                     greyImg = greyImg.copy(trimRect);
             }

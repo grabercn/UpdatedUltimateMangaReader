@@ -49,9 +49,9 @@ QSharedPointer<DownloadStringJob> AniList::graphqlRequest(const QString &query, 
     auto body = QString("{\"query\":\"%1\",\"variables\":%2}").arg(cleanQuery, variables);
 
     QList<std::tuple<const char *, const char *>> headers;
+    static QByteArray authHeader;
     if (!authToken.isEmpty())
     {
-        static QByteArray authHeader;
         authHeader = ("Bearer " + authToken).toUtf8();
         headers.append(std::make_tuple("Authorization", authHeader.constData()));
     }
@@ -354,7 +354,7 @@ int AniList::searchMediaId(const QString &title)
     QRegularExpression idRx(R"lit("id"\s*:\s*(\d+))lit");
 
     // Try exact title first
-    auto searchTitle = QString(title).replace("\"", "\\\"");
+    auto searchTitle = QString(title).replace("\\", "\\\\").replace("\"", "\\\"");
     auto vars = QString(R"({"search":"%1"})").arg(searchTitle);
     auto job = graphqlRequest(query, vars);
 

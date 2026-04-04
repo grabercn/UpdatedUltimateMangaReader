@@ -68,6 +68,7 @@ QDataStream &operator>>(QDataStream &str, MangaList &m)
 {
     m.titles.clear();
     m.urls.clear();
+    m.altTitles.clear();
     m.popularityRanks.clear();
 
     str >> m.titles >> m.urls >> m.popularityRanks >> m.absoluteUrls >> m.size;

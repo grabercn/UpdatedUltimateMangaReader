@@ -74,6 +74,7 @@ void BookmarkManager::deserialize()
     try
     {
         QDataStream in(&file);
+        bookmarks.clear();
         int count;
         in >> count;
         count = qBound(0, count, 500);

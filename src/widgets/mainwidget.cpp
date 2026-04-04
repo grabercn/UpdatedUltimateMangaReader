@@ -311,6 +311,12 @@ MainWidget::MainWidget(QWidget *parent)
 
                              // Detect chapter completion (page 0 of new chapter = prev chapter done)
                              static int lastChapter = -1;
+                             static QString lastMangaTitle;
+                             if (title != lastMangaTitle)
+                             {
+                                 lastChapter = -1;
+                                 lastMangaTitle = title;
+                             }
                              if (progress.index.chapter != lastChapter && lastChapter >= 0)
                                  core->readingStats.chapterCompleted(title);
                              lastChapter = progress.index.chapter;
@@ -1579,7 +1585,7 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
             title->setStyleSheet("font-weight: bold; padding: 4px;");
             layout->addWidget(title);
 
-            if (core->aniList->isLoggedIn())
+            if (core->aniList && core->aniList->isLoggedIn())
             {
                 auto *status = new QLabel("Logged in as: " + core->aniList->username(), &dlg);
                 status->setAlignment(Qt::AlignCenter);

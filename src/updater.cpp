@@ -371,7 +371,8 @@ void Updater::downloadAndApply()
     {
         // Restore backup
         emit updateLog("Failed to apply update. Restoring backup...");
-        QFile::rename(backupPath, appPath);
+        if (!QFile::rename(backupPath, appPath))
+            emit error("CRITICAL: Could not restore backup! Binary at: " + backupPath);
         QFile::remove(tempPath);
         emit updateCompleted(false);
     }

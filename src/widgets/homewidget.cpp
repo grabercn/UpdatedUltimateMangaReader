@@ -57,6 +57,10 @@ HomeWidget::HomeWidget(QWidget *parent)
 
 HomeWidget::~HomeWidget()
 {
+    if (bgMatchTimer)
+        bgMatchTimer->stop();
+    if (aniListRefreshTimer)
+        aniListRefreshTimer->stop();
     delete ui;
 }
 
