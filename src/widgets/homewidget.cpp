@@ -609,9 +609,9 @@ void HomeWidget::setAniList(AniList *al)
             refreshHomeView();
         });
 
-        // Auto-refresh AniList every 15 minutes
+        // Auto-refresh AniList every 30 minutes (battery friendly)
         aniListRefreshTimer = new QTimer(this);
-        aniListRefreshTimer->setInterval(15 * 60 * 1000);
+        aniListRefreshTimer->setInterval(30 * 60 * 1000);
         connect(aniListRefreshTimer, &QTimer::timeout, this, [this]()
         {
             if (aniList && aniList->isLoggedIn())

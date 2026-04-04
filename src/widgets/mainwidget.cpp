@@ -111,7 +111,11 @@ MainWidget::MainWidget(QWidget *parent)
     downloadStatusDialog->installEventFilter(this);
 
     QObject::connect(menuDialog, &MenuDialog::finished,
-                     [this](int b) { menuDialogButtonPressed(static_cast<MenuButton>(b)); });
+                     [this](int b) {
+                         // Ignore dismiss (0 = QDialog::Rejected from tap outside)
+                         if (b >= ExitButton)
+                             menuDialogButtonPressed(static_cast<MenuButton>(b));
+                     });
 
     QObject::connect(clearCacheDialog, &MenuDialog::finished,
                      [this](int l) { core->clearDownloadCache(static_cast<ClearDownloadCacheLevel>(l)); });
@@ -733,7 +737,7 @@ void MainWidget::showEvent(QShowEvent *event)
     {
         screenshotTimer = new QTimer(this);
         connect(screenshotTimer, &QTimer::timeout, this, &MainWidget::takeDebugScreenshot);
-        screenshotTimer->start(10000);  // every 10 seconds
+        screenshotTimer->start(30000);  // every 30 seconds
         qDebug() << "Debug screenshots enabled";
     }
 }
@@ -757,6 +761,23 @@ void MainWidget::takeDebugScreenshot()
     {
         QFile::remove(dir + files.first());
         files.removeFirst();
+    }
+
+    // Generate index.html for HTTP browsing
+    QFile indexFile(dir + "index.html");
+    if (indexFile.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+        QTextStream out(&indexFile);
+        out << "<html><head><title>Screenshots</title>"
+            << "<meta http-equiv='refresh' content='30'>"
+            << "<style>img{max-width:100%;border:1px solid #ccc;margin:4px}</style>"
+            << "</head><body><h3>Debug Screenshots</h3>";
+        // Show newest first
+        auto allFiles = screenshotDir.entryList({"screenshot_*.png"}, QDir::Files, QDir::Time);
+        for (const auto &f : allFiles)
+            out << "<a href='" << f << "'><img src='" << f << "' width='300'></a> ";
+        out << "</body></html>";
+        indexFile.close();
     }
 }
 
@@ -873,12 +894,25 @@ void MainWidget::timerTick()
     }
 #endif
 
-    ui->batteryIcon->updateIcon();
-    ui->mangaReaderWidget->updateMenuBar();
+    // Only update battery icon every 5 ticks (5 min) to reduce screen redraws
+    static int batteryCounter = 0;
+    if (++batteryCounter >= 5)
+    {
+        batteryCounter = 0;
+        ui->batteryIcon->updateIcon();
+    }
 
-    // Periodic state save (every tick = every 60s)
+    // Only update menu bar clock if it's visible (avoid unnecessary redraws)
+    if (ui->mangaReaderWidget->isVisible() &&
+        ui->mangaReaderWidget->findChild<QFrame *>("readerNavigationBar") &&
+        ui->mangaReaderWidget->findChild<QFrame *>("readerNavigationBar")->isVisible())
+    {
+        ui->mangaReaderWidget->updateMenuBar();
+    }
+
+    // Periodic state save every 10 minutes (was 5 - reduces flash writes)
     static int saveCounter = 0;
-    if (++saveCounter >= 5)  // every 5 minutes
+    if (++saveCounter >= 10)
     {
         saveCounter = 0;
         core->readingStats.serialize();
@@ -1107,8 +1141,9 @@ void MainWidget::on_pushButtonFavorites_clicked()
 
 void MainWidget::on_pushButtonClose_clicked()
 {
-    // Now used as Back button - handled by readerGoBack connection in adjustUI
-    readerGoBack();
+    // No-op: back navigation is handled by the manual connection
+    // in adjustUI (line: connect pushButtonClose -> readerGoBack).
+    // This slot exists only to satisfy Qt's auto-connect naming convention.
 }
 
 void MainWidget::resizeEvent(QResizeEvent *event)
@@ -1186,7 +1221,12 @@ void MainWidget::setWidgetTab(WidgetTab tab)
 
 void MainWidget::readerGoBack()
 {
-    // Simple back: always go to the previous logical page
+    // Debounce - prevent double-fire from multiple signal connections
+    static bool navigating = false;
+    if (navigating) return;
+    navigating = true;
+    QTimer::singleShot(300, [](){ navigating = false; });
+
     auto current = static_cast<WidgetTab>(ui->stackedWidget->currentIndex());
 
     switch (current)

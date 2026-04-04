@@ -390,35 +390,25 @@ void MangaInfoWidget::setupAniListUI()
     aniListFrame = new QFrame(this);
     aniListFrame->setStyleSheet(
         "QFrame#aniListFrame { border-top: 1px solid #ccc; background: #f5f5f5; "
-        "padding: 1px 4px; margin: 0; }");
+        "padding: 2px 6px; margin: 0; }");
     aniListFrame->setObjectName("aniListFrame");
 
     auto *mainLayout = new QVBoxLayout(aniListFrame);
-    mainLayout->setSpacing(2);
-    mainLayout->setContentsMargins(4, 2, 4, 2);
+    mainLayout->setSpacing(4);
+    mainLayout->setContentsMargins(4, 4, 4, 4);
 
-    // Row 1: Status + Ch + Vol + Score + Sync
+    // Row 1: AL label + Status + Score
     auto *row1 = new QHBoxLayout();
-    row1->setSpacing(3);
+    row1->setSpacing(4);
 
     aniListLabel = new QLabel("AL", aniListFrame);
     aniListLabel->setStyleSheet("font-weight: bold; border: none; background: transparent;");
     row1->addWidget(aniListLabel);
 
     aniListStatusCombo = new QComboBox(aniListFrame);
-    aniListStatusCombo->addItems({"--", "Read", "Plan", "Done", "Drop", "Pause"});
+    aniListStatusCombo->addItems({"--", "Reading", "Plan", "Done", "Drop", "Pause"});
     aniListStatusCombo->setFixedHeight(SIZES.buttonSize);
-    row1->addWidget(aniListStatusCombo);
-
-    aniListChapterCombo = new QComboBox(aniListFrame);
-    aniListChapterCombo->setFixedHeight(SIZES.buttonSize);
-    aniListChapterCombo->setMaxVisibleItems(8);
-    row1->addWidget(aniListChapterCombo);
-
-    aniListVolumeCombo = new QComboBox(aniListFrame);
-    aniListVolumeCombo->setFixedHeight(SIZES.buttonSize);
-    aniListVolumeCombo->setMaxVisibleItems(8);
-    row1->addWidget(aniListVolumeCombo);
+    row1->addWidget(aniListStatusCombo, 1);
 
     aniListScoreCombo = new QComboBox(aniListFrame);
     aniListScoreCombo->addItem("-", 0);
@@ -426,6 +416,24 @@ void MangaInfoWidget::setupAniListUI()
         aniListScoreCombo->addItem(QString::number(i), i);
     aniListScoreCombo->setFixedHeight(SIZES.buttonSize);
     row1->addWidget(aniListScoreCombo);
+
+    mainLayout->addLayout(row1);
+
+    // Row 2: Chapter + Volume
+    auto *row2 = new QHBoxLayout();
+    row2->setSpacing(4);
+
+    aniListChapterCombo = new QComboBox(aniListFrame);
+    aniListChapterCombo->setFixedHeight(SIZES.buttonSize);
+    aniListChapterCombo->setMaxVisibleItems(8);
+    row2->addWidget(aniListChapterCombo, 1);
+
+    aniListVolumeCombo = new QComboBox(aniListFrame);
+    aniListVolumeCombo->setFixedHeight(SIZES.buttonSize);
+    aniListVolumeCombo->setMaxVisibleItems(8);
+    row2->addWidget(aniListVolumeCombo, 1);
+
+    mainLayout->addLayout(row2);
 
     // Debounced auto-sync: waits 2s after last change before syncing
     auto *syncTimer = new QTimer(aniListFrame);
@@ -464,8 +472,6 @@ void MangaInfoWidget::setupAniListUI()
             this, restartSync);
 
     aniListSyncBtn = nullptr;
-
-    mainLayout->addLayout(row1);
 
     // Insert into main layout: between the cover/info section (index 1) and action buttons (index 2)
     auto *parentLayout = qobject_cast<QVBoxLayout *>(layout());
