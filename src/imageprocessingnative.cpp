@@ -85,12 +85,12 @@ GreyscaleImage loadFromJpegAndRotate(const QByteArray &buffer, QSize screenSize,
 }
 
 QImage processImageN(const QByteArray &buffer, const QString &filepath, QSize screenSize,
-                     DoublePageMode doublePageMode, bool trim, bool manhwaMode, bool useSWDither)
+                     DoublePageMode doublePageMode, int trimLevel, bool manhwaMode, bool useSWDither)
 {
     // Color mode: try Qt color pipeline, fall back to greyscale if it fails
     if (!useSWDither)
     {
-        auto colorResult = processImageQt(buffer, filepath, screenSize, doublePageMode, trim, manhwaMode, false);
+        auto colorResult = processImageQt(buffer, filepath, screenSize, doublePageMode, trimLevel, manhwaMode, false);
         if (!colorResult.isNull())
             return colorResult;
         // Fall through to greyscale pipeline as backup
@@ -124,11 +124,11 @@ QImage processImageN(const QByteArray &buffer, const QString &filepath, QSize sc
         return QImage();
     }
 
-    if (trim)
+    if (trimLevel > 0)
     {
-        auto trimRect = getTrimRect(img.buffer, img.width, img.height, img.width);
+        auto trimRect = getTrimRect(img.buffer, img.width, img.height, img.width, trimLevel);
 
-        if (trimRect.isValid())
+        if (trimRect.isValid() && trimRect.width() > 10 && trimRect.height() > 10)
             img = img.crop(trimRect);
     }
 

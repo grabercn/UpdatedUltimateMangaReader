@@ -54,6 +54,7 @@ public:
 
     void setAniListLinkInfo(int count, qint64 sizeBytes);
     class HomeWidget *homeWidget = nullptr;
+    void updateSleepDownloadStatus(bool enabled);
 
 signals:
     void backClicked();
@@ -72,6 +73,7 @@ private:
     QPushButton *deleteSelectedBtn;
     QLabel *statusLabel;
     QLabel *storageLabel;
+    QLabel *sleepDownloadLabel;
     QProgressBar *activeProgress;
     bool showingCached;
 

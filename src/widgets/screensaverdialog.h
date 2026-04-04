@@ -26,7 +26,7 @@ public:
 
     void showRandomScreensaver();
     void setCurrentManga(QSharedPointer<MangaInfo> manga, int chapter, int page);
-    void setBatteryLevel(int level);
+    void setBatteryLevel(int level, bool charging = false);
 
 protected:
     bool event(QEvent *event) override;
@@ -37,6 +37,7 @@ private:
     int currentChapter = 0;
     int currentPage = 0;
     int battery = 100;
+    bool charging = false;
 };
 
 #endif  // SCREENSAVERDIALOG_H

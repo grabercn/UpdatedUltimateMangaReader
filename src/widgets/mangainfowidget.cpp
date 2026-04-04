@@ -57,6 +57,12 @@ void MangaInfoWidget::adjustUI()
     activateScroller(ui->scrollAreaMangaInfoSummary);
     activateScroller(ui->listViewChapters);
     ui->listViewChapters->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+
+    // Touch-friendly chapter list items
+    ui->listViewChapters->setStyleSheet(
+        "QListView::item { padding: 4px 2px; min-height: " +
+        QString::number(SIZES.buttonSize) + "px; }"
+        "QListView::item:selected { background: transparent; color: #111; }");
 }
 
 inline void updateLabel(QLabel *caption, QLabel *content, const QString &text)

@@ -15,6 +15,6 @@ GreyscaleImage loadFromJpegAndRotate(const QByteArray &buffer, QSize screenSize,
                                      DoublePageMode doublePageMode, int &rot90);
 
 QImage processImageN(const QByteArray &buffer, const QString &filepath, QSize screenSize,
-                     DoublePageMode doublePageMode, bool trim, bool manhwaMode, bool useSWDither);
+                     DoublePageMode doublePageMode, int trimLevel, bool manhwaMode, bool useSWDither);
 
 #endif  // IMAGEPROCESSINGNATIVE_H

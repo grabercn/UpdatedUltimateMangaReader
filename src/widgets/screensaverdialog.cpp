@@ -24,15 +24,31 @@ void ScreensaverDialog::setCurrentManga(QSharedPointer<MangaInfo> manga, int cha
     currentPage = page;
 }
 
-void ScreensaverDialog::setBatteryLevel(int level)
+void ScreensaverDialog::setBatteryLevel(int level, bool isCharging)
 {
     battery = level;
+    charging = isCharging;
 }
 
 bool ScreensaverDialog::event(QEvent *event)
 {
+    // Only forward power button / sleep cover key events to parent
+    // Block ALL touch/mouse events so screensaver can't be dismissed by touch
     if (event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease)
-        parent()->event(event);
+    {
+        if (parent())
+            parent()->event(event);
+        return true;
+    }
+
+    // Block touch/mouse during sleep
+    if (event->type() == QEvent::MouseButtonPress ||
+        event->type() == QEvent::MouseButtonRelease ||
+        event->type() == QEvent::TouchBegin ||
+        event->type() == QEvent::TouchUpdate ||
+        event->type() == QEvent::TouchEnd)
+        return true;  // Consume - don't close the dialog
+
     return QWidget::event(event);
 }
 
@@ -125,9 +141,11 @@ void ScreensaverDialog::showRandomScreensaver()
     QFont bottomFont("sans-serif", 9);
     p.setFont(bottomFont);
 
-    QString sleepTime = "Sleeping since " + QTime::currentTime().toString("h:mm AP");
+    QString sleepInfo = "Sleeping since " + QTime::currentTime().toString("h:mm AP");
+    if (charging)
+        sleepInfo += "  |  Charging";
     QRect timeRect(20, h - 35, w - 40, 25);
-    p.drawText(timeRect, Qt::AlignCenter, sleepTime);
+    p.drawText(timeRect, Qt::AlignCenter, sleepInfo);
 
     // Thin separator
     p.setPen(QColor(210, 210, 210));

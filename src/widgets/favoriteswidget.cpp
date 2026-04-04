@@ -38,6 +38,12 @@ void FavoritesWidget::adjustUI()
 
     for (int i = 0; i < 4; i++)
         horizontalHeader->setSectionResizeMode(i, QHeaderView::Stretch);
+
+    // Touch-friendly row height and no selection highlight
+    ui->tableWidget->setStyleSheet(
+        "QTableWidget::item { padding: 4px 2px; }"
+        "QTableWidget::item:selected { background: transparent; color: #111; }");
+    ui->tableWidget->verticalHeader()->setDefaultSectionSize(SIZES.buttonSize + 8);
 }
 
 void FavoritesWidget::showFavoritesList()

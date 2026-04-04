@@ -947,18 +947,30 @@ void MainWidget::onSuspend()
         screenshotTimer->stop();
     ui->homeWidget->pauseTimers();
 
-    // Clear image cache to free RAM (will reload on resume)
-    ui->mangaReaderWidget->clearCache();
+    // Trim image cache to just 3 pages (current + 1 neighbor each side)
+    // Keeps instant resume while freeing most RAM
+    while (ui->mangaReaderWidget->cacheSize() > 3)
+        ui->mangaReaderWidget->trimCache();
 
-    // Kill all network activity
-    core->networkManager->networkAccessManager()->setNetworkAccessible(
-        QNetworkAccessManager::NotAccessible);
+    bool keepWifiForDownloads = core->settings.downloadWhileSleeping &&
+                                core->mangaChapterDownloadManager->hasActiveDownloads();
+
+    if (!keepWifiForDownloads)
+    {
+        // Kill all network activity
+        core->networkManager->networkAccessManager()->setNetworkAccessible(
+            QNetworkAccessManager::NotAccessible);
 
 #ifdef KOBO
-    // Kill ALL background processes aggressively
-    QProcess::execute("sh", {"-c",
-        "killall -9 httpd ftpd tcpsvd telnetd dhcpcd wpa_supplicant udhcpc 2>/dev/null"});
+        // Kill ALL background processes aggressively
+        QProcess::execute("sh", {"-c",
+            "killall -9 httpd ftpd tcpsvd telnetd dhcpcd 2>/dev/null"});
 #endif
+    }
+    else
+    {
+        qDebug() << "Active downloads - keeping WiFi alive during sleep";
+    }
 
     // Save all state before sleeping
     core->settings.serialize();
@@ -978,10 +990,12 @@ void MainWidget::onSuspend()
     }
 
     int bat = 100;
+    bool isCharging = false;
 #ifdef KOBO
     bat = KoboPlatformFunctions::getBatteryLevel();
+    isCharging = KoboPlatformFunctions::isBatteryCharging();
 #endif
-    screensaverDialog->setBatteryLevel(bat);
+    screensaverDialog->setBatteryLevel(bat, isCharging);
 
     screensaverDialog->showRandomScreensaver();
 
@@ -996,42 +1010,31 @@ void MainWidget::onResume()
     qDebug() << "Resuming...";
 
     screensaverDialog->close();
+
+    // === Phase 1: Immediate - restore core app state ===
     core->enableTimers(true);
 
-    // Re-enable network access (was disabled on suspend)
+    // Re-enable network stack
     core->networkManager->networkAccessManager()->setNetworkAccessible(
         QNetworkAccessManager::Accessible);
 
-    // Restart timers
+    // Restart debug timers
     if (screenshotTimer && core->settings.debugScreenshots)
-        screenshotTimer->start(10000);
+        screenshotTimer->start(30000);
     ui->homeWidget->resumeTimers();
 
-    // Reconnect WiFi (silently, no dialog)
-    wifiDialog->connect();
+    // Update battery icon immediately
+    ui->batteryIcon->updateIcon();
 
-#ifdef KOBO
-    // Restart file server if enabled
-    if (core->settings.ftpServerEnabled)
-    {
-        QProcess::startDetached("sh", {"-c",
-            "busybox httpd -p 8080 -h /mnt/onboard/.adds/UltimateMangaReader/ 2>/dev/null || "
-            "busybox tcpsvd 0.0.0.0 2121 busybox ftpd -w /mnt/onboard/.adds/UltimateMangaReader/ 2>/dev/null &"});
-    }
-#endif
-
-    // Restore frontlight - but skip on first boot (let Nickel's values persist)
+    // === Phase 2: Delayed 1s - restore hardware ===
     static bool firstResume = true;
     QTimer::singleShot(1000, this, [this]()
     {
+        // Restore frontlight (skip on first boot - preserve Nickel's warmth)
         if (firstResume)
         {
             firstResume = false;
-            // On first boot, read Nickel's current frontlight into our settings
-            // so we preserve the user's preferred warmth
 #ifdef KOBO
-            // Don't call setupFrontLight - leave Nickel's values alone
-            // Just set up the slider panel with current values
             ui->mangaReaderWidget->setFrontLightPanelState(
                 koboDevice.frontlightSettings.frontlightMin, koboDevice.frontlightSettings.frontlightMax,
                 core->settings.lightValue, koboDevice.frontlightSettings.naturalLightMin,
@@ -1045,11 +1048,11 @@ void MainWidget::onResume()
         }
 
 #ifdef KOBO
-        // Check battery on wake - shutdown if critically low
+        // Critical battery check
         int bat = KoboPlatformFunctions::getBatteryLevel();
         if (bat < 5)
         {
-            qDebug() << "Critical battery on resume:" << bat << "%, shutting down";
+            qDebug() << "Critical battery:" << bat << "%, shutting down";
             core->settings.serialize();
             core->readingStats.serialize();
             if (core->aniList) core->aniList->serialize();
@@ -1057,13 +1060,48 @@ void MainWidget::onResume()
             return;
         }
 #endif
+    });
 
-        // Sync AniList if online (don't auto-open WiFi dialog - let user tap WiFi icon)
-        if (core->networkManager->connected && core->aniList && core->aniList->isLoggedIn())
-            QTimer::singleShot(2000, core->aniList, &AniList::syncOfflineChanges);
+    // === Phase 3: Delayed 3s - reconnect network silently ===
+    QTimer::singleShot(3000, this, [this]()
+    {
+#ifdef KOBO
+        // Reconnect WiFi in background - no popup
+        QtConcurrent::run([this]() {
+            core->networkManager->connectWifi();
 
-        // Update battery icon
-        ui->batteryIcon->updateIcon();
+            QMetaObject::invokeMethod(this, [this]() {
+                if (core->networkManager->connected)
+                {
+                    qDebug() << "WiFi reconnected after resume";
+
+                    // Restart file server if enabled
+                    if (core->settings.ftpServerEnabled)
+                    {
+                        QProcess::startDetached("sh", {"-c",
+                            "busybox httpd -p 8080 -h /mnt/onboard/.adds/UltimateMangaReader/ 2>/dev/null || "
+                            "busybox tcpsvd 0.0.0.0 2121 busybox ftpd -w /mnt/onboard/.adds/UltimateMangaReader/ 2>/dev/null &"});
+                    }
+
+                    // Sync AniList
+                    if (core->aniList && core->aniList->isLoggedIn())
+                        QTimer::singleShot(1000, core->aniList, &AniList::syncOfflineChanges);
+                }
+                else
+                {
+                    // Silent notification - not a full-screen popup
+                    showErrorMessage("WiFi not available");
+                }
+
+                // Update WiFi icon
+                auto icon = core->networkManager->connected ? wifiIcons[1] : wifiIcons[0];
+                ui->toolButtonWifiIcon->setIcon(icon);
+            }, Qt::QueuedConnection);
+        });
+#else
+        // Desktop: always connected
+        core->networkManager->connected = true;
+#endif
     });
 }
 
@@ -1223,6 +1261,7 @@ void MainWidget::setWidgetTab(WidgetTab tab)
         case DownloadsTab:
             ui->navigationBar->setVisible(false);
             ui->frameHeader->setVisible(false);
+            downloadQueueWidget->updateSleepDownloadStatus(core->settings.downloadWhileSleeping);
             break;
     }
     ui->frameHeader->repaint();

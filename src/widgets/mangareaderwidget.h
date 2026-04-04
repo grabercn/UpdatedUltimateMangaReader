@@ -45,6 +45,8 @@ public:
     void setSettings(Settings *settings);
 
     void clearCache();
+    int cacheSize() const { return imgcache.size(); }
+    void trimCache() { if (imgcache.size() > 1) imgcache.removeLast(); }
 
     // Text reader page info
     int currentTextPage() const { return textCurrentPage; }

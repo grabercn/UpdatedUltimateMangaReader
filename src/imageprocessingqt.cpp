@@ -18,9 +18,23 @@ inline QPair<int, int> getTrimRectHelper(const uchar *linePtr, int imgWidth, int
     return {left, right};
 }
 
-QRect getTrimRect(const QByteArray &buffer, int imgWidth, int imgHeight, int stride)
+QRect getTrimRect(const QByteArray &buffer, int imgWidth, int imgHeight, int stride, int trimLevel)
 {
-    const uchar threshold = 234;
+    // Trim levels:
+    // 1 = Light: only pure white borders (threshold 250)
+    // 2 = Normal: standard white margin detection (threshold 234)
+    // 3 = Aggressive: includes light grey borders (threshold 210), extra margin crop
+    // 4 = Maximum: deep crop including page numbers (threshold 190), 5% inset
+    uchar threshold;
+    int extraInset = 0;  // Additional pixels to crop from each edge
+    switch (trimLevel)
+    {
+        case 1:  threshold = 250; break;
+        case 2:  threshold = 234; break;
+        case 3:  threshold = 210; extraInset = imgWidth / 50; break;   // +2% each side
+        case 4:  threshold = 190; extraInset = imgWidth / 20; break;   // +5% each side
+        default: threshold = 234; break;
+    }
 
     int bottom = 0;
     int top = 0;
@@ -70,13 +84,22 @@ QRect getTrimRect(const QByteArray &buffer, int imgWidth, int imgHeight, int str
         }
     }
 
+    // Apply extra inset for aggressive/maximum modes
+    if (extraInset > 0)
+    {
+        leftMin = qMin(leftMin + extraInset, rightMin);
+        rightMin = qMax(rightMin - extraInset, leftMin);
+        top = qMin(top + extraInset, bottom);
+        bottom = qMax(bottom - extraInset, top);
+    }
+
     int width = rightMin - leftMin + 1;
     int height = bottom - top + 1;
     int ntw = qMax(0, width + 4 - width % 4);
-    if (ntw + rightMin > imgWidth)
+    if (ntw + leftMin > imgWidth)
         ntw -= 4;
 
-    return QRect(leftMin, top, ntw, height);
+    return QRect(leftMin, top, qMax(4, ntw), qMax(4, height));
 }
 
 int calcRotationInfo(QSize imgSize, QSize screenSize, DoublePageMode doublePageMode)
@@ -136,7 +159,7 @@ QSize calcRescaleSize(QSize imgSize, QSize screenSize, bool rot90, bool manhwaMo
 }
 
 QImage processImageQt(const QByteArray &array, const QString &filepath, QSize screenSize,
-                      DoublePageMode doublePageMode, bool trim, bool manhwaMode, bool useSWDither)
+                      DoublePageMode doublePageMode, int trimLevel, bool manhwaMode, bool useSWDither)
 {
     QImage img;
     if (!img.loadFromData(array))
@@ -165,11 +188,12 @@ QImage processImageQt(const QByteArray &array, const QString &filepath, QSize sc
 
         if (!greyImg.isNull())
         {
-            if (trim)
+            if (trimLevel > 0)
             {
                 auto arrayT = QByteArray::fromRawData((const char *)greyImg.bits(), greyImg.sizeInBytes());
-                auto trimRect = getTrimRect(arrayT, img.width(), img.height(), greyImg.bytesPerLine());
-                greyImg = greyImg.copy(trimRect);
+                auto trimRect = getTrimRect(arrayT, img.width(), img.height(), greyImg.bytesPerLine(), trimLevel);
+                if (trimRect.isValid() && trimRect.width() > 10 && trimRect.height() > 10)
+                    greyImg = greyImg.copy(trimRect);
             }
 
             if (rot90 != 0)

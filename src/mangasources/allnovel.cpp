@@ -160,10 +160,15 @@ Result<QStringList, QString> AllNovel::getPageList(const QString &chapterUrl)
 
 Result<QString, QString> AllNovel::getChapterText(const QString &chapterUrl)
 {
+    try
+    {
     auto job = networkManager->downloadAsString(chapterUrl);
 
     if (!job->await(10000))
         return Err(job->errorString);
+
+    if (job->bufferStr.isEmpty())
+        return Err(QString("Empty response from AllNovel."));
 
     // Extract chapter text from chapter-c div
     QRegularExpression textrx(
@@ -236,4 +241,9 @@ Result<QString, QString> AllNovel::getChapterText(const QString &chapterUrl)
         return Err(QString("Chapter text was empty."));
 
     return Ok(text);
+    }
+    catch (...)
+    {
+        return Err(QString("Error parsing AllNovel chapter."));
+    }
 }

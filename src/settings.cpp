@@ -12,6 +12,7 @@ Settings::Settings()
       mangaOrder(OrderByPopularity),
       doublePageMode(DoublePage90CW),
       trimPages(true),
+      trimLevel(2),  // Normal by default
       manhwaMode(true),
       ditheringMode(SWDithering),
       colorMode(false),  // greyscale by default for fast page loading
@@ -19,6 +20,7 @@ Settings::Settings()
       debugScreenshots(false),
       usbNetworkMode(false),
       ftpServerEnabled(false),
+      downloadWhileSleeping(false),
       preloadEnabled(true),
       preloadPages(3),
       preloadChapters(2),
@@ -129,7 +131,7 @@ QDataStream &operator<<(QDataStream &str, const Settings &m)
     str << m.colorMode << m.preloadEnabled << m.preloadPages << m.preloadChapters
         << m.autoBootEnabled << m.offlineMode << m.autoSuspendMinutes << m.wifiAutoDisconnect
         << m.iaGeneralBooksEnabled << m.debugScreenshots << m.usbNetworkMode
-        << m.ftpServerEnabled;
+        << m.ftpServerEnabled << m.downloadWhileSleeping << m.trimLevel;
 
     return str;
 }
@@ -165,6 +167,8 @@ QDataStream &operator>>(QDataStream &str, Settings &m)
         if (!str.atEnd()) str >> m.debugScreenshots;
         if (!str.atEnd()) str >> m.usbNetworkMode;
         if (!str.atEnd()) str >> m.ftpServerEnabled;
+        if (!str.atEnd()) str >> m.downloadWhileSleeping;
+        if (!str.atEnd()) str >> m.trimLevel;
     }
     catch (...)
     {

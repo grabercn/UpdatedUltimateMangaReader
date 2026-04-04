@@ -114,10 +114,11 @@ void activateScroller(QAbstractScrollArea* pArea)
         QScroller* scroller = QScroller::scroller(pArea);
         QScrollerProperties prop;
 
-        // Small delay so taps aren't eaten by scroll gesture
-        prop.setScrollMetric(QScrollerProperties::MousePressEventDelay, 0.12);
+        // Delay before scroll gesture grabs the touch - allows taps to register
+        // Higher = better tap detection, lower = faster scroll start
+        prop.setScrollMetric(QScrollerProperties::MousePressEventDelay, 0.15);
 
-        // Disable overshoot (no bounce on e-ink)
+        // Disable overshoot entirely (no bounce on e-ink)
         prop.setScrollMetric(QScrollerProperties::VerticalOvershootPolicy,
                              QScrollerProperties::OvershootAlwaysOff);
         prop.setScrollMetric(QScrollerProperties::HorizontalOvershootPolicy,
@@ -125,12 +126,13 @@ void activateScroller(QAbstractScrollArea* pArea)
         prop.setScrollMetric(QScrollerProperties::OvershootDragResistanceFactor, 0);
         prop.setScrollMetric(QScrollerProperties::OvershootDragDistanceFactor, 0);
 
-        // Gentle deceleration for e-ink (less momentum, stops faster)
-        prop.setScrollMetric(QScrollerProperties::DecelerationFactor, 0.3);
-        prop.setScrollMetric(QScrollerProperties::MaximumVelocity, 0.5);
+        // E-ink optimized: less momentum, stops quickly
+        prop.setScrollMetric(QScrollerProperties::DecelerationFactor, 0.2);
+        prop.setScrollMetric(QScrollerProperties::MaximumVelocity, 0.4);
 
-        // Lower drag threshold for more responsive scrolling
-        prop.setScrollMetric(QScrollerProperties::DragStartDistance, 0.004);
+        // Higher drag distance = need to move finger more before scroll starts
+        // This prevents accidental scrolling when tapping list items
+        prop.setScrollMetric(QScrollerProperties::DragStartDistance, 0.008);
 
         scroller->setScrollerProperties(prop);
         scroller->grabGesture(pArea->viewport(), QScroller::LeftMouseButtonGesture);

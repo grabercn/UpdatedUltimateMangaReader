@@ -29,6 +29,7 @@ public:
 
     void cancelDownloads();
     void downloadMangaChapters(QSharedPointer<MangaInfo> mangaInfo, int fromChapter, int toChapterInclusive);
+    bool hasActiveDownloads() const { return running; }
 
 signals:
     void downloadStart(const QString &mangaTitle);

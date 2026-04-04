@@ -47,7 +47,7 @@ public:
     const int downloadStatusDialogWidth = mmToPx(80);
     const int downloadStatusDialogHeight = mmToPx(60);
 
-    const float readerPageSideThreshold = 0.4;
+    const float readerPageSideThreshold = 0.35;  // wider page-turn zones (35% each side)
     const float readerBottomMenuThreshold = 0.1;
 };
 

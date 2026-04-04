@@ -88,6 +88,23 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
     });
     scrollLayout->addWidget(wifiDisconnect);
 
+    auto *dlWhileSleep = new QCheckBox("Download while sleeping", this);
+    dlWhileSleep->setChecked(settings->downloadWhileSleeping);
+    connect(dlWhileSleep, &QCheckBox::toggled, this, [this](bool checked)
+    {
+        if (!internalChange)
+        {
+            this->settings->downloadWhileSleeping = checked;
+            this->settings->scheduleSerialize();
+        }
+    });
+    scrollLayout->addWidget(dlWhileSleep);
+
+    auto *dlSleepNote = new QLabel("Keeps WiFi on during sleep to finish downloads. Uses more battery.", this);
+    dlSleepNote->setWordWrap(true);
+    dlSleepNote->setStyleSheet("color: #888; padding-left: 20px;");
+    scrollLayout->addWidget(dlSleepNote);
+
 #ifdef KOBO
     auto *autoBootCheck = new QCheckBox("Auto-start on boot", this);
     autoBootCheck->setChecked(settings->autoBootEnabled);
@@ -507,6 +524,42 @@ void SettingsDialog::adjustUI()
     ui->checkBoxTrim->setText("Trim white margins");
     ui->checkBoxManhwaMode->setText("Manhwa mode (vertical scroll)");
     ui->checkBoxHideErrorMessages->setText("Hide error messages");
+
+    // Trim level combo - insert after the trim checkbox
+    auto *trimRow = new QHBoxLayout();
+    trimRow->addWidget(new QLabel("Trim level:", this));
+    auto *trimCombo = new QComboBox(this);
+    trimCombo->addItem("Light", 1);
+    trimCombo->addItem("Normal", 2);
+    trimCombo->addItem("Aggressive", 3);
+    trimCombo->addItem("Maximum (Beta)", 4);
+    for (int i = 0; i < trimCombo->count(); i++)
+        if (trimCombo->itemData(i).toInt() == settings->trimLevel)
+            trimCombo->setCurrentIndex(i);
+    trimCombo->setFixedHeight(SIZES.buttonSize);
+    connect(trimCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this, trimCombo](int idx) {
+        if (!internalChange)
+        {
+            settings->trimLevel = trimCombo->itemData(idx).toInt();
+            settings->scheduleSerialize();
+        }
+    });
+    trimRow->addWidget(trimCombo);
+    // Find checkBoxTrim and insert after it
+    auto *trimLayout = qobject_cast<QVBoxLayout *>(ui->scrollArea->widget()->layout());
+    if (trimLayout)
+    {
+        for (int i = 0; i < trimLayout->count(); i++)
+        {
+            auto *item = trimLayout->itemAt(i);
+            if (item && item->widget() == ui->checkBoxTrim)
+            {
+                trimLayout->insertLayout(i + 1, trimRow);
+                break;
+            }
+        }
+    }
 
     // Color mode checkbox - add after dithering
     auto *displayLabel = new QLabel("<b>Display</b>", this);

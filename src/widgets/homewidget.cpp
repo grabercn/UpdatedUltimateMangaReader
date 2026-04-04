@@ -77,6 +77,12 @@ void HomeWidget::adjustUI()
     ui->listViewMangas->setFocusPolicy(Qt::FocusPolicy::NoFocus);
     ui->listViewMangas->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->listViewMangas->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+
+    // Touch-friendly item height and selection style
+    ui->listViewMangas->setStyleSheet(
+        "QListView::item { padding: 6px 4px; min-height: " +
+        QString::number(SIZES.buttonSize) + "px; }"
+        "QListView::item:selected { background: transparent; color: #111; }");
 }
 
 void HomeWidget::updateSourcesList(const QList<AbstractMangaSource *> &sources)
@@ -652,6 +658,13 @@ void HomeWidget::refreshHomeView()
     auto *oldModel = ui->listViewMangas->model();
     auto *model = new QStandardItemModel(this);
 
+    // Helper to ensure all items have touch-friendly height
+    auto addItem = [&](QStandardItem *item) {
+        if (item->sizeHint().height() < SIZES.buttonSize)
+            item->setSizeHint(QSize(0, SIZES.buttonSize + 4));
+        model->appendRow(item);
+    };
+
     auto addHeader = [&](const QString &text)
     {
         auto *item = new QStandardItem(text);
@@ -660,8 +673,8 @@ void HomeWidget::refreshHomeView()
         item->setForeground(QColor(100, 100, 100));
         auto f = item->font();
         f.setBold(true);
-        f.setPointSize(9);
         item->setFont(f);
+        item->setSizeHint(QSize(0, SIZES.buttonSize));
         model->appendRow(item);
     };
 
@@ -1083,10 +1096,14 @@ bool HomeWidget::tryMatch(const AniListEntry &entry)
     }
 
     // Fallback: use best match even if 0 chapters
-    aniListLocalMap[entry.title] = {candidates.first().dir.source,
-                                    candidates.first().dir.dirName,
-                                    candidates.first().dir.path};
-    return true;
+    if (!candidates.isEmpty())
+    {
+        aniListLocalMap[entry.title] = {candidates.first().dir.source,
+                                        candidates.first().dir.dirName,
+                                        candidates.first().dir.path};
+        return true;
+    }
+    return false;
 }
 
 void HomeWidget::buildAniListLocalMap()

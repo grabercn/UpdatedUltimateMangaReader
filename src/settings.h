@@ -30,6 +30,7 @@ public:
 
     DoublePageMode doublePageMode;
     bool trimPages;
+    int trimLevel;  // 0=off, 1=light, 2=normal(default), 3=aggressive, 4=maximum
     bool manhwaMode;
     DitheringMode ditheringMode;
     bool colorMode;  // true = keep color images (for color e-readers or desktop)
@@ -47,6 +48,7 @@ public:
     bool debugScreenshots;   // periodic screenshots to cache/screenshots/
     bool usbNetworkMode;     // USB networking over cable (OTG/telnet)
     bool ftpServerEnabled;   // FTP file server over WiFi
+    bool downloadWhileSleeping;  // Keep WiFi on during sleep for downloads
 
     QMap<QString, bool> enabledMangaSources;
 

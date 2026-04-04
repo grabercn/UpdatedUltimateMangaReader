@@ -43,12 +43,17 @@ DownloadQueueWidget::DownloadQueueWidget(QWidget *parent)
     statusLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(statusLabel);
 
-    // Storage info
+    // Storage + sleep download info
     storageLabel = new QLabel(this);
     storageLabel->setStyleSheet("color: #888;");
     storageLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(storageLabel);
     updateStorageInfo();
+
+    sleepDownloadLabel = new QLabel(this);
+    sleepDownloadLabel->setStyleSheet("color: #888;");
+    sleepDownloadLabel->setAlignment(Qt::AlignCenter);
+    layout->addWidget(sleepDownloadLabel);
 
     // Job list
     jobList = new QListWidget(this);
@@ -556,4 +561,15 @@ void DownloadQueueWidget::updateStorageInfo()
 
     storageLabel->setText("App data: " + formatSize(appBytes) +
                           "  |  Free: " + formatSize(freeBytes));
+}
+
+void DownloadQueueWidget::updateSleepDownloadStatus(bool enabled)
+{
+    if (sleepDownloadLabel)
+    {
+        if (enabled)
+            sleepDownloadLabel->setText("Sleep downloads: ON (change in Settings > Power)");
+        else
+            sleepDownloadLabel->setText("Sleep downloads: OFF (change in Settings > Power)");
+    }
 }
