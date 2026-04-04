@@ -39,8 +39,9 @@ void DownloadStringJob::downloadFinished()
 
     if (errorString != "" || (reply->error() != QNetworkReply::NoError))
     {
-        // already handled
-        // emit downloadError();
+        if (errorString.isEmpty())
+            errorString = "Download error: " + reply->errorString();
+        emit downloadError();
     }
     else
     {

@@ -21,7 +21,13 @@ void MangaPlus::invalidatePagelist()
     for (const auto &mangadir : dir.entryList(dirFilters))
     {
         auto mangaPath = CONF.mangainfodir(name, mangadir) + "mangainfo.dat";
+        if (!QFile::exists(mangaPath))
+            continue;
+        try
+        {
         auto mi = MangaInfo::deserialize(this, mangaPath);
+        if (!mi)
+            continue;
         for (int i = 0; i < mi->chapters.size(); i++)
         {
             if (!mi->chapters[i].pagesLoaded)
@@ -31,6 +37,8 @@ void MangaPlus::invalidatePagelist()
                 mi->chapters[i].imageUrlList[c] = "";
         }
         mi->serialize();
+        }
+        catch (...) { continue; }
     }
 }
 

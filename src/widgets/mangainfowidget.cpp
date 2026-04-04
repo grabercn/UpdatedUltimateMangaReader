@@ -98,6 +98,8 @@ void MangaInfoWidget::setManga(QSharedPointer<MangaInfo> manga)
 
 void MangaInfoWidget::updateManga(bool)
 {
+    if (currentmanga.isNull())
+        return;
     qDebug() << "updated" << currentmanga->title;
 
     updateInfos();
@@ -105,6 +107,8 @@ void MangaInfoWidget::updateManga(bool)
 
 void MangaInfoWidget::updateCover()
 {
+    if (currentmanga.isNull())
+        return;
     if (!QFile::exists(currentmanga->coverPath))
     {
         ui->labelMangaInfoCover->clear();

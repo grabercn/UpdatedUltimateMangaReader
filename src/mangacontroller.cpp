@@ -42,6 +42,15 @@ void MangaController::setCurrentManga(QSharedPointer<MangaInfo> mangaInfo)
 void MangaController::chaptersMoved(QList<QPair<int, int>>)
 {
     deserializeProgress();
+
+    if (currentManga && currentManga->chapters.count() > 0)
+    {
+        if (currentIndex.chapter < 0 || currentIndex.chapter >= currentManga->chapters.count())
+            currentIndex.chapter = qMax(0, currentManga->chapters.count() - 1);
+        if (currentIndex.page < 0)
+            currentIndex.page = 0;
+    }
+
     currentIndexChangedInternal(false);
 }
 

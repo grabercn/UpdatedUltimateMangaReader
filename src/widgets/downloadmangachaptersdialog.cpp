@@ -42,7 +42,8 @@ DownloadMangaChaptersDialog::~DownloadMangaChaptersDialog()
 void DownloadMangaChaptersDialog::show(QSharedPointer<MangaInfo> mangaInfo, int chapterFromDefault,
                                        bool exportOnly)
 {
-    this->setMaximumWidth(static_cast<QWidget *>(this->parent())->width());
+    if (auto *pw = qobject_cast<QWidget *>(this->parent()))
+        this->setMaximumWidth(pw->width());
 
     this->mangaInfo = mangaInfo;
     ui->spinBoxFrom->setRange(1, mangaInfo->chapters.size());

@@ -207,6 +207,8 @@ bool MangaReaderWidget::buttonPressEvent(QKeyEvent *event)
     }
 
     // Manga mode: page buttons and arrow keys advance pages
+    if (!settings)
+        return false;
     if (event->key() == Qt::Key_PageUp || event->key() == Qt::Key_Left)
         emit advancPageClicked(
             conditionalReverse(Forward, settings->buttonAdvance != AdvancePageHWButton::Up));
@@ -221,6 +223,9 @@ bool MangaReaderWidget::buttonPressEvent(QKeyEvent *event)
 
 bool MangaReaderWidget::gestureEvent(QGestureEvent *event)
 {
+    if (!settings)
+        return false;
+
     if (QGesture *gesture = event->gesture(Qt::SwipeGesture))
     {
         if (gesture->state() != Qt::GestureFinished)

@@ -59,7 +59,7 @@ bool MangaPanda::updateMangaList(UpdateProgressToken *token)
     lambda(job);
 
     QList<QString> urls;
-    for (int i = 2; i < pages; i++)
+    for (int i = 2; i <= pages; i++)
         urls.append(dictionaryUrl + QString::number(i));
 
     DownloadQueue queue(networkManager, urls, CONF.parallelDownloadsHigh, lambda, true);

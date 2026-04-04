@@ -37,6 +37,7 @@ void DownloadBufferJob::start()
 
     if (timeoutTime > 0)
     {
+        timeoutTimer.disconnect();
         QObject::connect(&timeoutTimer, &QTimer::timeout, this, &DownloadBufferJob::timeout);
         timeoutTimer.start(timeoutTime);
     }
@@ -80,8 +81,9 @@ void DownloadBufferJob::downloadFinished()
 
     if (errorString != "" || (reply->error() != QNetworkReply::NoError))
     {
-        // already handled
-        // emit downloadError();
+        if (errorString.isEmpty())
+            errorString = "Download error: " + reply->errorString();
+        emit downloadError();
     }
     else
     {
@@ -109,6 +111,7 @@ void DownloadBufferJob::timeout()
     errorString = "Download error: timeout";
     reply.get()->disconnect();
     reply->abort();
+    emit downloadError();
 }
 
 bool DownloadBufferJob::await(int timeout, bool retry, int maxRetries)

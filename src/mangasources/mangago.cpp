@@ -104,7 +104,7 @@ Result<MangaChapterCollection, QString> MangaGo::updateMangaInfoFinishedLoading(
                                  QRegularExpression::DotMatchesEverythingOption);
     QRegularExpression coverrx(R"lit(<meta property="og:image" content="([^"]*)")lit");
 
-    QRegularExpression chapterrx(R"lit(<a[^>]*href="([^"]*)">W*(.*?)W*</a>)lit",
+    QRegularExpression chapterrx(R"lit(<a[^>]*href="([^"]*)">\s*(.*?)\s*</a>)lit",
                                  QRegularExpression::DotMatchesEverythingOption);
 
     fillMangaInfo(info, job->bufferStr, authorrx, artistrx, statusrx, yearrx, genresrx, summaryrx, coverrx);
