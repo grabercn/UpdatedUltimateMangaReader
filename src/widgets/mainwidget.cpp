@@ -900,6 +900,12 @@ void MainWidget::onSuspend()
     if (screenshotTimer)
         screenshotTimer->stop();
 
+#ifdef KOBO
+    // Stop file server during sleep
+    if (core->settings.ftpServerEnabled)
+        QProcess::startDetached("sh", {"-c", "killall httpd ftpd tcpsvd 2>/dev/null"});
+#endif
+
     // Save all state before sleeping
     core->settings.serialize();
     core->readingStats.stopReading();
@@ -944,9 +950,23 @@ void MainWidget::onResume()
 
     // Reconnect WiFi (silently, no dialog)
     wifiDialog->connect();
-    QTimer::singleShot(500, this, [this]()
+
+#ifdef KOBO
+    // Restart file server if enabled
+    if (core->settings.ftpServerEnabled)
+    {
+        QProcess::startDetached("sh", {"-c",
+            "busybox httpd -p 8080 -h /mnt/onboard/.adds/UltimateMangaReader/ 2>/dev/null || "
+            "busybox tcpsvd 0.0.0.0 2121 busybox ftpd -w /mnt/onboard/.adds/UltimateMangaReader/ 2>/dev/null &"});
+    }
+#endif
+
+    // Restore frontlight after a delay (hardware needs time to wake)
+    QTimer::singleShot(1000, this, [this]()
     {
         setupFrontLight();
+        // Double-set after another delay to ensure warmth sticks
+        QTimer::singleShot(500, this, [this]() { setupFrontLight(); });
 
 #ifdef KOBO
         // Check battery on wake - shutdown if critically low
