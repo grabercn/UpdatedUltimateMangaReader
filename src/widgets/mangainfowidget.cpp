@@ -427,39 +427,45 @@ void MangaInfoWidget::setupAniListUI()
     aniListScoreCombo->setFixedHeight(SIZES.buttonSize);
     row1->addWidget(aniListScoreCombo);
 
-    aniListSyncBtn = nullptr;  // No sync button - auto-syncs on change
+    // Debounced auto-sync: waits 2s after last change before syncing
+    auto *syncTimer = new QTimer(aniListFrame);
+    syncTimer->setSingleShot(true);
+    syncTimer->setInterval(2000);
 
-    mainLayout->addLayout(row1);
-
-    // Auto-sync on ANY value change (debounced)
-    auto syncFunc = [this]()
+    connect(syncTimer, &QTimer::timeout, this, [this]()
     {
         if (!aniList || !aniList->isLoggedIn() || currentAniListMediaId <= 0)
             return;
 
-        int status = aniListStatusCombo->currentIndex();
+        int status = aniListStatusCombo ? aniListStatusCombo->currentIndex() : 0;
         if (status <= 0) return;
 
-        int chapters = aniListChapterCombo->currentData().toInt();
-        int volumes = aniListVolumeCombo->currentData().toInt();
-        int score = aniListScoreCombo->currentData().toInt();
+        int chapters = aniListChapterCombo ? aniListChapterCombo->currentData().toInt() : 0;
+        int volumes = aniListVolumeCombo ? aniListVolumeCombo->currentData().toInt() : 0;
+        int score = aniListScoreCombo ? aniListScoreCombo->currentData().toInt() : 0;
 
         aniList->updateProgress(currentAniListMediaId, chapters, status, volumes);
         if (score > 0)
             aniList->updateScore(currentAniListMediaId, score);
 
-        qDebug() << "AniList auto-synced: ch" << chapters << "vol" << volumes
+        qDebug() << "AniList synced: ch" << chapters << "vol" << volumes
                  << "status" << status << "score" << score;
-    };
+    });
+
+    auto restartSync = [syncTimer]() { syncTimer->start(); };
 
     connect(aniListStatusCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, syncFunc);
+            this, restartSync);
     connect(aniListChapterCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, syncFunc);
+            this, restartSync);
     connect(aniListVolumeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, syncFunc);
+            this, restartSync);
     connect(aniListScoreCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, syncFunc);
+            this, restartSync);
+
+    aniListSyncBtn = nullptr;
+
+    mainLayout->addLayout(row1);
 
     // Insert into main layout: between the cover/info section (index 1) and action buttons (index 2)
     auto *parentLayout = qobject_cast<QVBoxLayout *>(layout());
