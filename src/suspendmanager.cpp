@@ -34,14 +34,14 @@ bool SuspendManager::suspendInternal()
 
 #ifdef KOBO
     int handleSE = open("/sys/power/state-extended", O_RDWR);
-    if (!handleSE)
+    if (handleSE < 0)
     {
         qDebug() << "Could not open /sys/power/state-extended";
         return false;
     }
     auto ret = write(handleSE, "1\n", 2);
     close(handleSE);
-    if (!ret)
+    if (ret < 0)
     {
         qDebug() << "Could not write to /sys/power/state-extended:" << ret;
         return false;
@@ -51,11 +51,11 @@ bool SuspendManager::suspendInternal()
     QProcess::execute("sync", {});
 
     int handleS = open("/sys/power/state", O_RDWR);
-    if (!handleS)
+    if (handleS < 0)
     {
         qDebug() << "Could not open /sys/power/state";
         int handleSE2 = open("/sys/power/state-extended", O_RDWR);
-        if (!handleSE2)
+        if (handleSE2 < 0)
         {
             qDebug() << "Could not open /sys/power/state-extended";
         }
@@ -68,13 +68,12 @@ bool SuspendManager::suspendInternal()
         return false;
     }
     ret = write(handleS, "mem\n", 4);
-    if (!ret)
+    close(handleS);
+    if (ret < 0)
     {
         qDebug() << "Could not write to /sys/power/state:" << ret;
         return false;
     }
-
-    close(handleS);
 #endif
 
     sleeping = true;
@@ -92,35 +91,35 @@ bool SuspendManager::resume()
 #ifdef KOBO
 
     int handleSE = open("/sys/power/state-extended", O_RDWR);
-    if (!handleSE)
+    if (handleSE < 0)
     {
         qDebug() << "Could not open /sys/power/state-extended";
         return false;
     }
     auto ret = write(handleSE, "0\n", 2);
-    if (!ret)
+    close(handleSE);
+    if (ret < 0)
     {
         qDebug() << "Could not write to /sys/power/state-extended:" << ret;
         return false;
     }
-    close(handleSE);
 
     QThread::msleep(100);
 
     int handleNC = open("/sys/devices/virtual/input/input1/neocmd", O_RDWR);
-    if (!handleNC)
+    if (handleNC < 0)
     {
         qDebug() << "Could not open /sys/devices/virtual/input/input1/neocmd";
     }
     else
     {
         ret = write(handleNC, "a\n", 2);
-        if (!ret)
+        close(handleNC);
+        if (ret < 0)
         {
             qDebug() << "Could not write to /sys/devices/virtual/input/input1/neocmd:" << ret;
             return false;
         }
-        close(handleNC);
     }
 #endif
 

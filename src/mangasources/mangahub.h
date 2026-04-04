@@ -18,7 +18,7 @@ public:
 private:
     QString dicturl;
     int binarySearchNumPages(const QRegularExpressionMatch &imagerxmatch, int lowerBound, int upperBound,
-                             bool upperChecked);
+                             bool upperChecked, int depth = 0);
 };
 
 #endif  // MANGAHUB_H

@@ -371,6 +371,8 @@ Result<MangaChapterCollection, QString> MangaDex::updateMangaInfoFinishedLoading
 
                 for (const auto &r : results)
                 {
+                    if (!r.HasMember("attributes") || !r["attributes"].IsObject())
+                        continue;
                     auto chapterId = getStringSafe(r, "id");
                     const auto &attributes = r["attributes"];
                     auto externalUrl = getStringSafe(attributes, "externalUrl");

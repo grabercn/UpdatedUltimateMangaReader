@@ -102,6 +102,8 @@ Result<QStringList, QString> ReadManga::getPageList(const QString &chapterUrl)
         return Err(job->errorString);
 
     int spos = job->bufferStr.indexOf("chapter['pages']");
+    if (spos < 0)
+        return Err(QString("Couldn't find chapter data in page."));
     int epos = job->bufferStr.indexOf('\n', spos);
 
     QStringList imageUrls;

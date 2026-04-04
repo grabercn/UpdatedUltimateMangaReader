@@ -14,6 +14,8 @@ DownloadJobBase::DownloadJobBase(QNetworkAccessManager *networkManager, const QS
 
 QList<QNetworkCookie> DownloadJobBase::getCookies()
 {
+    if (!reply)
+        return {};
     return reply->header(QNetworkRequest::SetCookieHeader).value<QList<QNetworkCookie>>();
 }
 

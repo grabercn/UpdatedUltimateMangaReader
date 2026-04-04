@@ -278,6 +278,15 @@ void Updater::downloadAndApply()
         auto tarOutput = tar.readAllStandardOutput() + tar.readAllStandardError();
         qDebug() << "tar extract:" << tar.exitCode() << tarOutput.left(200);
 
+        if (tar.exitCode() != 0)
+        {
+            emit updateLog("Tar extraction failed.");
+            QFile::remove(tempPath);
+            QDir(extractDir).removeRecursively();
+            emit updateCompleted(false);
+            return;
+        }
+
         QFile::remove(tempPath);
 
         // Find the binary inside the extracted archive

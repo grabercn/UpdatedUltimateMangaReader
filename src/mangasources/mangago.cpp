@@ -122,19 +122,22 @@ Result<MangaChapterCollection, QString> MangaGo::updateMangaInfoFinishedLoading(
 
 Result<QStringList, QString> MangaGo::getPageList(const QString &chapterUrl)
 {
-    // TODO
-    QRegularExpression pagerx(R"lit()lit");
-
     auto job = networkManager->downloadAsString(chapterUrl);
 
     if (!job->await(7000))
         return Err(job->errorString);
+
+    // Extract image URLs from MangaGo's JS-based reader
+    QRegularExpression pagerx(R"lit(imgsrcs\s*\[\d+\]\s*=\s*['"]([^'"]+))lit");
 
     QStringList imageUrls;
     for (auto &match : getAllRxMatches(pagerx, job->bufferStr))
     {
         imageUrls.append(match.captured(1));
     }
+
+    if (imageUrls.isEmpty())
+        return Err(QString("No images found for this chapter."));
 
     return Ok(imageUrls);
 }

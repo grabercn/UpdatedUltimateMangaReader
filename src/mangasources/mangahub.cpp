@@ -16,7 +16,7 @@ bool MangaHub::updateMangaList(UpdateProgressToken *token)
     if (!job->await(7000))
     {
         token->sendError(job->errorString);
-        return true;
+        return false;
     }
 
     token->sendProgress(10);
@@ -126,13 +126,16 @@ inline QString buildImgUrl(const QRegularExpressionMatch &imagerxmatch, int i)
 }
 
 int MangaHub::binarySearchNumPages(const QRegularExpressionMatch &imagerxmatch, int lowerBound,
-                                   int upperBound, bool upperChecked)
+                                   int upperBound, bool upperChecked, int depth)
 {
+    if (depth > 30)
+        return lowerBound;
+
     if (!upperChecked)
     {
         bool valid = networkManager->urlExists(buildImgUrl(imagerxmatch, upperBound));
         if (valid)
-            return binarySearchNumPages(imagerxmatch, lowerBound, upperBound * 2, false);
+            return binarySearchNumPages(imagerxmatch, lowerBound, upperBound * 2, false, depth + 1);
     }
 
     if (upperBound - lowerBound == 1)
@@ -142,9 +145,9 @@ int MangaHub::binarySearchNumPages(const QRegularExpressionMatch &imagerxmatch, 
 
     bool valid = networkManager->urlExists(buildImgUrl(imagerxmatch, mid));
     if (valid)
-        return binarySearchNumPages(imagerxmatch, mid, upperBound, true);
+        return binarySearchNumPages(imagerxmatch, mid, upperBound, true, depth + 1);
     else
-        return binarySearchNumPages(imagerxmatch, lowerBound, mid, true);
+        return binarySearchNumPages(imagerxmatch, lowerBound, mid, true, depth + 1);
 }
 
 Result<QStringList, QString> MangaHub::getPageList(const QString &chapterUrl)

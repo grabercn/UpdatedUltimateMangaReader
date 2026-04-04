@@ -111,15 +111,15 @@ Result<MangaChapterCollection, QString> MangaHere::updateMangaInfoFinishedLoadin
     return Ok(newchapters);
 }
 
-// UNFINISHED
 Result<QStringList, QString> MangaHere::getPageList(const QString &chapterUrl)
 {
-    QRegularExpression pagerx(R"lit( TODO )lit");
-
     auto job = networkManager->downloadAsString(chapterUrl);
 
     if (!job->await(7000))
         return Err(job->errorString);
+
+    // MangaHere uses JS-loaded images; extract from the reader page
+    QRegularExpression pagerx(R"lit(<img src="([^"]+)"[^>]*class="reader-main-img)lit");
 
     int spos = job->bufferStr.indexOf(R"(<div class="vung-doc" id="vungdoc">)");
     int epos = job->bufferStr.indexOf(R"(class="navi-change-chapter">)", spos);
@@ -131,6 +131,9 @@ Result<QStringList, QString> MangaHere::getPageList(const QString &chapterUrl)
         if (!imageUrl.contains("/themes/"))
             imageUrls.append(imageUrl);
     }
+
+    if (imageUrls.isEmpty())
+        return Err(QString("No images found for this chapter."));
 
     return Ok(imageUrls);
 }

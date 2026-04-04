@@ -10,7 +10,7 @@ bool MangaIndex::operator==(const MangaIndex &b) const
 
 bool MangaIndex::operator!=(const MangaIndex &b) const
 {
-    return page == b.page || chapter != b.chapter;
+    return page != b.page || chapter != b.chapter;
 }
 
 QDataStream &operator<<(QDataStream &str, const MangaIndex &m)

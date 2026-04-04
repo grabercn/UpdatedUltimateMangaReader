@@ -368,15 +368,15 @@ void WifiDialog::updateStatus()
 {
     if (networkManager->connected)
     {
-        statusIcon->setText("*");
-        statusLabel->setText("Connected");
-        toggleBtn->setText("Disconnect");
+        if (statusIcon) statusIcon->setText("*");
+        if (statusLabel) statusLabel->setText("Connected");
+        if (toggleBtn) toggleBtn->setText("Disconnect");
     }
     else
     {
-        statusIcon->setText("-");
-        statusLabel->setText("Not connected");
-        toggleBtn->setText("Connect");
+        if (statusIcon) statusIcon->setText("-");
+        if (statusLabel) statusLabel->setText("Not connected");
+        if (toggleBtn) toggleBtn->setText("Connect");
     }
 }
 
