@@ -143,7 +143,7 @@ void WifiDialog::onToggleClicked()
             QMetaObject::invokeMethod(this, [this]() {
                 if (destroying) return;
                 updateStatus();
-                toggleBtn->setEnabled(true);
+                if (toggleBtn) toggleBtn->setEnabled(true);
             }, Qt::QueuedConnection);
         });
     }

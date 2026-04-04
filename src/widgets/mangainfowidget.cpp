@@ -326,13 +326,15 @@ void MangaInfoWidget::on_toolButtonAddFavorites_clicked()
 
 void MangaInfoWidget::on_listViewChapters_clicked(const QModelIndex &index)
 {
-    if (currentmanga.isNull())
+    if (currentmanga.isNull() || currentmanga->chapters.isEmpty())
         return;
 
     int chapterIdx = static_cast<int>(currentmanga->chapters.count() - 1 - index.row());
+    if (chapterIdx < 0 || chapterIdx >= currentmanga->chapters.count())
+        return;
 
     // Block clicks for download-only chapters
-    if (currentmanga->mangaSource && chapterIdx >= 0 && chapterIdx < currentmanga->chapters.count() &&
+    if (currentmanga->mangaSource &&
         currentmanga->mangaSource->isDownloadOnly(currentmanga->chapters[chapterIdx].chapterUrl))
         return;
 
@@ -341,6 +343,8 @@ void MangaInfoWidget::on_listViewChapters_clicked(const QModelIndex &index)
 
 void MangaInfoWidget::on_pushButtonReadLatest_clicked()
 {
+    if (currentmanga.isNull() || currentmanga->chapters.isEmpty())
+        return;
     emit readMangaClicked({static_cast<int>(currentmanga->chapters.count() - 1), 0});
 }
 
