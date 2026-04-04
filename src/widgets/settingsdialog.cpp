@@ -415,7 +415,7 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
 
         connect(applyUpdateBtn, &QPushButton::clicked, this, [this, updateStatusLabel]()
         {
-            updateStatusLabel->setText("Downloading update...");
+            updateStatusLabel->setText("Updating... Do not close the app.");
             this->updater->downloadAndApply();
         });
 
@@ -446,7 +446,7 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
 
         connect(revertBtn, &QPushButton::clicked, this, [this, updateStatusLabel]()
         {
-            updateStatusLabel->setText("Reverting...");
+            updateStatusLabel->setText("Reverting... Do not close the app.");
             this->updater->revertToPrevious();
         });
     }

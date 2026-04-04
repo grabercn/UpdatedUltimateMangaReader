@@ -709,7 +709,7 @@ void MainWidget::showEvent(QShowEvent *event)
                         updateBtn->setEnabled(false);
                         skipBtn->setEnabled(false);
                         laterBtn->setEnabled(false);
-                        notesLbl->setText("Downloading update...");
+                        notesLbl->setText("Downloading update...\nDo not close the app or remove power.");
 #ifdef KOBO
                         QtConcurrent::run([this]() {
                             core->updater->downloadAndApply();

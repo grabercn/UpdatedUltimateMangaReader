@@ -253,7 +253,7 @@ void Updater::downloadAndApply()
     }
 
     emit downloadProgress(50);
-    emit updateLog("Download complete. Applying update...");
+    emit updateLog("Applying update... Do NOT close the app or remove power.");
 
     // Verify the downloaded file is reasonable
     QFileInfo fi(tempPath);
@@ -336,7 +336,7 @@ void Updater::downloadAndApply()
         saveSkippedVersion();
 
         emit downloadProgress(100);
-        emit updateLog("Update applied! Restarting in 3 seconds...");
+        emit updateLog("Update applied! Restarting in 3 seconds...\nDo not touch anything.");
         emit updateCompleted(true);
 
         // Restore framebuffer before restart so Nickel/next launch gets clean display
