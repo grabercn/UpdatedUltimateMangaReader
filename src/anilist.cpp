@@ -228,38 +228,53 @@ AniListEntry AniList::findByTitle(const QString &title) const
             return e;
     }
 
-    // Substring match (either direction, both titles)
-    for (const auto &e : m_entries)
-    {
-        auto en = normalizeTitle(e.title);
-        auto rn = normalizeTitle(e.titleRomaji);
-        if (en.contains(norm) || norm.contains(en))
-            return e;
-        if (!rn.isEmpty() && (rn.contains(norm) || norm.contains(rn)))
-            return e;
-    }
-
-    // Word overlap match - if >60% of words match
-    auto searchWords = norm.split(' ', Qt::SkipEmptyParts).toSet();
-    if (searchWords.size() >= 2)
+    // Substring match (either direction, both titles - min 4 chars to avoid false positives)
+    if (norm.length() >= 4)
     {
         for (const auto &e : m_entries)
         {
+            auto en = normalizeTitle(e.title);
+            auto rn = normalizeTitle(e.titleRomaji);
+            if (en.length() >= 4 && (en.contains(norm) || norm.contains(en)))
+                return e;
+            if (rn.length() >= 4 && (rn.contains(norm) || norm.contains(rn)))
+                return e;
+        }
+    }
+
+    // Word overlap match - if >40% of words match (both English and Romaji)
+    auto searchWords = norm.split(' ', Qt::SkipEmptyParts).toSet();
+    if (searchWords.size() >= 2)
+    {
+        // Score all entries, pick best match
+        int bestScore = 0;
+        int bestIdx = -1;
+        for (int i = 0; i < m_entries.size(); i++)
+        {
+            const auto &e = m_entries[i];
             auto entryWords = normalizeTitle(e.title).split(' ', Qt::SkipEmptyParts).toSet();
             auto common = searchWords & entryWords;
             int minSize = qMin(searchWords.size(), entryWords.size());
-            if (minSize > 0 && common.size() * 100 / minSize >= 40)
-                return e;
+            int score = (minSize > 0) ? common.size() * 100 / minSize : 0;
 
             if (!e.titleRomaji.isEmpty())
             {
                 auto romajiWords = normalizeTitle(e.titleRomaji).split(' ', Qt::SkipEmptyParts).toSet();
                 auto commonR = searchWords & romajiWords;
                 int minR = qMin(searchWords.size(), romajiWords.size());
-                if (minR > 0 && commonR.size() * 100 / minR >= 60)
-                    return e;
+                int scoreR = (minR > 0) ? commonR.size() * 100 / minR : 0;
+                score = qMax(score, scoreR);
+            }
+
+            if (score > bestScore && score >= 40)
+            {
+                bestScore = score;
+                bestIdx = i;
             }
         }
+
+        if (bestIdx >= 0)
+            return m_entries[bestIdx];
     }
 
     return AniListEntry();
@@ -336,15 +351,35 @@ int AniList::searchMediaId(const QString &title)
         return 0;
 
     auto query = R"(query ($search: String) { Media(search: $search, type: MANGA) { id } })";
-    auto vars = QString(R"({"search":"%1"})").arg(QString(title).replace("\"", "\\\""));
+    QRegularExpression idRx(R"lit("id"\s*:\s*(\d+))lit");
+
+    // Try exact title first
+    auto searchTitle = QString(title).replace("\"", "\\\"");
+    auto vars = QString(R"({"search":"%1"})").arg(searchTitle);
     auto job = graphqlRequest(query, vars);
 
-    if (!job->await(10000))
-        return 0;
+    if (job->await(10000))
+    {
+        auto m = idRx.match(job->bufferStr);
+        if (m.hasMatch())
+            return m.captured(1).toInt();
+    }
 
-    QRegularExpression idRx(R"lit("id"\s*:\s*(\d+))lit");
-    auto m = idRx.match(job->bufferStr);
-    return m.hasMatch() ? m.captured(1).toInt() : 0;
+    // Try normalized title (strip punctuation, noise words)
+    auto cleaned = normalizeTitle(title);
+    if (cleaned != searchTitle.toLower())
+    {
+        auto vars2 = QString(R"({"search":"%1"})").arg(cleaned.replace("\"", "\\\""));
+        auto job2 = graphqlRequest(query, vars2);
+        if (job2->await(10000))
+        {
+            auto m2 = idRx.match(job2->bufferStr);
+            if (m2.hasMatch())
+                return m2.captured(1).toInt();
+        }
+    }
+
+    return 0;
 }
 
 void AniList::trackReading(const QString &title, int chapter)
