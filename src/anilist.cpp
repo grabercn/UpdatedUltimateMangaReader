@@ -16,12 +16,21 @@ AniList::AniList(NetworkManager *networkManager, QObject *parent)
                 auto entry = findByTitle(pendingTrackTitle);
                 int mediaId = entry.mediaId;
                 if (mediaId == 0)
+                {
                     mediaId = searchMediaId(pendingTrackTitle);
+                    if (mediaId > 0)
+                        qDebug() << "AniList: found media for" << pendingTrackTitle << "id:" << mediaId;
+                    else
+                        qDebug() << "AniList: couldn't find" << pendingTrackTitle << "on AniList";
+                }
                 if (mediaId > 0)
                 {
-                    // Only update if we've progressed beyond what AniList knows
                     if (pendingTrackChapter > entry.progress || entry.status != 1)
+                    {
+                        qDebug() << "AniList: tracking" << pendingTrackTitle
+                                 << "ch:" << pendingTrackChapter << "status: CURRENT";
                         updateProgress(mediaId, pendingTrackChapter, 1);
+                    }
                 }
             }
             catch (...)
