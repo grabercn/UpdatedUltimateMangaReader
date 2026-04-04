@@ -357,7 +357,7 @@ bool UltimateMangaReaderCore::exportNovelAsEPUB(QSharedPointer<MangaInfo> manga,
     QDir().mkpath(dir);
 
     // Check if chapters are download-only (raw PDFs) - download files directly
-    bool downloadOnly = !manga->chapters.isEmpty() &&
+    bool downloadOnly = fromCh >= 0 && fromCh < manga->chapters.count() &&
                         manga->mangaSource->isDownloadOnly(manga->chapters[fromCh].chapterUrl);
 
     if (downloadOnly)

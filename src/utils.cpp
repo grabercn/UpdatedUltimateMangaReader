@@ -231,7 +231,8 @@ void decryptXorInplace_NEON(QByteArray& data, const QByteArray& key)
 
     uint8x16_t vdata, vkey, vres, vmask;
     int incr = qMin(16, key.length());
-    int rounds = data.length() / incr;
+    // Ensure vld1q_u8 (16-byte load) never reads past buffer end
+    int rounds = data.length() >= 16 ? (data.length() - 16) / incr + 1 : 0;
 
     int koff = 0;
     int doff = 0;
