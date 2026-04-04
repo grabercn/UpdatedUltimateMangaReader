@@ -896,9 +896,10 @@ void MainWidget::onSuspend()
     core->mangaChapterDownloadManager->cancelDownloads();
     wifiDialog->close();
 
-    // Stop debug screenshot timer
+    // Stop all timers
     if (screenshotTimer)
         screenshotTimer->stop();
+    ui->homeWidget->pauseTimers();
 
 #ifdef KOBO
     // Stop file server during sleep
@@ -951,9 +952,10 @@ void MainWidget::onResume()
     screensaverDialog->close();
     core->enableTimers(true);
 
-    // Restart debug screenshot timer
+    // Restart timers
     if (screenshotTimer && core->settings.debugScreenshots)
         screenshotTimer->start(10000);
+    ui->homeWidget->resumeTimers();
 
     // Reconnect WiFi (silently, no dialog)
     wifiDialog->connect();
@@ -1272,7 +1274,7 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
             // Stats summary
             auto &stats = core->readingStats;
             QString statsText = QString(
-                "<div style='font-size:10pt; padding:6px; background:#f8f8f8; border:1px solid #ddd; border-radius:4px;'>"
+                "<div style='padding:6px; background:#f8f8f8; border:1px solid #ddd; border-radius:4px;'>"
                 "<b>Reading Stats</b><br>"
                 "Chapters: %1 | Pages: %2 | Time: %3 min<br>"
                 "Streak: %4 days (best: %5) | Top: %6"

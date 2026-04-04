@@ -114,7 +114,6 @@ HEADERS += \
     src/mangasources/allnovel.h \
     src/mangasources/internetarchive.h \
     src/mangasources/mangadex.h \
-    src/mangasources/mangafire.h \
     src/mangasources/mangaplus.h \
     src/mangasources/mangatown.h \
     src/mangasources/updateprogresstoken.h \
@@ -188,7 +187,6 @@ SOURCES += \
     src/mangasources/allnovel.cpp \
     src/mangasources/internetarchive.cpp \
     src/mangasources/mangadex.cpp \
-    src/mangasources/mangafire.cpp \
     src/mangasources/mangaplus.cpp \
     src/mangasources/mangatown.cpp \
     src/mangasources/updateprogresstoken.cpp \

@@ -35,11 +35,11 @@ void WifiDialog::openFullScreen()
         move(parentWidget()->pos());
     }
 
-    // Only build UI once
-    if (layout())
+    // Only build UI once - check if we already have widgets
+    if (statusLabel)
     {
         updateStatus();
-        open();
+        exec();
         return;
     }
 
@@ -93,7 +93,7 @@ void WifiDialog::openFullScreen()
     infoLabel = nullptr;
 
     updateStatus();
-    open();
+    exec();
 }
 
 void WifiDialog::connect()

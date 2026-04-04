@@ -50,6 +50,8 @@ public:
     int aniListLinkCount() const { return aniListLocalMap.size(); }
     QStringList aniListLinkDescriptions() const;
     void resetAniListLinks();
+    void pauseTimers();
+    void resumeTimers();
 
 signals:
     void mangaSourceClicked(AbstractMangaSource *source);

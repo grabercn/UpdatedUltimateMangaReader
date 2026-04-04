@@ -22,7 +22,7 @@ DownloadQueueWidget::DownloadQueueWidget(QWidget *parent)
     connect(backBtn, &QPushButton::clicked, this, &DownloadQueueWidget::backClicked);
 
     headerLabel = new QLabel("Downloads", this);
-    headerLabel->setStyleSheet("font-size: 15pt; font-weight: bold;");
+    headerLabel->setStyleSheet("font-weight: bold;");
     headerLabel->setAlignment(Qt::AlignCenter);
 
     headerRow->addWidget(backBtn);

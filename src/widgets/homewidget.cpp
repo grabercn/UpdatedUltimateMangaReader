@@ -629,6 +629,20 @@ bool HomeWidget::isOffline() const
     return allSources.isEmpty();
 }
 
+void HomeWidget::pauseTimers()
+{
+    if (aniListRefreshTimer)
+        aniListRefreshTimer->stop();
+    if (bgMatchTimer)
+        bgMatchTimer->stop();
+}
+
+void HomeWidget::resumeTimers()
+{
+    if (aniListRefreshTimer && aniList && aniList->isLoggedIn())
+        aniListRefreshTimer->start();
+}
+
 void HomeWidget::refreshHomeView()
 {
     if (searchActive)
