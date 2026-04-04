@@ -532,9 +532,40 @@ void MangaInfoWidget::updateAniListTracking()
         }
         else
         {
-            // No AniList match found - hide the bar entirely
-            aniListFrame->hide();
-            return;
+            // Not in user's list - search AniList database to allow adding
+            int mediaId = aniList->searchMediaId(currentmanga->title);
+            if (mediaId <= 0)
+            {
+                aniListFrame->hide();
+                return;
+            }
+
+            currentAniListMediaId = mediaId;
+            aniListLabel->setText("AL+");
+
+            aniListStatusCombo->blockSignals(true);
+            aniListChapterCombo->blockSignals(true);
+            aniListVolumeCombo->blockSignals(true);
+            aniListScoreCombo->blockSignals(true);
+
+            // Default: not on list yet, set to "Reading" when user picks a status
+            aniListStatusCombo->setCurrentIndex(0);
+
+            aniListChapterCombo->clear();
+            int maxCh = currentmanga->chapters.count() > 0 ? currentmanga->chapters.count() : 100;
+            for (int i = 0; i <= maxCh; i++)
+                aniListChapterCombo->addItem("Ch. " + QString::number(i), i);
+
+            aniListVolumeCombo->clear();
+            for (int i = 0; i <= 50; i++)
+                aniListVolumeCombo->addItem("Vol. " + QString::number(i), i);
+
+            aniListScoreCombo->setCurrentIndex(0);
+
+            aniListStatusCombo->blockSignals(false);
+            aniListChapterCombo->blockSignals(false);
+            aniListVolumeCombo->blockSignals(false);
+            aniListScoreCombo->blockSignals(false);
         }
     }
     catch (...)
