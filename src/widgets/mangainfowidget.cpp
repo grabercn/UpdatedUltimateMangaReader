@@ -81,6 +81,9 @@ void MangaInfoWidget::setManga(QSharedPointer<MangaInfo> manga)
 
     if (currentmanga != manga)
     {
+        if (!currentmanga.isNull())
+            disconnect(currentmanga.get(), nullptr, this, nullptr);
+
         currentmanga.clear();
         currentmanga = manga;
 
@@ -147,13 +150,12 @@ void MangaInfoWidget::updateInfos()
         list.insert(0, QString("%1: %2%3").arg(i + 1).arg(prefix).arg(currentmanga->chapters[i].chapterTitle));
     }
 
+    auto *oldModel = ui->listViewChapters->model();
     QStringListModel *model = new QStringListModel(this);
     model->setStringList(list);
-
-    if (ui->listViewChapters->model() != nullptr)
-        ui->listViewChapters->model()->deleteLater();
-
     ui->listViewChapters->setModel(model);
+    if (oldModel)
+        oldModel->deleteLater();
 
     ui->labelMangaInfoTitle->setText(currentmanga->title);
 

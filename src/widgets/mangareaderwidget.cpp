@@ -502,7 +502,10 @@ void MangaReaderWidget::showImage(const QString &path)
             if (addImageToCache(path, false))
             {
                 i = searchCache(path);
-                ui->mangaImageWidget->setImage(imgcache[i].first);
+                if (i != -1)
+                    ui->mangaImageWidget->setImage(imgcache[i].first);
+                else
+                    ui->mangaImageWidget->showErrorImage();
             }
             else
             {
