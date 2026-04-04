@@ -96,7 +96,7 @@ bool NetworkManager::checkInternetConnection()
     try
     {
         qDebug() << "Checking internet connection...";
-        connected = KoboPlatformFunctions::KoboPlatformFunctions::testInternetConnection(2);
+        connected = KoboPlatformFunctions::testInternetConnection(2);
     }
     catch (const QException &e)
     {

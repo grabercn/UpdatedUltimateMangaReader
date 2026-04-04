@@ -10,8 +10,7 @@ void MangaList::filter()
         {
             titles.removeAt(i);
             urls.removeAt(i);
-            if (i < altTitles.size())
-                altTitles.removeAt(i);
+            altTitles.removeAt(i);
             popularityRanks.removeAt(i);
             size--;
             i--;
@@ -46,8 +45,7 @@ void MangaList::sortBy(MangaOrderMethod method)
 
             titles.swapItemsAt(i, j);
             urls.swapItemsAt(i, j);
-            if (i < altTitles.size() && j < altTitles.size())
-                altTitles.swapItemsAt(i, j);
+            altTitles.swapItemsAt(i, j);
             popularityRanks.swapItemsAt(i, j);
             indicesInv.swapItemsAt(i, j);
         }
@@ -81,6 +79,10 @@ QDataStream &operator>>(QDataStream &str, MangaList &m)
     // Backwards compat: altTitles added after original fields
     if (!str.atEnd())
         str >> m.altTitles;
+
+    // Pad altTitles to match titles size (old files may not have them)
+    while (m.altTitles.size() < m.titles.size())
+        m.altTitles.append("");
 
     return str;
 }
