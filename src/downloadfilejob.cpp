@@ -19,6 +19,7 @@ void DownloadFileJob::start()
     if (QFile::exists(filepath))
     {
         isCompleted = true;
+        emit completed();
     }
     else
     {
@@ -83,11 +84,17 @@ void DownloadFileJob::downloadFileFinished()
     }
     else
     {
-        isCompleted = true;
-
-        file.rename(filepath);
-
-        emit completed();
+        if (file.rename(filepath))
+        {
+            isCompleted = true;
+            emit completed();
+        }
+        else
+        {
+            errorString = "Failed to move downloaded file to " + filepath;
+            file.remove();
+            emit downloadError();
+        }
     }
 }
 

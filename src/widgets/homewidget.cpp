@@ -963,7 +963,7 @@ void HomeWidget::showOfflineReads()
 static QString normalizeName(const QString &s)
 {
     return s.toLower().trimmed()
-        .remove(QRegularExpression(R"([!?.,;:'\"\-])"))
+        .remove(QRegularExpression(R"([!?.,;:'\"])"))
         .replace("-", " ").replace("_", " ")
         .replace(QRegularExpression(R"(\s+)"), " ").trimmed();
 }

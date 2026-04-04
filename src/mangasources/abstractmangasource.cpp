@@ -364,12 +364,11 @@ void AbstractMangaSource::downloadCoverAsync(QSharedPointer<MangaInfo> mangainfo
 
     if (mangainfo->coverPath == "")
     {
-        int ind = mangainfo->coverUrl.indexOf('?');
-        if (ind == -1)
-            ind = mangainfo->coverUrl.length();
-        int fileTypeStart = qMax(0, ind - 4);
-        QString filetype = mangainfo->coverUrl.mid(fileTypeStart, ind - fileTypeStart);
-        if (filetype.isEmpty())
+        int queryPos = mangainfo->coverUrl.indexOf('?');
+        QString urlPath = (queryPos >= 0) ? mangainfo->coverUrl.left(queryPos) : mangainfo->coverUrl;
+        int dotPos = urlPath.lastIndexOf('.');
+        QString filetype = (dotPos >= 0) ? urlPath.mid(dotPos) : ".jpg";
+        if (filetype.length() > 6)
             filetype = ".jpg";
         mangainfo->coverPath = CONF.mangainfodir(name, mangainfo->title) + "cover" + filetype;
     }

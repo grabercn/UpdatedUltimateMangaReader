@@ -49,7 +49,8 @@ QSharedPointer<DownloadStringJob> AniList::graphqlRequest(const QString &query, 
     auto body = QString("{\"query\":\"%1\",\"variables\":%2}").arg(cleanQuery, variables);
 
     QList<std::tuple<const char *, const char *>> headers;
-    static QByteArray authHeader;
+    // Use thread_local to avoid use-after-free when multiple requests overlap
+    thread_local QByteArray authHeader;
     if (!authToken.isEmpty())
     {
         authHeader = ("Bearer " + authToken).toUtf8();

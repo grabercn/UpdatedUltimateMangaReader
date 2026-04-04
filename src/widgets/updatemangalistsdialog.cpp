@@ -6,6 +6,7 @@ UpdateMangaListsDialog::UpdateMangaListsDialog(Settings *settings, QWidget *pare
     : QDialog(parent), ui(new Ui::UpdateMangaListsDialog), settings(settings), progressToken(nullptr)
 {
     ui->setupUi(this);
+    setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
 
     ui->pushButtonCancel->setFixedHeight(SIZES.buttonSize);
     ui->pushButtonOk->setFixedHeight(SIZES.buttonSize);
@@ -19,6 +20,12 @@ UpdateMangaListsDialog::~UpdateMangaListsDialog()
 
 void UpdateMangaListsDialog::open()
 {
+    if (parentWidget())
+    {
+        resize(parentWidget()->size());
+        move(parentWidget()->pos());
+        setFixedSize(parentWidget()->size());
+    }
     resetUI();
     QDialog::open();
 }

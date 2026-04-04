@@ -9,7 +9,7 @@ DownloadMangaChaptersDialog::DownloadMangaChaptersDialog(QWidget *parent)
 {
     ui->setupUi(this);
     adjustUI();
-    setWindowFlags(Qt::Popup);
+    setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
 
     // Add "Export to Device" button next to OK
     auto *exportButton = new QPushButton(" Export to Kobo ", this);
@@ -43,7 +43,11 @@ void DownloadMangaChaptersDialog::show(QSharedPointer<MangaInfo> mangaInfo, int 
                                        bool exportOnly)
 {
     if (auto *pw = qobject_cast<QWidget *>(this->parent()))
-        this->setMaximumWidth(pw->width());
+    {
+        resize(pw->size());
+        move(pw->pos());
+        setFixedSize(pw->size());
+    }
 
     this->mangaInfo = mangaInfo;
     ui->spinBoxFrom->setRange(1, mangaInfo->chapters.size());

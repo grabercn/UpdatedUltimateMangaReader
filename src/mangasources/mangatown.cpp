@@ -128,6 +128,8 @@ Result<MangaChapterCollection, QString> MangaTown::updateMangaInfoFinishedLoadin
     fillMangaInfo(info, job->bufferStr, authorrx, artistrx, statusrx, yearrx, genresrx, summaryrx, coverrx);
 
     int spos = job->bufferStr.indexOf(R"(<ul class="chapter_list">)");
+    if (spos < 0)
+        spos = 0;
     int epos = job->bufferStr.indexOf(R"(<div class="comment_content">)", spos);
 
     MangaChapterCollection newchapters;

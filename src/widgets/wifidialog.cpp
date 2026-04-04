@@ -137,7 +137,7 @@ void WifiDialog::onToggleClicked()
         // Disconnect
         if (statusLabel) statusLabel->setText("Disconnecting...");
         if (toggleBtn) toggleBtn->setEnabled(false);
-        QtConcurrent::run([this]() {
+        lastConnection = QtConcurrent::run([this]() {
             networkManager->disconnectWifi();
             if (destroying) return;
             QMetaObject::invokeMethod(this, [this]() {
@@ -312,7 +312,7 @@ void WifiDialog::connectToNetwork(const QString &ssid, const QString &password)
     if (statusLabel) statusLabel->setText("Connecting to " + ssid + "...");
     if (toggleBtn) toggleBtn->setEnabled(false);
 
-    QtConcurrent::run([this, ssid, password]() {
+    lastConnection = QtConcurrent::run([this, ssid, password]() {
         // Add network via wpa_cli
         QProcess proc;
         proc.start("wpa_cli", {"-i", wifiInterface, "add_network"});

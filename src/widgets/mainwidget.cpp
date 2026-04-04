@@ -1440,12 +1440,8 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
             core->networkManager->networkAccessManager()->setNetworkAccessible(
                 QNetworkAccessManager::NotAccessible);
 
-            // Disable autoboot on manual exit (prevents bootloop)
-            if (core->settings.autoBootEnabled)
-            {
-                core->settings.autoBootEnabled = false;
-                Settings::writeKfmonAutoboot(false);
-            }
+            // Note: autoboot preference is preserved across exits.
+            // KFMon's on_failure=nickel handles crash recovery.
 
             // Save state
             core->settings.serialize();

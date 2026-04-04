@@ -62,9 +62,9 @@ UltimateMangaReaderCore::UltimateMangaReaderCore(QObject* parent)
     connect(mangaController, &MangaController::activity, this, &UltimateMangaReaderCore::activity);
 
     // Use configurable auto-suspend
-    int suspendMs = settings.autoSuspendMinutes * 60 * 1000;
-    if (suspendMs <= 0)
-        suspendMs = CONF.autoSuspendIntervalMinutes * 60 * 1000;
+    int suspendMs = qBound(1, settings.autoSuspendMinutes, 1440) * 60 * 1000;
+    if (settings.autoSuspendMinutes <= 0)
+        suspendMs = qBound(1, CONF.autoSuspendIntervalMinutes, 1440) * 60 * 1000;
     autoSuspendTimer.setInterval(suspendMs);
     connect(&autoSuspendTimer, &QTimer::timeout,
             [this]()
@@ -86,7 +86,7 @@ void UltimateMangaReaderCore::enableTimers(bool enabled)
         // Update auto-suspend interval from settings
         if (settings.autoSuspendMinutes > 0)
         {
-            autoSuspendTimer.setInterval(settings.autoSuspendMinutes * 60 * 1000);
+            autoSuspendTimer.setInterval(qBound(1, settings.autoSuspendMinutes, 1440) * 60 * 1000);
             autoSuspendTimer.start();
         }
         else

@@ -19,8 +19,10 @@ QDataStream &operator<<(QDataStream &str, const MangaChapter &m)
 
 QDataStream &operator>>(QDataStream &str, MangaChapter &m)
 {
-    str >> m.chapterTitle >> m.chapterUrl >> m.pagesLoaded >> m.pageUrlList >> m.imageUrlList
-        >> m.chapterNumber;
+    str >> m.chapterTitle >> m.chapterUrl >> m.pagesLoaded >> m.pageUrlList >> m.imageUrlList;
+
+    if (!str.atEnd())
+        str >> m.chapterNumber;
 
     return str;
 }

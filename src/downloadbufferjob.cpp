@@ -138,7 +138,7 @@ bool DownloadBufferJob::await(int timeout, bool retry, int maxRetries)
             return await(rem, retry, maxRetries - 1);
         }
     }
-    if (rem <= 20)
+    if (rem <= 20 && !isCompleted)
         errorString = "Download timeout.";
 
     return isCompleted;

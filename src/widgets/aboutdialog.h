@@ -19,6 +19,8 @@ public:
     explicit AboutDialog(QWidget *parent);
     ~AboutDialog();
 
+    void open() override;
+
 private slots:
     void on_pushButtonClose_clicked();
 

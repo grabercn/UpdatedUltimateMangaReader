@@ -101,12 +101,13 @@ Result<MangaChapterCollection, QString> MangaHere::updateMangaInfoFinishedLoadin
         info->status = info->status.split('-')[0];
 
     int spos = job->bufferStr.indexOf(R"(<div id="chapterlist">)");
+    if (spos < 0)
+        spos = 0;
     int epos = job->bufferStr.indexOf(R"(<div class="fb-comments)", spos);
 
     MangaChapterCollection newchapters;
     for (auto &chapterrxmatch : getAllRxMatches(chapterrx, job->bufferStr, spos, epos))
         newchapters.insert(0, MangaChapter(chapterrxmatch.captured(2), baseUrl + chapterrxmatch.captured(1)));
-    info->chapters.mergeChapters(newchapters);
 
     return Ok(newchapters);
 }
@@ -122,6 +123,8 @@ Result<QStringList, QString> MangaHere::getPageList(const QString &chapterUrl)
     QRegularExpression pagerx(R"lit(<img src="([^"]+)"[^>]*class="reader-main-img)lit");
 
     int spos = job->bufferStr.indexOf(R"(<div class="vung-doc" id="vungdoc">)");
+    if (spos < 0)
+        spos = 0;
     int epos = job->bufferStr.indexOf(R"(class="navi-change-chapter">)", spos);
 
     QStringList imageUrls;

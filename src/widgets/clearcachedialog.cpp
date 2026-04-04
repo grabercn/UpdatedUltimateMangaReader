@@ -6,7 +6,7 @@ ClearCacheDialog::ClearCacheDialog(QWidget* parent) : QDialog(parent), ui(new Ui
 {
     ui->setupUi(this);
     adjustUI();
-    setWindowFlags(Qt::Popup);
+    setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
 }
 
 ClearCacheDialog::~ClearCacheDialog()
@@ -31,6 +31,13 @@ void ClearCacheDialog::adjustUI()
 
 void ClearCacheDialog::open()
 {
+    if (parentWidget())
+    {
+        resize(parentWidget()->size());
+        move(parentWidget()->pos());
+        setFixedSize(parentWidget()->size());
+    }
+
     QString str = QString("Calculating... \n%1 MB of free space remaining.")
 
                       .arg(getFreeSpace());
@@ -56,18 +63,15 @@ void ClearCacheDialog::on_pushButtonCancel_clicked()
 
 void ClearCacheDialog::on_pushButtonClear1_clicked()
 {
-    emit finished(ClearImages);
-    close();
+    done(ClearImages);
 }
 
 void ClearCacheDialog::on_pushButtonClear2_clicked()
 {
-    emit finished(ClearInfos);
-    close();
+    done(ClearInfos);
 }
 
 void ClearCacheDialog::on_pushButtonClear3_clicked()
 {
-    emit finished(ClearAll);
-    close();
+    done(ClearAll);
 }

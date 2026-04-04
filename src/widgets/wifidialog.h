@@ -36,13 +36,13 @@ private:
     std::atomic<bool> destroying{false};
 
     // UI
-    QLabel *statusLabel;
-    QLabel *statusIcon;
-    QPushButton *toggleBtn;
-    QPushButton *scanBtn;
-    QPushButton *closeBtn;
-    QListWidget *networkList;
-    QLabel *infoLabel;
+    QLabel *statusLabel = nullptr;
+    QLabel *statusIcon = nullptr;
+    QPushButton *toggleBtn = nullptr;
+    QPushButton *scanBtn = nullptr;
+    QPushButton *closeBtn = nullptr;
+    QListWidget *networkList = nullptr;
+    QLabel *infoLabel = nullptr;
 
     void updateStatus();
     void scanNetworks();

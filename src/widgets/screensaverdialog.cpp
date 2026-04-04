@@ -49,7 +49,7 @@ bool ScreensaverDialog::event(QEvent *event)
         event->type() == QEvent::TouchEnd)
         return true;  // Consume - don't close the dialog
 
-    return QWidget::event(event);
+    return QDialog::event(event);
 }
 
 void ScreensaverDialog::showRandomScreensaver()

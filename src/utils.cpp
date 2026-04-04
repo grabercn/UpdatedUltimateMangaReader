@@ -189,8 +189,8 @@ bool enoughFreeSystemMemory()
 
 void decryptXorInplace(QByteArray& data, const QByteArray& key)
 {
-    //    QElapsedTimer t;
-    //    t.start();
+    if (key.isEmpty() || data.isEmpty())
+        return;
 
     // loops inflated for better performance due to compiler optimizations
     int r = data.length() / key.length();
@@ -219,8 +219,8 @@ void decryptXorInplace(QByteArray& data, const QByteArray& key)
 #ifdef __ARM_NEON__
 void decryptXorInplace_NEON(QByteArray& data, const QByteArray& key)
 {
-    //    QElapsedTimer t;
-    //    t.start();
+    if (key.isEmpty() || data.isEmpty())
+        return;
 
     QByteArray key2;
     key2.append(key);

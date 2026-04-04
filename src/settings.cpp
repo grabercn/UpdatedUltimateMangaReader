@@ -52,53 +52,119 @@ void Settings::scheduleSerialize()
 void Settings::writeKfmonAutoboot(bool enabled)
 {
 #ifdef KOBO
-    // Detect launcher: check for KFMon config dir and NickelMenu config dir
     bool hasKfmon = QDir("/mnt/onboard/.adds/kfmon/config").exists();
     bool hasNickelMenu = QDir("/mnt/onboard/.adds/nm").exists();
 
-    // KFMon config
+    // KFMon config: read-modify-write to preserve existing settings
     if (hasKfmon)
     {
         QString kfmonPath = "/mnt/onboard/.adds/kfmon/config/UltimateMangaReader.ini";
         QFile file(kfmonPath);
-        if (file.open(QIODevice::WriteOnly | QIODevice::Text))
+
+        // Read existing config if present
+        QString existingContent;
+        if (file.open(QIODevice::ReadOnly | QIODevice::Text))
         {
-            QTextStream out(&file);
-            out << "# UltimateMangaReader KFMon config\n"
-                << "[watch]\n"
-                << "filename = /mnt/onboard/.adds/UltimateMangaReader/UltimateMangaReader\n"
-                << "label = Ultimate Manga Reader\n"
-                << "on_boot = " << (enabled ? "true" : "false") << "\n"
-                << "on_failure = nickel\n"  // fall back to Nickel if app crashes
-                << "block_spawns = false\n";
+            existingContent = QTextStream(&file).readAll();
             file.close();
-            qDebug() << "KFMon autoboot config written:" << enabled;
         }
+
+        if (!existingContent.isEmpty())
+        {
+            // Update only the on_boot line, preserve everything else
+            QStringList lines = existingContent.split('\n');
+            bool foundOnBoot = false;
+            for (int i = 0; i < lines.size(); i++)
+            {
+                if (lines[i].trimmed().startsWith("on_boot"))
+                {
+                    lines[i] = QString("on_boot = %1").arg(enabled ? "true" : "false");
+                    foundOnBoot = true;
+                    break;
+                }
+            }
+            if (!foundOnBoot)
+                lines.append(QString("on_boot = %1").arg(enabled ? "true" : "false"));
+
+            if (file.open(QIODevice::WriteOnly | QIODevice::Text))
+            {
+                QTextStream out(&file);
+                out << lines.join('\n');
+                file.close();
+            }
+        }
+        else
+        {
+            // No existing config — create a minimal one
+            if (file.open(QIODevice::WriteOnly | QIODevice::Text))
+            {
+                QTextStream out(&file);
+                out << "# UltimateMangaReader KFMon config\n"
+                    << "[watch]\n"
+                    << "filename = /mnt/onboard/.adds/UltimateMangaReader/UltimateMangaReader\n"
+                    << "label = Ultimate Manga Reader\n"
+                    << "on_boot = " << (enabled ? "true" : "false") << "\n"
+                    << "on_failure = nickel\n"
+                    << "block_spawns = false\n";
+                file.close();
+            }
+        }
+        qDebug() << "KFMon autoboot config updated:" << enabled;
     }
 
-    // NickelMenu config - add/update a menu entry and optionally set as startup
+    // NickelMenu config: only manage UMR's own file, toggle startup line only
     if (hasNickelMenu)
     {
         QString nmPath = "/mnt/onboard/.adds/nm/umr";
         QFile file(nmPath);
+
+        // Read existing NickelMenu entries for UMR
+        QString existingContent;
+        if (file.open(QIODevice::ReadOnly | QIODevice::Text))
+        {
+            existingContent = QTextStream(&file).readAll();
+            file.close();
+        }
+
+        // Preserve all existing lines except startup entries for UMR
+        QStringList preservedLines;
+        bool hasMainEntry = false;
+        for (const auto &line : existingContent.split('\n'))
+        {
+            QString trimmed = line.trimmed();
+            if (trimmed.isEmpty())
+                continue;
+            // Remove old startup entries (we'll re-add if needed)
+            if (trimmed.contains(":startup") && trimmed.contains("Ultimate Manga Reader"))
+                continue;
+            preservedLines.append(line);
+            if (trimmed.contains(":main") && trimmed.contains("Ultimate Manga Reader"))
+                hasMainEntry = true;
+        }
+
+        // Ensure a main menu entry exists
+        if (!hasMainEntry)
+        {
+            preservedLines.append(
+                "menu_item :main :Ultimate Manga Reader :cmd_spawn "
+                ":quiet:/mnt/onboard/.adds/UltimateMangaReader/ultimatemangareader.sh");
+        }
+
+        // Add startup entry only if autoboot enabled
+        if (enabled)
+        {
+            preservedLines.append(
+                "menu_item :startup :Ultimate Manga Reader :cmd_spawn "
+                ":quiet:/mnt/onboard/.adds/UltimateMangaReader/ultimatemangareader.sh");
+        }
+
         if (file.open(QIODevice::WriteOnly | QIODevice::Text))
         {
             QTextStream out(&file);
-
-            // Always add a menu entry to launch the app via shell script
-            out << "menu_item :main :Ultimate Manga Reader :cmd_spawn "
-                << ":quiet:/mnt/onboard/.adds/UltimateMangaReader/ultimatemangareader.sh\n";
-
-            // Add startup entry if autoboot enabled
-            if (enabled)
-            {
-                out << "menu_item :startup :Ultimate Manga Reader :cmd_spawn "
-                    << ":quiet:/mnt/onboard/.adds/UltimateMangaReader/ultimatemangareader.sh\n";
-            }
-
+            out << preservedLines.join('\n') << "\n";
             file.close();
-            qDebug() << "NickelMenu config written:" << enabled;
         }
+        qDebug() << "NickelMenu config updated:" << enabled;
     }
 
     if (!hasKfmon && !hasNickelMenu)

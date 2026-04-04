@@ -84,6 +84,9 @@ int FavoritesManager::findFavorite(const QString &title)
 
 void FavoritesManager::moveFavoriteToFront(int i)
 {
+    if (i < 0 || i >= favorites.size() || i >= favoriteinfos.size())
+        return;
+
     favorites.move(i, 0);
     favoriteinfos.move(i, 0);
 
@@ -137,7 +140,7 @@ void FavoritesManager::updateInfos()
         {
             mangasources[favoriteinfos[i]->hostname]->updateMangaInfoAsync(favoriteinfos[i], false);
         }
-        else
+        else if (i < favorites.size())
         {
             auto &fav = favorites[i];
             if (mangasources.contains(fav.hostname))
@@ -162,4 +165,5 @@ void FavoritesManager::clearFavorites()
 {
     favorites.clear();
     favoriteinfos.clear();
+    serialize();
 }

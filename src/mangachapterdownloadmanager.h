@@ -42,9 +42,9 @@ signals:
 private:
     bool cancelled;
     bool running;
-    int failedImages;
-    int currentFromChapter;
-    int currentToChapter;
+    int failedImages = 0;
+    int currentFromChapter = 0;
+    int currentToChapter = 0;
     QSharedPointer<MangaInfo> currentManga;
 
     QQueue<MangaChapterRange> downloadJobs;

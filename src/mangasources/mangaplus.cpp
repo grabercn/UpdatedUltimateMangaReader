@@ -177,7 +177,6 @@ Result<MangaChapterCollection, QString> MangaPlus::updateMangaInfoFinishedLoadin
 
     auto chaptersL = detail->GetMessageArray(10);
     chapters.insert(chapters.end(), chaptersL.begin(), chaptersL.end());
-    std::reverse(chapters.begin(), chapters.end());
 
     //    message Chapter {
     //      optional uint32 titleId = 1;

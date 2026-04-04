@@ -245,8 +245,9 @@ void MangaController::updateCurrentImage()
             {
                 emit currentImageChanged("error");
                 emit error(imageUrl.unwrapErr());
+                return;
             }
-            return;
+            continue;
         }
 
         auto dd = DownloadImageDescriptor(imageUrl.unwrap(), currentManga->title,
