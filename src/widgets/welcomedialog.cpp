@@ -123,7 +123,7 @@ WelcomeDialog::WelcomeDialog(QWidget *parent)
         "Color images may load slightly slower than greyscale.<br>"
         "- <b>Updates:</b> Check for updates in Settings</p>"
         "<br>"
-        "<p style='text-align:center; font-size:12pt;'><b>Ready to start reading?</b></p>"
+        "<p style='text-align:center; '><b>Ready to start reading?</b></p>"
     );
 
     totalPages = pages.size();

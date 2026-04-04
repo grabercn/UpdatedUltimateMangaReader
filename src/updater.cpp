@@ -339,6 +339,10 @@ void Updater::downloadAndApply()
         emit updateLog("Update applied! Restarting in 3 seconds...");
         emit updateCompleted(true);
 
+        // Restore framebuffer before restart so Nickel/next launch gets clean display
+        QProcess::execute("sh", {"-c",
+            "/mnt/onboard/.adds/UltimateMangaReader/fbdepth -d 32 2>/dev/null"});
+
         // Give the UI a moment to show the message, then restart
         QThread::sleep(3);
         QProcess::startDetached(appPath, QCoreApplication::arguments());

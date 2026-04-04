@@ -95,14 +95,15 @@ private:
 
     AniList *aniList = nullptr;
 
-    // Cached AniList -> local manga mapping
+    // Cached AniList -> local manga mapping (supports multiple sources per entry)
     struct LocalMangaMatch
     {
         QString source;
         QString dirName;
         QString infoPath;
     };
-    QMap<QString, LocalMangaMatch> aniListLocalMap;  // anilist title -> local match
+    QMap<QString, LocalMangaMatch> aniListLocalMap;  // anilist title -> best local match
+    QMultiMap<QString, LocalMangaMatch> aniListAllLinks;  // anilist title -> ALL local matches
     void buildAniListLocalMap();
     void saveAniListLocalMap();
     void loadAniListLocalMap();

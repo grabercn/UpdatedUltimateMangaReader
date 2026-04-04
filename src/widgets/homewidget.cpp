@@ -1063,10 +1063,13 @@ bool HomeWidget::tryMatch(const AniListEntry &entry)
     std::sort(candidates.begin(), candidates.end(),
               [](const Match &a, const Match &b) { return a.score > b.score; });
 
-    // If best match has 0 chapters in its cache, check if another candidate has chapters
+    // Store ALL matches for multi-source support
+    for (const auto &m : candidates)
+        aniListAllLinks.insert(entry.title, {m.dir.source, m.dir.dirName, m.dir.path});
+
+    // Pick best match with actual chapters for the primary link
     for (const auto &m : candidates)
     {
-        // Verify this match has actual chapter data
         try
         {
             auto info = MangaInfo::deserialize(nullptr, m.dir.path + "/mangainfo.dat");
@@ -1079,7 +1082,7 @@ bool HomeWidget::tryMatch(const AniListEntry &entry)
         catch (...) {}
     }
 
-    // Fallback: use best match even if 0 chapters (might load them later)
+    // Fallback: use best match even if 0 chapters
     aniListLocalMap[entry.title] = {candidates.first().dir.source,
                                     candidates.first().dir.dirName,
                                     candidates.first().dir.path};
@@ -1089,6 +1092,7 @@ bool HomeWidget::tryMatch(const AniListEntry &entry)
 void HomeWidget::buildAniListLocalMap()
 {
     // Preserve manually-created links, remove stale auto-links
+    aniListAllLinks.clear();
     QMap<QString, LocalMangaMatch> preserved;
     for (auto it = aniListLocalMap.begin(); it != aniListLocalMap.end(); ++it)
     {

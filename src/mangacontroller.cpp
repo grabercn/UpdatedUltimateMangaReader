@@ -116,6 +116,8 @@ Result<QString, QString> MangaController::getImageUrl(const MangaIndex &index)
 
     if (!currentManga->chapters[index.chapter].pagesLoaded)
     {
+        if (!currentManga->mangaSource)
+            return Err(QString("No manga source."));
         currentManga->mangaSource->updatePageList(currentManga, index.chapter);
         currentManga->serialize();
     }

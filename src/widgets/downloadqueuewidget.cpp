@@ -33,7 +33,7 @@ DownloadQueueWidget::DownloadQueueWidget(QWidget *parent)
     // Progress bar
     activeProgress = new QProgressBar(this);
     activeProgress->setRange(0, 100);
-    activeProgress->setFixedHeight(16);
+    activeProgress->setFixedHeight(SIZES.batteryIconHeight);
     activeProgress->setTextVisible(true);
     activeProgress->hide();
     layout->addWidget(activeProgress);

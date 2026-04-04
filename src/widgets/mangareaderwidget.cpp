@@ -48,7 +48,7 @@ MangaReaderWidget::MangaReaderWidget(QWidget *parent)
     textProgressBar = new QProgressBar(textBottomBar);
     textProgressBar->setRange(0, 100);
     textProgressBar->setValue(0);
-    textProgressBar->setFixedHeight(6);
+    textProgressBar->setFixedHeight(SIZES.batteryIconHeight / 2);
     textProgressBar->setTextVisible(false);
     textProgressBar->setStyleSheet(
         "QProgressBar { border: 1px solid #bbb; border-radius: 3px; background: #eee; }"
@@ -56,7 +56,7 @@ MangaReaderWidget::MangaReaderWidget(QWidget *parent)
 
     textPageLabel = new QLabel("1/1", textBottomBar);
     textPageLabel->setStyleSheet("color: #444;");
-    textPageLabel->setFixedWidth(55);
+    textPageLabel->setFixedWidth(SIZES.buttonSize * 2);
     textPageLabel->setAlignment(Qt::AlignCenter);
 
     textMenuBtn = new QPushButton("Menu", textBottomBar);

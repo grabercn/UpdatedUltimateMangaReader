@@ -530,7 +530,7 @@ void MainWidget::adjustUI()
     ui->pushButtonHome->setFixedHeight(SIZES.buttonSize);
 
     // Replace Close with Back arrow on the left side
-    ui->pushButtonClose->setText("< Back");
+    ui->pushButtonClose->setText("\342\206\220 Back");  // ← Back
     ui->pushButtonClose->setProperty("type", "borderless");
     ui->pushButtonClose->setFixedHeight(SIZES.buttonSize);
     // Reorder: [< Back | Home | Favorites]
@@ -1186,17 +1186,34 @@ void MainWidget::setWidgetTab(WidgetTab tab)
 
 void MainWidget::readerGoBack()
 {
-    // Pop from history, skip MangaInfoTab if no manga is loaded
-    while (!tabHistory.isEmpty())
+    // Simple back: always go to the previous logical page
+    auto current = static_cast<WidgetTab>(ui->stackedWidget->currentIndex());
+
+    switch (current)
     {
-        auto tab = tabHistory.takeLast();
-        if (tab == MangaInfoTab && (!core->mangaController->currentManga))
-            continue;  // skip blank info page
-        setWidgetTab(tab);
-        return;
+        case MangaReaderTab:
+            // Reader -> Manga Info (if manga loaded) or Home
+            if (core->mangaController->currentManga)
+            {
+                core->readingStats.stopReading();
+                setWidgetTab(MangaInfoTab);
+            }
+            else
+                setWidgetTab(HomeTab);
+            break;
+
+        case MangaInfoTab:
+        case FavoritesTab:
+        case DownloadsTab:
+            // All go back to Home
+            setWidgetTab(HomeTab);
+            break;
+
+        case HomeTab:
+        default:
+            // Already at home, do nothing
+            break;
     }
-    // Fallback to home
-    setWidgetTab(HomeTab);
 }
 
 bool MainWidget::eventFilter(QObject *, QEvent *event)
@@ -1257,6 +1274,12 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
             core->readingStats.serialize();
             if (core->aniList)
                 core->aniList->serialize();
+
+#ifdef KOBO
+            // Restore framebuffer for Nickel
+            QProcess::execute("sh", {"-c",
+                "/mnt/onboard/.adds/UltimateMangaReader/fbdepth -d 32 2>/dev/null"});
+#endif
 
             // Force quit - don't wait for pending events
             qApp->quit();
