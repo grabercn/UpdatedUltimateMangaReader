@@ -114,8 +114,16 @@ HEADERS += \
     src/mangasources/allnovel.h \
     src/mangasources/internetarchive.h \
     src/mangasources/mangadex.h \
+    src/mangasources/mangafire.h \
+    src/mangasources/mangago.h \
+    src/mangasources/mangahere.h \
+    src/mangasources/mangahub.h \
+    src/mangasources/mangakakalot.h \
+    src/mangasources/mangaowl.h \
+    src/mangasources/mangapanda.h \
     src/mangasources/mangaplus.h \
     src/mangasources/mangatown.h \
+    src/mangasources/readmanga.h \
     src/mangasources/updateprogresstoken.h \
     src/networkmanager.h \
     src/readingprogress.h \
@@ -187,8 +195,16 @@ SOURCES += \
     src/mangasources/allnovel.cpp \
     src/mangasources/internetarchive.cpp \
     src/mangasources/mangadex.cpp \
+    src/mangasources/mangafire.cpp \
+    src/mangasources/mangago.cpp \
+    src/mangasources/mangahere.cpp \
+    src/mangasources/mangahub.cpp \
+    src/mangasources/mangakakalot.cpp \
+    src/mangasources/mangaowl.cpp \
+    src/mangasources/mangapanda.cpp \
     src/mangasources/mangaplus.cpp \
     src/mangasources/mangatown.cpp \
+    src/mangasources/readmanga.cpp \
     src/mangasources/updateprogresstoken.cpp \
     src/networkmanager.cpp \
     src/readingprogress.cpp \
