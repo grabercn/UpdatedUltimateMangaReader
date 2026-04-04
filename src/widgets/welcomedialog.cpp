@@ -150,7 +150,9 @@ void WelcomeDialog::markShown()
 {
     QDir().mkpath(CONF.cacheDir);
     QFile file(CONF.cacheDir + "welcome_shown");
-    file.open(QIODevice::WriteOnly);
-    file.write("1");
-    file.close();
+    if (file.open(QIODevice::WriteOnly))
+    {
+        file.write("1");
+        file.close();
+    }
 }

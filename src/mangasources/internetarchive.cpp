@@ -290,10 +290,14 @@ Result<QStringList, QString> InternetArchive::getPageList(const QString &chapter
         try
         {
             Document doc;
-            doc.Parse(job->buffer.data());
+            ParseResult res = doc.Parse(job->buffer.data());
+            if (!res || !doc.HasMember("files") || !doc["files"].IsArray())
+                return Err(QString("Couldn't parse image list from Archive.org."));
             auto files = doc["files"].GetArray();
             for (const auto &file : files)
             {
+                if (!file.HasMember("name") || !file["name"].IsString())
+                    continue;
                 auto fname = QString(file["name"].GetString());
                 auto fl = fname.toLower();
                 if ((fl.endsWith(".jpg") || fl.endsWith(".png") || fl.endsWith(".jpeg")) &&
@@ -328,12 +332,12 @@ Result<QStringList, QString> InternetArchive::getPageList(const QString &chapter
             try
             {
                 Document doc;
-                doc.Parse(metaJob->buffer.data());
-                if (doc.HasMember("files") && doc["files"].IsArray())
+                ParseResult pres = doc.Parse(metaJob->buffer.data());
+                if (pres && doc.HasMember("files") && doc["files"].IsArray())
                 {
                     for (const auto &file : doc["files"].GetArray())
                     {
-                        if (!file.HasMember("name"))
+                        if (!file.HasMember("name") || !file["name"].IsString())
                             continue;
                         auto fname = QString(file["name"].GetString());
                         if (fname.endsWith("_page_numbers.json"))
@@ -423,12 +427,12 @@ bool InternetArchive::checkHasPageImages(const QString &identifier) const
         try
         {
             Document doc;
-            doc.Parse(metaJob->buffer.data());
-            if (doc.HasMember("files") && doc["files"].IsArray())
+            ParseResult pres = doc.Parse(metaJob->buffer.data());
+            if (pres && doc.HasMember("files") && doc["files"].IsArray())
             {
                 for (const auto &file : doc["files"].GetArray())
                 {
-                    if (!file.HasMember("name"))
+                    if (!file.HasMember("name") || !file["name"].IsString())
                         continue;
                     if (QString(file["name"].GetString()).endsWith("_jp2.zip"))
                     {
