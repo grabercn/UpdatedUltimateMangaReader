@@ -811,9 +811,8 @@ bool MainWidget::buttonPressEvent(QKeyEvent *event)
         return true;
     }
     // Page buttons scroll lists when not in reader
-    // Use PageDown/PageUp + Down/Up arrows (Left/Right reserved for text cursor)
     else if (event->key() == Qt::Key_PageDown || event->key() == Qt::Key_PageUp ||
-             event->key() == Qt::Key_Down || event->key() == Qt::Key_Up)
+             event->key() == Qt::Key_Left || event->key() == Qt::Key_Right)
     {
         // Find the largest visible scrollable area (check active dialog first, then stack)
         QAbstractScrollArea *scrollArea = nullptr;
@@ -843,7 +842,7 @@ bool MainWidget::buttonPressEvent(QKeyEvent *event)
         {
             auto *sb = scrollArea->verticalScrollBar();
             int step = scrollArea->viewport()->height() * 0.8;  // 80% page scroll
-            bool down = (event->key() == Qt::Key_PageDown || event->key() == Qt::Key_Down);
+            bool down = (event->key() == Qt::Key_PageDown || event->key() == Qt::Key_Right);
             sb->setValue(sb->value() + (down ? step : -step));
             return true;
         }
@@ -1247,6 +1246,7 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
             break;
         }
         case SettingsButton:
+            settingsDialog->installEventFilter(this);
             settingsDialog->open();
             break;
         case ClearDownloadsButton:

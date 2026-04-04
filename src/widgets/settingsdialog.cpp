@@ -688,13 +688,13 @@ void SettingsDialog::keyPressEvent(QKeyEvent *event)
 {
     // Page buttons scroll the settings scroll area
     if (event->key() == Qt::Key_PageDown || event->key() == Qt::Key_PageUp ||
-        event->key() == Qt::Key_Down || event->key() == Qt::Key_Up)
+        event->key() == Qt::Key_Left || event->key() == Qt::Key_Right)
     {
         if (ui->scrollArea && ui->scrollArea->verticalScrollBar())
         {
             auto *sb = ui->scrollArea->verticalScrollBar();
             int step = ui->scrollArea->viewport()->height();
-            bool down = (event->key() == Qt::Key_PageDown || event->key() == Qt::Key_Down);
+            bool down = (event->key() == Qt::Key_PageDown || event->key() == Qt::Key_Right);
             sb->setValue(sb->value() + (down ? step : -step));
             return;
         }
