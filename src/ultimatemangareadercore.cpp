@@ -1,13 +1,6 @@
 #include "ultimatemangareadercore.h"
 
-#include "mangafire.h"
-#include "mangago.h"
 #include "mangahere.h"
-#include "mangahub.h"
-#include "mangakakalot.h"
-#include "mangaowl.h"
-#include "mangapanda.h"
-#include "readmanga.h"
 
 UltimateMangaReaderCore::UltimateMangaReaderCore(QObject* parent)
     : QObject(parent),
@@ -31,16 +24,9 @@ UltimateMangaReaderCore::UltimateMangaReaderCore(QObject* parent)
     settings.deserialize();
 
     mangaSources.append(QSharedPointer<AbstractMangaSource>(new MangaDex(networkManager)));
-    mangaSources.append(QSharedPointer<AbstractMangaSource>(new Mangakakalot(networkManager)));
-    mangaSources.append(QSharedPointer<AbstractMangaSource>(new MangaFire(networkManager)));
     mangaSources.append(QSharedPointer<AbstractMangaSource>(new MangaPlus(networkManager)));
     mangaSources.append(QSharedPointer<AbstractMangaSource>(new MangaTown(networkManager)));
-    mangaSources.append(QSharedPointer<AbstractMangaSource>(new MangaHub(networkManager)));
-    mangaSources.append(QSharedPointer<AbstractMangaSource>(new MangaPanda(networkManager)));
-    mangaSources.append(QSharedPointer<AbstractMangaSource>(new MangaOwl(networkManager)));
-    mangaSources.append(QSharedPointer<AbstractMangaSource>(new MangaGo(networkManager)));
     mangaSources.append(QSharedPointer<AbstractMangaSource>(new MangaHere(networkManager)));
-    mangaSources.append(QSharedPointer<AbstractMangaSource>(new ReadManga(networkManager)));
     mangaSources.append(QSharedPointer<AbstractMangaSource>(
         new InternetArchive(networkManager, "IAManga", "manga", ContentManga)));
     mangaSources.append(QSharedPointer<AbstractMangaSource>(new AllNovel(networkManager)));
