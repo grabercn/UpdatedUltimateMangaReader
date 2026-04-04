@@ -1011,6 +1011,10 @@ void MainWidget::onResume()
 
     screensaverDialog->close();
 
+    // Force full screen repaint after screensaver closes
+    this->repaint();
+    qApp->processEvents();
+
     // === Phase 1: Immediate - restore core app state ===
     core->enableTimers(true);
 
@@ -1025,6 +1029,16 @@ void MainWidget::onResume()
 
     // Update battery icon immediately
     ui->batteryIcon->updateIcon();
+
+    // Resume reading stats if user was in reader
+    if (ui->stackedWidget->currentIndex() == MangaReaderTab &&
+        core->mangaController->currentManga)
+    {
+        core->readingStats.startReading(core->mangaController->currentManga->title);
+    }
+
+    // Refresh home page data on next visit
+    ui->homeWidget->aniListCacheValid = false;
 
     // === Phase 2: Delayed 1s - restore hardware ===
     static bool firstResume = true;
@@ -1081,6 +1095,15 @@ void MainWidget::onResume()
                         QProcess::startDetached("sh", {"-c",
                             "busybox httpd -p 8080 -h /mnt/onboard/.adds/UltimateMangaReader/ 2>/dev/null || "
                             "busybox tcpsvd 0.0.0.0 2121 busybox ftpd -w /mnt/onboard/.adds/UltimateMangaReader/ 2>/dev/null &"});
+                    }
+
+                    // Restart USB network if enabled
+                    if (core->settings.usbNetworkMode)
+                    {
+                        QProcess::startDetached("sh", {"-c",
+                            "insmod /drivers/$(uname -r)/g_ether.ko 2>/dev/null; "
+                            "ifconfig usb0 192.168.2.2 netmask 255.255.255.0 up 2>/dev/null; "
+                            "telnetd -l /bin/sh 2>/dev/null"});
                     }
 
                     // Sync AniList
