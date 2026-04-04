@@ -396,6 +396,9 @@ void MangaController::preloadPopular()
 
 void MangaController::preloadNeighbours()
 {
+    if (!currentManga || !currentManga->mangaSource)
+        return;
+
     if (settings && !settings->preloadEnabled)
         return;
 

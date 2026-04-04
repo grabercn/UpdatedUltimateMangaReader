@@ -22,22 +22,12 @@ BatteryIcon::BatteryIcon(QWidget *parent) : QLabel(parent)
 
 void BatteryIcon::mousePressEvent(QMouseEvent *)
 {
-    int level = 100;
-#ifdef KOBO
-    level = KoboPlatformFunctions::getBatteryLevel();
-#endif
-    // In Qt 5.15 this seems to crash so we need a workaround
-    //    QToolTip::showText(this->mapToGlobal(QPoint(0, 0)), QString::number(level) + "%");
-
-    tooltipLabel->setText(QString::number(level) + "%");
-    tooltipLabel->move(this->mapToParent(QPoint(-10, this->width() / 2 + 6)));
-    tooltipLabel->adjustSize();
-    tooltipLabel->show();
+    // Battery percentage is always shown - no action needed on press
 }
 
 void BatteryIcon::mouseReleaseEvent(QMouseEvent *)
 {
-    tooltipLabel->hide();
+    // No action needed
 }
 
 void BatteryIcon::updateIcon()
@@ -45,6 +35,20 @@ void BatteryIcon::updateIcon()
     QPair<int, bool> batterystate = getBatteryState();
     int bat = batterystate.first;
     bool charging = batterystate.second;
+
+    // Update tooltip label with percentage (always visible)
+    if (tooltipLabel)
+    {
+        QString text = QString::number(bat) + "%";
+        if (charging) text += "+";
+        tooltipLabel->setText(text);
+        tooltipLabel->setStyleSheet("color: #555; background: transparent;");
+        tooltipLabel->adjustSize();
+        tooltipLabel->move(this->mapToParent(QPoint(
+            (this->width() - tooltipLabel->width()) / 2,
+            this->height() + 1)));
+        tooltipLabel->show();
+    }
 
     if (bat >= 98)
     {
