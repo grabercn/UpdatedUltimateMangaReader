@@ -75,6 +75,7 @@ void HomeWidget::adjustUI()
     ui->listViewSources->setIconSize(QSize(SIZES.mangasourceIconSize, SIZES.mangasourceIconSize));
 
     ui->listViewMangas->setFocusPolicy(Qt::FocusPolicy::NoFocus);
+    ui->listViewMangas->setSelectionMode(QAbstractItemView::NoSelection);
     ui->listViewMangas->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->listViewMangas->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
 

@@ -92,6 +92,9 @@ void WifiDialog::openFullScreen()
         + QString::number(SIZES.buttonSize) + "px; }");
     networkList->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     networkList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    networkList->setFocusPolicy(Qt::NoFocus);
+    networkList->setSelectionMode(QAbstractItemView::NoSelection);
+    activateScroller(networkList);
     QObject::connect(networkList, &QListWidget::itemClicked, this, &WifiDialog::onNetworkSelected);
     mainLayout->addWidget(networkList, 1);
 
