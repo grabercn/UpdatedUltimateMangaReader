@@ -132,20 +132,17 @@ Result<MangaChapterCollection, QString> AllNovel::updateMangaInfoFinishedLoading
         }
     }
 
-    // If chapters are listed newest-first (latest at top), reverse them
-    // Check if first chapter looks like a later chapter than last
+    // If chapters are listed newest-first (latest at top), reverse to reading order
     if (newchapters.size() > 1)
     {
         auto first = newchapters.first().chapterTitle.toLower();
         auto last = newchapters.last().chapterTitle.toLower();
-        bool firstIsLater = first.contains("volume 24") || first.contains("volume 2") ||
-                            first.contains("epilogue") || first.contains("final");
-        bool lastIsEarlier = last.contains("volume 1") || last.contains("prologue") ||
-                             last.contains("chapter 1");
-        if (!firstIsLater && !lastIsEarlier)
-        {
-            // Already in reading order, keep as is
-        }
+        bool firstIsLater = first.contains("epilogue") || first.contains("final") ||
+                            first.contains("afterword");
+        bool lastIsEarlier = last.contains("prologue") || last.contains("chapter 1 ") ||
+                             last.contains("chapter 1:") || last.endsWith("chapter 1");
+        if (firstIsLater || lastIsEarlier)
+            std::reverse(newchapters.begin(), newchapters.end());
     }
 
     return Ok(newchapters);

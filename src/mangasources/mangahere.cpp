@@ -17,7 +17,7 @@ bool MangaHere::updateMangaList(UpdateProgressToken *token)
 
     auto job = networkManager->downloadAsString(dictionaryUrl + "1.htm");
 
-    if (!job->await())
+    if (!job->await(15000))
     {
         token->sendError(job->errorString);
         return false;
