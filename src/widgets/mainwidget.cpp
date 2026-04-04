@@ -621,6 +621,67 @@ void MainWidget::showEvent(QShowEvent *event)
     }
 #endif
 
+    // Check if we just completed an update
+    {
+        QFile markerFile(CONF.cacheDir + "update_complete.txt");
+        if (markerFile.exists() && markerFile.open(QIODevice::ReadOnly | QIODevice::Text))
+        {
+            auto lines = QString(markerFile.readAll()).trimmed();
+            markerFile.close();
+            QFile::remove(CONF.cacheDir + "update_complete.txt");
+
+            auto parts = lines.split('\n');
+            auto version = parts.isEmpty() ? "" : parts.first().trimmed();
+            auto notes = parts.size() > 1 ? parts.mid(1).join('\n').trimmed() : "";
+
+            QTimer::singleShot(300, this, [this, version, notes]()
+            {
+                QDialog dlg(this);
+                dlg.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+                dlg.resize(this->size());
+                dlg.move(this->pos());
+
+                auto *layout = new QVBoxLayout(&dlg);
+                layout->setContentsMargins(10, 8, 10, 8);
+                layout->setSpacing(8);
+
+                layout->addStretch();
+
+                auto *titleLbl = new QLabel("<b>Update Complete!</b>", &dlg);
+                titleLbl->setAlignment(Qt::AlignCenter);
+                layout->addWidget(titleLbl);
+
+                auto *versionLbl = new QLabel(
+                    "You are now running v" + (version.isEmpty() ? Updater::currentVersion() : version),
+                    &dlg);
+                versionLbl->setAlignment(Qt::AlignCenter);
+                layout->addWidget(versionLbl);
+
+                if (!notes.isEmpty())
+                {
+                    auto *notesLbl = new QLabel(&dlg);
+                    notesLbl->setWordWrap(true);
+                    notesLbl->setStyleSheet("padding: 6px; background: #f5f5f5; border: 1px solid #ddd;");
+                    QString displayNotes = notes;
+                    if (displayNotes.length() > 400)
+                        displayNotes = displayNotes.left(397) + "...";
+                    notesLbl->setText(displayNotes);
+                    layout->addWidget(notesLbl);
+                }
+
+                layout->addStretch();
+
+                auto *okBtn = new QPushButton("OK", &dlg);
+                okBtn->setFixedHeight(SIZES.buttonSize);
+                okBtn->setStyleSheet("font-weight: bold;");
+                connect(okBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
+                layout->addWidget(okBtn);
+
+                dlg.exec();
+            });
+        }
+    }
+
     // Show welcome screen on first boot
     if (WelcomeDialog::shouldShow())
     {

@@ -339,6 +339,16 @@ void Updater::downloadAndApply()
         emit updateLog("Update applied! Restarting in 3 seconds...\nDo not touch anything.");
         emit updateCompleted(true);
 
+        // Write update-complete marker for post-reboot success screen
+        QFile markerFile(CONF.cacheDir + "update_complete.txt");
+        if (markerFile.open(QIODevice::WriteOnly | QIODevice::Text))
+        {
+            QTextStream out(&markerFile);
+            out << m_latestVersion << "\n";
+            out << m_latestNotes;
+            markerFile.close();
+        }
+
         // Restore framebuffer before restart so Nickel/next launch gets clean display
         QProcess::execute("sh", {"-c",
             "/mnt/onboard/.adds/UltimateMangaReader/fbdepth -d 32 2>/dev/null"});
