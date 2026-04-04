@@ -52,9 +52,10 @@ Result<MangaList, QString> InternetArchive::searchManga(const QString &query, in
         if (!res)
             return Err(QString("Couldn't parse search results."));
 
-        auto &docs = doc["response"]["docs"];
-        if (!docs.IsArray())
+        if (!doc.HasMember("response") || !doc["response"].IsObject() ||
+            !doc["response"].HasMember("docs") || !doc["response"]["docs"].IsArray())
             return Ok(results);
+        auto &docs = doc["response"]["docs"];
 
         for (const auto &item : docs.GetArray())
         {
@@ -126,6 +127,8 @@ Result<MangaChapterCollection, QString> InternetArchive::updateMangaInfoFinished
         if (!res)
             return Err(QString("Couldn't parse Internet Archive metadata."));
 
+        if (!doc.HasMember("metadata") || !doc["metadata"].IsObject())
+            return Err(QString("No metadata in Internet Archive response."));
         auto &metadata = doc["metadata"];
 
         if (metadata.HasMember("creator") && !metadata["creator"].IsNull())
@@ -170,6 +173,8 @@ Result<MangaChapterCollection, QString> InternetArchive::updateMangaInfoFinished
         // Cover
         for (const auto &file : files)
         {
+            if (!file.HasMember("name") || !file["name"].IsString())
+                continue;
             auto fname = QString(file["name"].GetString());
             if (fname == "__ia_thumb.jpg" || fname.contains("cover", Qt::CaseInsensitive))
             {
@@ -185,6 +190,8 @@ Result<MangaChapterCollection, QString> InternetArchive::updateMangaInfoFinished
 
         for (const auto &file : files)
         {
+            if (!file.HasMember("name") || !file["name"].IsString())
+                continue;
             auto fname = QString(file["name"].GetString());
             auto fnameLower = fname.toLower();
 

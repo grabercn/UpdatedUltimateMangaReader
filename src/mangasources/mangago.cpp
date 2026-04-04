@@ -62,9 +62,6 @@ bool MangaGo::updateMangaList(UpdateProgressToken *token)
             qDebug() << "       Incomplete match in page:" << job->url;
     };
 
-    if (nominalSize != mangas.size)
-        qDebug() << "Not all mangas captured:" << nominalSize << "vs" << mangas.size;
-
     lambda(job);
 
     QList<QString> urls;

@@ -69,9 +69,6 @@ bool Mangakakalot::updateMangaList(UpdateProgressToken *token)
         qDebug() << "matches:" << matches;
     };
 
-    if (nominalSize != mangas.size)
-        qDebug() << "Not all mangas captured:" << nominalSize << "vs" << mangas.size;
-
     lambda(job);
 
     QList<QString> urls;
@@ -88,6 +85,8 @@ bool Mangakakalot::updateMangaList(UpdateProgressToken *token)
     }
     this->mangaList = mangas;
 
+    if (nominalSize > 0 && nominalSize != mangas.size)
+        qDebug() << "Not all mangas captured:" << nominalSize << "vs" << mangas.size;
     qDebug() << "mangas:" << mangas.size << "time:" << timer.elapsed();
 
     token->sendProgress(100);
