@@ -363,10 +363,10 @@ void Updater::downloadAndApply()
         QThread::sleep(3);
 
 #ifdef KOBO
-        // Restore framebuffer to 32-bit BEFORE launching new instance
+        // Restore framebuffer to 16-bit (Nickel/Kobo standard) BEFORE launching new instance
         // This ensures clean display whether the new instance starts or not
         QProcess::execute("sh", {"-c",
-            "/mnt/onboard/.adds/UltimateMangaReader/fbdepth -d 32 2>/dev/null"});
+            "/mnt/onboard/.adds/UltimateMangaReader/fbdepth -d 16 2>/dev/null"});
 
         // Launch new instance
         bool launched = QProcess::startDetached(appPath, QCoreApplication::arguments());
@@ -376,10 +376,10 @@ void Updater::downloadAndApply()
             // New binary failed to start — restart Nickel so the device isn't bricked
             qDebug() << "Failed to start new UMR binary, restarting Nickel";
             QProcess::execute("sh", {"-c",
-                "LIBC_FATAL_STDERR_=1 /usr/local/Kobo/nickel -platform kobo -skipFontLoad &"});
+                "udevd -d; LIBC_FATAL_STDERR_=1 /usr/local/Kobo/nickel -platform kobo &"});
         }
 
-        // Force-kill this process to ensure clean handoff
+        // Force-kill this process to ensure clean handoff of hardware resources
         QProcess::execute("sh", {"-c",
             "kill -9 " + QString::number(QCoreApplication::applicationPid())});
 #else
