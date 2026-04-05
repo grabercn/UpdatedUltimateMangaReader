@@ -50,7 +50,8 @@ MangaDex::MangaDex(NetworkManager *dm) : AbstractMangaSource(dm)
                 continue;
             try
             {
-                auto mi = MangaInfo::deserialize(this, mangaPath);
+                auto mi = MangaInfo::deserialize(nullptr, mangaPath);
+                mi->mangaSource = this;
                 bool dirty = false;
                 for (int i = 0; i < mi->chapters.size(); i++)
                 {

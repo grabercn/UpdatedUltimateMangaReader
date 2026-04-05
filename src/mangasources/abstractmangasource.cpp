@@ -142,7 +142,8 @@ Result<QSharedPointer<MangaInfo>, QString> AbstractMangaSource::getMangaInfo(con
 {
     auto job = networkManager->downloadAsString(mangaUrl, 15000, mangaInfoPostDataStr);
 
-    auto info = QSharedPointer<MangaInfo>(new MangaInfo(this));
+    auto info = QSharedPointer<MangaInfo>(new MangaInfo(nullptr));
+    info->mangaSource = this;
 
     info->mangaSource = this;
     info->hostname = name;

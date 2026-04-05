@@ -85,7 +85,8 @@ Result<QSharedPointer<MangaInfo>, QString> InternetArchive::getMangaInfo(const Q
     auto fullUrl = metadataUrl + identifier;
     auto job = networkManager->downloadAsString(fullUrl, -1);
 
-    auto info = QSharedPointer<MangaInfo>(new MangaInfo(this));
+    auto info = QSharedPointer<MangaInfo>(new MangaInfo(nullptr));
+    info->mangaSource = this;
     info->mangaSource = this;
     info->hostname = name;
     info->url = identifier;

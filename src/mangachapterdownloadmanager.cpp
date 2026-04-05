@@ -98,80 +98,81 @@ void MangaChapterDownloadManager::processNextJob()
 
     emit downloadStart(mangaInfo->title);
 
-    for (int c = fromChapter; c <= toChapterInclusive && c < mangaInfo->chapters.count() && !cancelled; c++)
-    {
-        for (int i = 0; i < 3; i++)
+    // Run the actual processing in a single shot timer to return control to the event loop immediately
+    QTimer::singleShot(0, this, [this, mangaInfo, fromChapter, toChapterInclusive]() {
+        if (cancelled) { running = false; return; }
+
+        // Phase 1: Fetch all page lists
+        for (int c = fromChapter; c <= toChapterInclusive && c < mangaInfo->chapters.count() && !cancelled; c++)
         {
-            auto res = mangaInfo->mangaSource->updatePageList(mangaInfo, c);
-            if (res.isOk())
+            for (int i = 0; i < 3; i++)
             {
-                emit downloadPagelistProgress(c + 1 - fromChapter,
-                                               toChapterInclusive + 1 - fromChapter);
-                break;
-            }
-            else if (i >= 2)
-            {
-                emit error(QString("Couldn't get page list for chapter %1").arg(c + 1));
-                // Continue to next chapter instead of aborting
-                break;
-            }
-        }
-    }
-
-    if (cancelled)
-    {
-        running = false;
-        return;
-    }
-
-    mangaInfo->serialize();
-
-    QList<FileDownloadDescriptor> imageDescriptors;
-    for (int c = fromChapter; c <= toChapterInclusive && c < mangaInfo->chapters.count() && !cancelled; c++)
-    {
-        if (!mangaInfo->chapters[c].pagesLoaded)
-            continue;
-
-        // Ensure imageUrlList matches pageUrlList size
-        while (mangaInfo->chapters[c].imageUrlList.count() < mangaInfo->chapters[c].pageUrlList.count())
-            mangaInfo->chapters[c].imageUrlList.append("");
-
-        for (int p = 0; p < mangaInfo->chapters[c].pageUrlList.count() && !cancelled; p++)
-        {
-            if (mangaInfo->chapters[c].imageUrlList[p] == "")
-            {
-                auto res = mangaInfo->mangaSource->getImageUrl(
-                    mangaInfo->chapters.at(c).pageUrlList.at(p));
+                auto res = mangaInfo->mangaSource->updatePageList(mangaInfo, c);
                 if (res.isOk())
-                    mangaInfo->chapters[c].imageUrlList[p] = res.unwrap();
-                else
-                    failedImages++;
+                {
+                    emit downloadPagelistProgress(c + 1 - fromChapter,
+                                                   toChapterInclusive + 1 - fromChapter);
+                    break;
+                }
+                else if (i >= 2)
+                {
+                    emit error(QString("Couldn't get page list for chapter %1").arg(c + 1));
+                    break;
+                }
             }
+            qApp->processEvents(); // Keep UI alive between chapters
+        }
 
-            auto &imageUrl = mangaInfo->chapters[c].imageUrlList[p];
-            if (imageUrl != "")
+        if (cancelled) { running = false; return; }
+        mangaInfo->serialize();
+
+        // Phase 2: Fetch all image URLs
+        QList<FileDownloadDescriptor> imageDescriptors;
+        for (int c = fromChapter; c <= toChapterInclusive && c < mangaInfo->chapters.count() && !cancelled; c++)
+        {
+            if (!mangaInfo->chapters[c].pagesLoaded)
+                continue;
+
+            // Ensure imageUrlList matches pageUrlList size
+            while (mangaInfo->chapters[c].imageUrlList.count() < mangaInfo->chapters[c].pageUrlList.count())
+                mangaInfo->chapters[c].imageUrlList.append("");
+
+            for (int p = 0; p < mangaInfo->chapters[c].pageUrlList.count() && !cancelled; p++)
             {
-                emit downloadPagesProgress(c + 1 - fromChapter,
-                                            toChapterInclusive + 1 - fromChapter, failedImages);
+                if (mangaInfo->chapters[c].imageUrlList[p] == "")
+                {
+                    auto res = mangaInfo->mangaSource->getImageUrl(
+                        mangaInfo->chapters.at(c).pageUrlList.at(p));
+                    if (res.isOk())
+                        mangaInfo->chapters[c].imageUrlList[p] = res.unwrap();
+                    else
+                        failedImages++;
+                }
 
-                DownloadImageDescriptor imageinfo(imageUrl, mangaInfo->title, c, p);
-                auto path = mangaInfo->mangaSource->getImagePath(imageinfo);
-                imageDescriptors.append(FileDownloadDescriptor(imageUrl, path));
+                auto &imageUrl = mangaInfo->chapters[c].imageUrlList[p];
+                if (imageUrl != "")
+                {
+                    emit downloadPagesProgress(c + 1 - fromChapter,
+                                                toChapterInclusive + 1 - fromChapter, failedImages);
+
+                    DownloadImageDescriptor imageinfo(imageUrl, mangaInfo->title, c, p);
+                    auto path = mangaInfo->mangaSource->getImagePath(imageinfo);
+                    imageDescriptors.append(FileDownloadDescriptor(imageUrl, path));
+                }
+                
+                // Process events every few pages to keep UI snappy
+                if (p % 10 == 0) qApp->processEvents();
             }
         }
-    }
 
-    if (cancelled)
-    {
-        running = false;
-        return;
-    }
+        if (cancelled) { running = false; return; }
 
-    mangaInfo->serialize();
-    if (imageDescriptors.isEmpty())
-        downloadQueueJobsCompleted();
-    else
-        downloadQueue.appendDownloads(imageDescriptors);
+        mangaInfo->serialize();
+        if (imageDescriptors.isEmpty())
+            downloadQueueJobsCompleted();
+        else
+            downloadQueue.appendDownloads(imageDescriptors);
+    });
 }
 
 void MangaChapterDownloadManager::downloadMangaChapters(QSharedPointer<MangaInfo> mangaInfo,

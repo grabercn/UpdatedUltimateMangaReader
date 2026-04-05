@@ -9,7 +9,8 @@ MangaInfo::~MangaInfo() = default;
 
 QSharedPointer<MangaInfo> MangaInfo::deserialize(AbstractMangaSource *mangasource, const QString &path)
 {
-    auto mi = QSharedPointer<MangaInfo>(new MangaInfo(mangasource));
+    auto mi = QSharedPointer<MangaInfo>(new MangaInfo(nullptr));
+    mi->mangaSource = mangasource;
 
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly))

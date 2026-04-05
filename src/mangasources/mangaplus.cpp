@@ -31,9 +31,10 @@ void MangaPlus::invalidatePagelist()
             continue;
         try
         {
-            auto mi = MangaInfo::deserialize(this, mangaPath);
+            auto mi = MangaInfo::deserialize(nullptr, mangaPath);
             if (!mi)
                 continue;
+            mi->mangaSource = this;
             for (int i = 0; i < mi->chapters.size(); i++)
             {
                 if (!mi->chapters[i].pagesLoaded)
