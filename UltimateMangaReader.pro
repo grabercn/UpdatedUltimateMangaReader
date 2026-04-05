@@ -112,6 +112,7 @@ HEADERS += \
     src/mangalist.h \
     src/mangasources/abstractmangasource.h \
     src/mangasources/allnovel.h \
+    src/mangasources/novelfull.h \
     src/mangasources/internetarchive.h \
     src/mangasources/mangadex.h \
     src/mangasources/mangahere.h \
@@ -186,6 +187,7 @@ SOURCES += \
     src/mangalist.cpp \
     src/mangasources/abstractmangasource.cpp \
     src/mangasources/allnovel.cpp \
+    src/mangasources/novelfull.cpp \
     src/mangasources/internetarchive.cpp \
     src/mangasources/mangadex.cpp \
     src/mangasources/mangahere.cpp \

@@ -720,7 +720,8 @@ void MainWidget::showEvent(QShowEvent *event)
                     return;
 
                 if (guard.isNull()) return;
-                QMetaObject::invokeMethod(this, [this]() {
+                QMetaObject::invokeMethod(this, [this, guard]() {
+                    if (guard.isNull()) return;
                     QDialog dlg(this);
                     dlg.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
                     dlg.resize(this->size());

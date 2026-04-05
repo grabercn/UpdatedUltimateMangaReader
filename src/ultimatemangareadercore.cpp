@@ -1,6 +1,7 @@
 #include "ultimatemangareadercore.h"
 
 #include "mangahere.h"
+#include "novelfull.h"
 
 UltimateMangaReaderCore::UltimateMangaReaderCore(QObject* parent)
     : QObject(parent),
@@ -30,6 +31,7 @@ UltimateMangaReaderCore::UltimateMangaReaderCore(QObject* parent)
     mangaSources.append(QSharedPointer<AbstractMangaSource>(
         new InternetArchive(networkManager, "IAManga", "manga", ContentManga)));
     mangaSources.append(QSharedPointer<AbstractMangaSource>(new AllNovel(networkManager)));
+    mangaSources.append(QSharedPointer<AbstractMangaSource>(new NovelFull(networkManager)));
     mangaSources.append(QSharedPointer<AbstractMangaSource>(
         new InternetArchive(networkManager, "IANovels", "light novel", ContentLightNovel)));
     mangaSources.append(QSharedPointer<AbstractMangaSource>(
