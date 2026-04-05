@@ -329,14 +329,19 @@ bool UltimateMangaReaderCore::exportMangaAsCBZ(QSharedPointer<MangaInfo> manga, 
     auto exportDir = dir + makePathLegal(manga->title) + "/";
     QDir().mkpath(exportDir);
 
+    auto imgDir = CONF.mangaimagesdir(manga->hostname, manga->title);
+    QDir src(imgDir);
+    QStringList allFiles = src.entryList(QDir::Files);
+
     int count = 0;
-    for (int c = fromCh; c <= toCh && c < manga->chapters.count(); c++)
+    for (const auto &f : allFiles)
     {
-        auto imgDir = CONF.mangaimagesdir(manga->hostname, manga->title);
-        QDir src(imgDir);
-        for (const auto &f : src.entryList(QDir::Files))
+        int underscorePos = f.indexOf('_');
+        if (underscorePos > 0)
         {
-            if (f.startsWith(QString::number(c) + "_"))
+            bool ok;
+            int chNum = f.left(underscorePos).toInt(&ok);
+            if (ok && chNum >= fromCh && chNum <= toCh)
             {
                 auto dest = exportDir + f;
                 if (!QFile::exists(dest))

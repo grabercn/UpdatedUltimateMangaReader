@@ -53,6 +53,11 @@ void DownloadQueue::start()
 {
     while (!jobDescriptorQueue.empty() && runningJobs < parallelDownloads)
         startSingle();
+
+    if (totalJobs == completed)
+    {
+        emit allCompleted();
+    }
 }
 
 void DownloadQueue::startSingle()

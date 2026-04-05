@@ -247,7 +247,7 @@ MainWidget::MainWidget(QWidget *parent)
                      [this](const QString &title)
                      {
                          // If a pending export was waiting for download to finish, run it now
-                         if (pendingExport.active && pendingExport.manga)
+                         if (pendingExport.active && pendingExport.manga && pendingExport.manga->title == title)
                          {
                              bool ok = core->exportMangaAsCBZ(pendingExport.manga,
                                                                pendingExport.fromChapter,

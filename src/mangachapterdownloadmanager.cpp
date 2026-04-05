@@ -168,7 +168,10 @@ void MangaChapterDownloadManager::processNextJob()
     }
 
     mangaInfo->serialize();
-    downloadQueue.appendDownloads(imageDescriptors);
+    if (imageDescriptors.isEmpty())
+        downloadQueueJobsCompleted();
+    else
+        downloadQueue.appendDownloads(imageDescriptors);
 }
 
 void MangaChapterDownloadManager::downloadMangaChapters(QSharedPointer<MangaInfo> mangaInfo,
