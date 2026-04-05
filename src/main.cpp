@@ -77,11 +77,11 @@ int main(int argc, char *argv[])
             {
                 qDebug() << "WATCHDOG: Main thread frozen for 60s, restarting...";
                 // Restore framebuffer before restart attempt
-                system("/mnt/onboard/.adds/UltimateMangaReader/fbdepth -d 32 2>/dev/null");
+                system("/mnt/onboard/.adds/UltimateMangaReader/fbdepth -d 16 2>/dev/null");
                 if (!QProcess::startDetached(QString::fromLocal8Bit(argv[0]), {}))
                 {
                     // If restart fails, bring back Nickel so device isn't bricked
-                    system("LIBC_FATAL_STDERR_=1 /usr/local/Kobo/nickel -platform kobo -skipFontLoad &");
+                    system("udevd -d; LIBC_FATAL_STDERR_=1 /usr/local/Kobo/nickel -platform kobo &");
                 }
                 _exit(1);
             }
@@ -136,9 +136,11 @@ int main(int argc, char *argv[])
 
     // Restart Nickel from scratch so Kobo returns to normal e-reader mode
     QProcess::execute("sh", {"-c",
-        "/mnt/onboard/.adds/UltimateMangaReader/fbdepth -d 32 2>/dev/null;"
-        "LIBC_FATAL_STDERR_=1 /usr/local/Kobo/nickel -platform kobo -skipFontLoad &"
+        "/mnt/onboard/.adds/UltimateMangaReader/fbdepth -d 16 2>/dev/null;"
+        "udevd -d;"
+        "LIBC_FATAL_STDERR_=1 /usr/local/Kobo/nickel -platform kobo &"
     });
+    QThread::sleep(2);
     qDebug() << "Nickel restarted";
 
 #ifdef DESKTOP

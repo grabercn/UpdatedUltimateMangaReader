@@ -1565,12 +1565,7 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
             if (core->aniList)
                 core->aniList->serialize();
 
-#ifdef KOBO
-            // Restart Nickel from scratch and restore framebuffer
-            QProcess::execute("sh", {"-c",
-                "/mnt/onboard/.adds/UltimateMangaReader/fbdepth -d 32 2>/dev/null;"
-                "LIBC_FATAL_STDERR_=1 /usr/local/Kobo/nickel -platform kobo -skipFontLoad &"});
-#endif
+
 
             // Force quit - don't wait for pending events
             qApp->quit();
