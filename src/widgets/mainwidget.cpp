@@ -147,27 +147,27 @@ MainWidget::MainWidget(QWidget *parent)
                          activeDownloadCount++;
                          updateDownloadBadge();
 
-                         showLoadingIndicator();
-                         bool success;
                          if (isLN)
-                             success = core->exportNovelAsEPUB(m, f, t);
+                         {
+                             showLoadingIndicator();
+                             bool success = core->exportNovelAsEPUB(m, f, t);
+                             hideLoadingIndicator();
+                             if (success)
+                             {
+                                 downloadQueueWidget->jobCompleted(m->title);
+                                 activeDownloadCount = qMax(0, activeDownloadCount - 1);
+                                 updateDownloadBadge();
+                             }
+                             else
+                                 downloadQueueWidget->jobFailed(m->title, "Export failed");
+                         }
                          else
                          {
+                             // Manga download is async — progress shown via downloadStatusDialog
                              core->mangaChapterDownloadManager->downloadMangaChapters(m, f, t);
-                             success = true;
                          }
-                         hideLoadingIndicator();
 
-                         if (success)
-                         {
-                             downloadQueueWidget->jobCompleted(m->title);
-                             activeDownloadCount = qMax(0, activeDownloadCount - 1);
-                             updateDownloadBadge();
-                         }
-                         else
-                             downloadQueueWidget->jobFailed(m->title, "Export failed");
-
-                         showErrorMessage("Exporting - check Downloads page");
+                         showErrorMessage("Check Downloads page for progress");
                      });
 
     QObject::connect(downloadStatusDialog, &DownloadStatusDialog::abortDownloads,
@@ -523,6 +523,17 @@ MainWidget::MainWidget(QWidget *parent)
 
 MainWidget::~MainWidget()
 {
+    // Cancel all async work before destroying widgets
+    core->enableTimers(false);
+    core->mangaController->cancelAllPreloads();
+    core->mangaChapterDownloadManager->cancelDownloads();
+
+    // Final state save
+    core->settings.serialize();
+    core->readingStats.serialize();
+    if (core->aniList)
+        core->aniList->serialize();
+
     delete ui;
 }
 
@@ -1510,8 +1521,9 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
                 core->aniList->serialize();
 
 #ifdef KOBO
-            // Restore framebuffer for Nickel
+            // Resume Nickel and restore framebuffer
             QProcess::execute("sh", {"-c",
+                "killall -CONT nickel 2>/dev/null;"
                 "/mnt/onboard/.adds/UltimateMangaReader/fbdepth -d 32 2>/dev/null"});
 #endif
 

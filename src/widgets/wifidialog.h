@@ -34,6 +34,7 @@ private slots:
 private:
     NetworkManager *networkManager;
     QFuture<void> lastConnection;
+    QFuture<void> lastScan;
     std::atomic<bool> destroying{false};
 
     // UI

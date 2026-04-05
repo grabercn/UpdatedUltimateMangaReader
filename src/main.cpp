@@ -84,6 +84,16 @@ int main(int argc, char *argv[])
     watchdogThread.detach();
 #endif
 
+    // Stop Nickel's background services to save battery
+    // Nickel stays alive for KFMon recovery but its CPU-heavy children are stopped
+    QProcess::execute("sh", {"-c",
+        "killall -STOP nickel 2>/dev/null;"         // SIGSTOP freezes Nickel (recoverable)
+        "killall -9 sickel 2>/dev/null;"             // Nickel's sync daemon
+        "killall -9 nickel-sync 2>/dev/null;"        // Sync process
+        "killall -9 fmon 2>/dev/null"                // File monitor (indexing)
+    });
+    qDebug() << "Nickel background services stopped";
+
     try
     {
         MainWidget mainwidget;
@@ -106,6 +116,12 @@ int main(int argc, char *argv[])
     {
         qCritical() << "Unknown fatal exception";
     }
+
+    // Resume Nickel on exit so Kobo returns to normal e-reader mode
+    QProcess::execute("sh", {"-c",
+        "killall -CONT nickel 2>/dev/null"  // SIGCONT unfreezes Nickel
+    });
+    qDebug() << "Nickel resumed";
 
 #ifdef DESKTOP
     if (logFile)

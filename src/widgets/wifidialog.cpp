@@ -24,6 +24,8 @@ WifiDialog::~WifiDialog()
     destroying = true;
     if (lastConnection.isRunning())
         lastConnection.waitForFinished();
+    if (lastScan.isRunning())
+        lastScan.waitForFinished();
 }
 
 void WifiDialog::openFullScreen()
@@ -162,7 +164,7 @@ void WifiDialog::onScanClicked()
     scanBtn->setEnabled(false);
     networkList->clear();
 
-    QtConcurrent::run([this]() {
+    lastScan = QtConcurrent::run([this]() {
         scanNetworks();
         if (destroying) return;
         QMetaObject::invokeMethod(this, [this]() {
@@ -215,26 +217,36 @@ void WifiDialog::onNetworkSelected(QListWidgetItem *item)
         return;
 
 #ifdef KOBO
-    QMutexLocker lock(&wifiMutex);
-    // Check if already connected to this network
-    for (const auto &net : scannedNetworks)
+    // Copy data under lock, then release before showing modal dialog
+    bool alreadyConnected = false;
+    bool secured = false;
     {
-        if (net.ssid == ssid && net.connected)
+        QMutexLocker lock(&wifiMutex);
+        for (const auto &net : scannedNetworks)
         {
-            statusLabel->setText("Already connected to " + ssid);
-            return;
+            if (net.ssid == ssid && net.connected)
+            {
+                alreadyConnected = true;
+                break;
+            }
+        }
+        if (!alreadyConnected)
+        {
+            for (const auto &net : scannedNetworks)
+            {
+                if (net.ssid == ssid)
+                {
+                    secured = net.secured;
+                    break;
+                }
+            }
         }
     }
 
-    // Check if network needs password
-    bool secured = false;
-    for (const auto &net : scannedNetworks)
+    if (alreadyConnected)
     {
-        if (net.ssid == ssid)
-        {
-            secured = net.secured;
-            break;
-        }
+        if (statusLabel) statusLabel->setText("Already connected to " + ssid);
+        return;
     }
 
     if (secured)
@@ -321,35 +333,57 @@ void WifiDialog::connectToNetwork(const QString &ssid, const QString &password)
     if (toggleBtn) toggleBtn->setEnabled(false);
 
     lastConnection = QtConcurrent::run([this, ssid, password]() {
+        // Copy wifiInterface under lock for thread safety
+        QString iface;
+        {
+            QMutexLocker lock(&wifiMutex);
+            iface = wifiInterface;
+        }
+
         // Add network via wpa_cli
         QProcess proc;
-        proc.start("wpa_cli", {"-i", wifiInterface, "add_network"});
+        proc.start("wpa_cli", {"-i", iface, "add_network"});
         proc.waitForFinished(5000);
         auto netId = proc.readAllStandardOutput().trimmed().split('\n').last().trimmed();
+
+        // Validate netId is a number
+        bool isNum = false;
+        netId.toInt(&isNum);
+        if (!isNum)
+        {
+            qDebug() << "WiFi: add_network failed, got:" << netId;
+            if (destroying) return;
+            QMetaObject::invokeMethod(this, [this]() {
+                if (destroying) return;
+                if (statusLabel) statusLabel->setText("Failed to add network (wpa_supplicant error)");
+                if (toggleBtn) toggleBtn->setEnabled(true);
+            }, Qt::QueuedConnection);
+            return;
+        }
         qDebug() << "WiFi: adding network" << ssid << "as id" << netId;
 
         // Set SSID
-        QProcess::execute("wpa_cli", {"-i", wifiInterface, "set_network", netId,
+        QProcess::execute("wpa_cli", {"-i", iface, "set_network", netId,
                           "ssid", QString("\"%1\"").arg(ssid)});
 
         if (password.isEmpty())
         {
             // Open network
-            QProcess::execute("wpa_cli", {"-i", wifiInterface, "set_network", netId, "key_mgmt", "NONE"});
+            QProcess::execute("wpa_cli", {"-i", iface, "set_network", netId, "key_mgmt", "NONE"});
         }
         else
         {
             // WPA/WPA2 with password
-            QProcess::execute("wpa_cli", {"-i", wifiInterface, "set_network", netId,
+            QProcess::execute("wpa_cli", {"-i", iface, "set_network", netId,
                               "psk", QString("\"%1\"").arg(password)});
         }
 
-        QProcess::execute("wpa_cli", {"-i", wifiInterface, "enable_network", netId});
-        QProcess::execute("wpa_cli", {"-i", wifiInterface, "select_network", netId});
-        QProcess::execute("wpa_cli", {"-i", wifiInterface, "save_config"});
+        QProcess::execute("wpa_cli", {"-i", iface, "enable_network", netId});
+        QProcess::execute("wpa_cli", {"-i", iface, "select_network", netId});
+        QProcess::execute("wpa_cli", {"-i", iface, "save_config"});
 
         // Wait for DHCP and connection
-        QProcess::execute("sh", {"-c", "udhcpc -i " + wifiInterface + " -t 5 -T 3 -n 2>/dev/null &"});
+        QProcess::execute("sh", {"-c", "udhcpc -i " + iface + " -t 5 -T 3 -n 2>/dev/null &"});
         QThread::sleep(5);
         networkManager->checkInternetConnection();
 
