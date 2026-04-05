@@ -20,6 +20,9 @@ public:
     bool suspend();
     bool resume();
 
+    void setCpuGovernor(const QString &governor);
+    void powerOff();
+
     bool sleeping;
 
 signals:

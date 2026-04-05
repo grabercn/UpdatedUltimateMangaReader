@@ -95,10 +95,21 @@ int main(int argc, char *argv[])
     // then restart Nickel from scratch on exit
     QProcess::execute("sh", {"-c",
         "killall -q -TERM nickel hindenburg sickel fickel strickel fontickel "
-        "adobehost foxitpdf iink dhcpcd-dbus bluealsa bluetoothd fmon nanoclock.lua 2>/dev/null;"
+        "adobehost foxitpdf iink dhcpcd-dbus bluealsa bluetoothd fmon nanoclock.lua "
+        "udevd ntpd wpa_supplicant 2>/dev/null;"
         "rm -f /tmp/nickel-hardware-status"  // Remove IPC FIFO to prevent udev handler hangs
     });
     qDebug() << "Nickel and companion daemons stopped";
+
+#ifdef KOBO
+    // Optimize CPU for active use
+    QFile governor("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor");
+    if (governor.open(QIODevice::WriteOnly))
+    {
+        governor.write("ondemand");
+        governor.close();
+    }
+#endif
 
     try
     {

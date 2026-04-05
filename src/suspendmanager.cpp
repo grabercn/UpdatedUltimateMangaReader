@@ -33,46 +33,23 @@ bool SuspendManager::suspendInternal()
         networkManager->disconnectWifi();
 
 #ifdef KOBO
+    setCpuGovernor("powersave");
+
     int handleSE = open("/sys/power/state-extended", O_RDWR);
-    if (handleSE < 0)
+    if (handleSE >= 0)
     {
-        qDebug() << "Could not open /sys/power/state-extended";
-        return false;
-    }
-    auto ret = write(handleSE, "1\n", 2);
-    close(handleSE);
-    if (ret < 0)
-    {
-        qDebug() << "Could not write to /sys/power/state-extended:" << ret;
-        return false;
+        write(handleSE, "1\n", 2);
+        close(handleSE);
     }
 
     QThread::sleep(2);
     QProcess::execute("sync", {});
 
     int handleS = open("/sys/power/state", O_RDWR);
-    if (handleS < 0)
+    if (handleS >= 0)
     {
-        qDebug() << "Could not open /sys/power/state";
-        int handleSE2 = open("/sys/power/state-extended", O_RDWR);
-        if (handleSE2 < 0)
-        {
-            qDebug() << "Could not open /sys/power/state-extended";
-        }
-        else
-        {
-            write(handleSE2, "0\n", 2);
-            close(handleSE2);
-        }
-
-        return false;
-    }
-    ret = write(handleS, "mem\n", 4);
-    close(handleS);
-    if (ret < 0)
-    {
-        qDebug() << "Could not write to /sys/power/state:" << ret;
-        return false;
+        write(handleS, "mem\n", 4);
+        close(handleS);
     }
 #endif
 
@@ -89,37 +66,22 @@ bool SuspendManager::resume()
     qDebug() << QTime::currentTime().toString("hh:mm:ss") << "Waking up...";
 
 #ifdef KOBO
+    setCpuGovernor("ondemand");
 
     int handleSE = open("/sys/power/state-extended", O_RDWR);
-    if (handleSE < 0)
+    if (handleSE >= 0)
     {
-        qDebug() << "Could not open /sys/power/state-extended";
-        return false;
-    }
-    auto ret = write(handleSE, "0\n", 2);
-    close(handleSE);
-    if (ret < 0)
-    {
-        qDebug() << "Could not write to /sys/power/state-extended:" << ret;
-        return false;
+        write(handleSE, "0\n", 2);
+        close(handleSE);
     }
 
     QThread::msleep(100);
 
     int handleNC = open("/sys/devices/virtual/input/input1/neocmd", O_RDWR);
-    if (handleNC < 0)
+    if (handleNC >= 0)
     {
-        qDebug() << "Could not open /sys/devices/virtual/input/input1/neocmd";
-    }
-    else
-    {
-        ret = write(handleNC, "a\n", 2);
+        write(handleNC, "a\n", 2);
         close(handleNC);
-        if (ret < 0)
-        {
-            qDebug() << "Could not write to /sys/devices/virtual/input/input1/neocmd:" << ret;
-            return false;
-        }
     }
 #endif
 
@@ -129,4 +91,27 @@ bool SuspendManager::resume()
     emit resuming();
 
     return true;
+}
+
+void SuspendManager::setCpuGovernor(const QString &governor)
+{
+#ifdef KOBO
+    int fd = open("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor", O_WRONLY);
+    if (fd >= 0)
+    {
+        auto bytes = governor.toUtf8();
+        write(fd, bytes.data(), bytes.size());
+        close(fd);
+    }
+#else
+    Q_UNUSED(governor);
+#endif
+}
+
+void SuspendManager::powerOff()
+{
+#ifdef KOBO
+    QProcess::execute("sync", {});
+    QProcess::execute("poweroff", {});
+#endif
 }
