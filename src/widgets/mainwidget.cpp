@@ -1,6 +1,7 @@
 #include "mainwidget.h"
 
 #include <QListWidget>
+#include <QPointer>
 #include <QScreen>
 #include <QTime>
 #include <QToolButton>
@@ -707,14 +708,18 @@ void MainWidget::showEvent(QShowEvent *event)
     {
         QTimer::singleShot(10000, this, [this]()
         {
-            QtConcurrent::run([this]() {
+            auto guard = QPointer<MainWidget>(this);
+            QtConcurrent::run([this, guard]() {
+                if (guard.isNull()) return;
                 core->updater->checkForUpdate();
 
+                if (guard.isNull()) return;
                 if (!core->updater->updateAvailable())
                     return;
                 if (core->updater->isVersionSkipped(core->updater->latestFullSha()))
                     return;
 
+                if (guard.isNull()) return;
                 QMetaObject::invokeMethod(this, [this]() {
                     QDialog dlg(this);
                     dlg.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
@@ -1160,19 +1165,17 @@ void MainWidget::onResume()
     static bool firstResume = true;
     QTimer::singleShot(1000, this, [this]()
     {
-        // Restore frontlight (skip on first boot - preserve Nickel's warmth)
+        // Restore frontlight
         if (firstResume)
         {
             firstResume = false;
-#ifdef KOBO
-            ui->mangaReaderWidget->setFrontLightPanelState(
-                koboDevice.frontlightSettings.frontlightMin, koboDevice.frontlightSettings.frontlightMax,
-                core->settings.lightValue, koboDevice.frontlightSettings.naturalLightMin,
-                koboDevice.frontlightSettings.naturalLightMax, core->settings.comflightValue);
-#endif
+            // First resume: set hardware + sync sliders from saved settings
+            setupFrontLight();
         }
         else
         {
+            // Subsequent resumes: restore from settings, repeat after 500ms
+            // to handle hardware that needs a delayed re-apply
             setupFrontLight();
             QTimer::singleShot(500, this, [this]() { setupFrontLight(); });
         }

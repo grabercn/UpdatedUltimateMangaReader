@@ -13,12 +13,12 @@ bool SuspendManager::suspend()
     if (sleeping)
         return true;
 
+    sleeping = true;  // Set before processEvents to prevent reentrant suspend
+
     emit suspending();
     qApp->processEvents();
 
     qDebug() << QTime::currentTime().toString("hh:mm:ss") << "Going to sleep...";
-
-    sleeping = true;
 
     // Give e-ink display time to render the screensaver
     QThread::msleep(500);

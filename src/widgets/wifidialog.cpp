@@ -245,6 +245,10 @@ void WifiDialog::onNetworkSelected(QListWidgetItem *item)
         pwDialog.resize(this->size());
         pwDialog.move(this->pos());
 
+        // Install MainWidget's event filter on the password dialog so
+        // CLineEdit's custom keyboard events reach the virtual keyboard
+        pwDialog.installEventFilter(this->parentWidget());
+
         auto *pwLayout = new QVBoxLayout(&pwDialog);
         pwLayout->setContentsMargins(10, 8, 10, 8);
         pwLayout->setSpacing(6);
@@ -253,7 +257,8 @@ void WifiDialog::onNetworkSelected(QListWidgetItem *item)
         pwTitle->setAlignment(Qt::AlignCenter);
         pwLayout->addWidget(pwTitle);
 
-        pwLayout->addStretch();
+        // Put password field near top (above keyboard when it shows)
+        pwLayout->addSpacing(20);
 
         auto *pwLabel = new QLabel("Enter WiFi password:", &pwDialog);
         pwLayout->addWidget(pwLabel);
@@ -262,7 +267,6 @@ void WifiDialog::onNetworkSelected(QListWidgetItem *item)
         pwEdit->setEchoMode(QLineEdit::Password);
         pwEdit->setPlaceholderText("Tap here to type password...");
         pwEdit->setFixedHeight(SIZES.buttonSize);
-        pwEdit->installEventFilter(this->parentWidget());  // Triggers Kobo virtual keyboard
         pwLayout->addWidget(pwEdit);
 
         auto *showPwCheck = new QCheckBox("Show password", &pwDialog);
@@ -271,7 +275,7 @@ void WifiDialog::onNetworkSelected(QListWidgetItem *item)
         });
         pwLayout->addWidget(showPwCheck);
 
-        pwLayout->addStretch();
+        pwLayout->addSpacing(10);
 
         auto *pwBtnRow = new QHBoxLayout();
         auto *pwCancel = new QPushButton("Cancel", &pwDialog);
@@ -286,6 +290,8 @@ void WifiDialog::onNetworkSelected(QListWidgetItem *item)
         pwBtnRow->addWidget(pwCancel);
         pwBtnRow->addWidget(pwConnect);
         pwLayout->addLayout(pwBtnRow);
+
+        pwLayout->addStretch();
 
         if (pwDialog.exec() != QDialog::Accepted)
             return;

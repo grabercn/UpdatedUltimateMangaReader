@@ -622,6 +622,12 @@ void MangaReaderWidget::setSettings(Settings *settings)
 void MangaReaderWidget::setFrontLightPanelState(int lightmin, int lightmax, int light, int comflightmin,
                                                 int comflightmax, int comflight)
 {
+    // Block signals while setting slider values to prevent the signal cascade:
+    // setValue(light) would fire valueChanged with the OLD comfort value,
+    // writing stale data to settings and hardware
+    QSignalBlocker blockLight(ui->horizontalSliderLight);
+    QSignalBlocker blockComf(ui->horizontalSliderComfLight);
+
     ui->horizontalSliderLight->setMinimum(lightmin);
     ui->horizontalSliderLight->setMaximum(lightmax);
     ui->horizontalSliderLight->setPageStep((lightmax - lightmin) / 20);
@@ -644,6 +650,9 @@ void MangaReaderWidget::setFrontLightPanelState(int lightmin, int lightmax, int 
 
 void MangaReaderWidget::setFrontLightPanelState(int light, int comflight)
 {
+    QSignalBlocker blockLight(ui->horizontalSliderLight);
+    QSignalBlocker blockComf(ui->horizontalSliderComfLight);
+
     ui->horizontalSliderLight->setValue(light);
     ui->horizontalSliderComfLight->setValue(comflight);
 }

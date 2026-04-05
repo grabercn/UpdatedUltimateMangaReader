@@ -7,6 +7,7 @@
 #include <QProcess>
 #include <QRegularExpression>
 #include <QSslSocket>
+#include <cstdlib>
 
 #include "staticsettings.h"
 
@@ -358,14 +359,23 @@ void Updater::downloadAndApply()
             markerFile.close();
         }
 
-        // Restore framebuffer before restart so Nickel/next launch gets clean display
-        QProcess::execute("sh", {"-c",
-            "/mnt/onboard/.adds/UltimateMangaReader/fbdepth -d 32 2>/dev/null"});
-
         // Give the UI a moment to show the message, then restart
+        // Note: do NOT change framebuffer depth here — the new instance
+        // will configure it correctly, and changing it mid-process causes
+        // resolution glitches during the handoff
         QThread::sleep(3);
+
+        // Launch new instance first, then hard-kill this one to prevent
+        // dual instances (QCoreApplication::quit can be slow/incomplete)
         QProcess::startDetached(appPath, QCoreApplication::arguments());
-        QCoreApplication::quit();
+
+#ifdef KOBO
+        // Force-kill this process to ensure clean handoff
+        QProcess::execute("sh", {"-c",
+            "kill -9 " + QString::number(QCoreApplication::applicationPid())});
+#endif
+        // Fallback if kill didn't work (e.g. desktop builds)
+        _exit(0);
     }
     else
     {
