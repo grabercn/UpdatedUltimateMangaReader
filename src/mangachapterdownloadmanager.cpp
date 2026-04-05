@@ -25,6 +25,8 @@ MangaChapterDownloadManager::MangaChapterDownloadManager(NetworkManager *network
 
 void MangaChapterDownloadManager::cancelDownloads()
 {
+    QString title = currentManga ? currentManga->title : QString();
+
     cancelled = true;
     running = false;
     downloadQueue.clearQuene();
@@ -34,7 +36,6 @@ void MangaChapterDownloadManager::cancelDownloads()
     if (currentManga && !currentManga->title.isEmpty())
     {
         auto imgDir = CONF.mangaimagesdir(currentManga->hostname, currentManga->title);
-        // Only delete images from the chapters we were downloading
         QDir dir(imgDir);
         if (dir.exists())
         {
@@ -50,18 +51,21 @@ void MangaChapterDownloadManager::cancelDownloads()
         currentManga.clear();
     }
 
-    emit downloadCompleted();
+    emit downloadCancelled(title);
 }
 
 void MangaChapterDownloadManager::downloadQueueJobsCompleted()
 {
+    QString title = currentManga ? currentManga->title : QString();
+
     if (failedImages > 0)
         emit error(QString("Download finished with %1 failed images.").arg(failedImages));
 
-    emit downloadCompleted();
-    downloadQueue.resetJobCount();
     running = false;
     currentManga.clear();
+    downloadQueue.resetJobCount();
+
+    emit downloadCompleted(title);
     processNextJob();
 }
 

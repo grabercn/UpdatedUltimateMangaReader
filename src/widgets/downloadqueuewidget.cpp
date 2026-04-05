@@ -267,8 +267,9 @@ void DownloadQueueWidget::moveJobUp(int index)
 {
     if (index <= 0 || index >= jobs.size())
         return;
-    // Only move queued jobs
-    if (jobs[index].state != DownloadJob::Queued)
+    // Only swap two queued jobs — don't move past active/completed
+    if (jobs[index].state != DownloadJob::Queued ||
+        jobs[index - 1].state != DownloadJob::Queued)
         return;
     jobs.swapItemsAt(index, index - 1);
     if (!showingCached)
@@ -279,7 +280,8 @@ void DownloadQueueWidget::moveJobDown(int index)
 {
     if (index < 0 || index >= jobs.size() - 1)
         return;
-    if (jobs[index].state != DownloadJob::Queued)
+    if (jobs[index].state != DownloadJob::Queued ||
+        jobs[index + 1].state != DownloadJob::Queued)
         return;
     jobs.swapItemsAt(index, index + 1);
     if (!showingCached)
@@ -337,6 +339,21 @@ void DownloadQueueWidget::jobFailed(const QString &title, const QString &error)
             j.state = DownloadJob::Failed;
             j.errorMsg = error;
             break;
+        }
+    }
+    activeProgress->hide();
+    if (!showingCached)
+        refreshList();
+}
+
+void DownloadQueueWidget::jobCancelled(const QString &title)
+{
+    for (auto &j : jobs)
+    {
+        if ((j.state == DownloadJob::Active || j.state == DownloadJob::Queued) &&
+            (title.isEmpty() || j.title == title))
+        {
+            j.state = DownloadJob::Cancelled;
         }
     }
     activeProgress->hide();

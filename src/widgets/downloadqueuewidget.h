@@ -52,6 +52,7 @@ public:
     void updateActiveJob(int completedPages, int totalPages, int currentChapter);
     void jobCompleted(const QString &title);
     void jobFailed(const QString &title, const QString &error);
+    void jobCancelled(const QString &title);
     void moveJobUp(int index);
     void moveJobDown(int index);
 

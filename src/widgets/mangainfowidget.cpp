@@ -406,50 +406,43 @@ void MangaInfoWidget::setupAniListUI()
     aniListFrame = new QFrame(this);
     aniListFrame->setStyleSheet(
         "QFrame#aniListFrame { border-top: 1px solid #ccc; background: #f5f5f5; "
-        "padding: 2px 6px; margin: 0; }");
+        "padding: 1px 4px; margin: 0; }"
+        "QComboBox { font-size: 9pt; padding: 1px 2px; }");
     aniListFrame->setObjectName("aniListFrame");
+    aniListFrame->setFixedHeight(SIZES.buttonSize + 8);
 
-    auto *mainLayout = new QVBoxLayout(aniListFrame);
-    mainLayout->setSpacing(4);
-    mainLayout->setContentsMargins(4, 4, 4, 4);
+    // Single compact row: AL | Status | Ch | Vol | Score
+    auto *mainLayout = new QHBoxLayout(aniListFrame);
+    mainLayout->setSpacing(3);
+    mainLayout->setContentsMargins(2, 2, 2, 2);
 
-    // Row 1: AL label + Status + Score
-    auto *row1 = new QHBoxLayout();
-    row1->setSpacing(4);
+    int h = SIZES.buttonSize - 2;
 
     aniListLabel = new QLabel("AL", aniListFrame);
-    aniListLabel->setStyleSheet("font-weight: bold; border: none; background: transparent;");
-    row1->addWidget(aniListLabel);
+    aniListLabel->setStyleSheet("font-weight: bold; font-size: 9pt; border: none; background: transparent;");
+    mainLayout->addWidget(aniListLabel);
 
     aniListStatusCombo = new QComboBox(aniListFrame);
     aniListStatusCombo->addItems({"--", "Reading", "Plan", "Done", "Drop", "Pause"});
-    aniListStatusCombo->setFixedHeight(SIZES.buttonSize);
-    row1->addWidget(aniListStatusCombo, 1);
+    aniListStatusCombo->setFixedHeight(h);
+    mainLayout->addWidget(aniListStatusCombo);
+
+    aniListChapterCombo = new QComboBox(aniListFrame);
+    aniListChapterCombo->setFixedHeight(h);
+    aniListChapterCombo->setMaxVisibleItems(8);
+    mainLayout->addWidget(aniListChapterCombo);
+
+    aniListVolumeCombo = new QComboBox(aniListFrame);
+    aniListVolumeCombo->setFixedHeight(h);
+    aniListVolumeCombo->setMaxVisibleItems(8);
+    mainLayout->addWidget(aniListVolumeCombo);
 
     aniListScoreCombo = new QComboBox(aniListFrame);
     aniListScoreCombo->addItem("-", 0);
     for (int i = 1; i <= 10; i++)
         aniListScoreCombo->addItem(QString::number(i), i);
-    aniListScoreCombo->setFixedHeight(SIZES.buttonSize);
-    row1->addWidget(aniListScoreCombo);
-
-    mainLayout->addLayout(row1);
-
-    // Row 2: Chapter + Volume
-    auto *row2 = new QHBoxLayout();
-    row2->setSpacing(4);
-
-    aniListChapterCombo = new QComboBox(aniListFrame);
-    aniListChapterCombo->setFixedHeight(SIZES.buttonSize);
-    aniListChapterCombo->setMaxVisibleItems(8);
-    row2->addWidget(aniListChapterCombo, 1);
-
-    aniListVolumeCombo = new QComboBox(aniListFrame);
-    aniListVolumeCombo->setFixedHeight(SIZES.buttonSize);
-    aniListVolumeCombo->setMaxVisibleItems(8);
-    row2->addWidget(aniListVolumeCombo, 1);
-
-    mainLayout->addLayout(row2);
+    aniListScoreCombo->setFixedHeight(h);
+    mainLayout->addWidget(aniListScoreCombo);
 
     // Debounced auto-sync: waits 2s after last change before syncing
     auto *syncTimer = new QTimer(aniListFrame);

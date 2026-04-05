@@ -30,6 +30,7 @@ public:
     void cancelDownloads();
     void downloadMangaChapters(QSharedPointer<MangaInfo> mangaInfo, int fromChapter, int toChapterInclusive);
     bool hasActiveDownloads() const { return running; }
+    QString currentTitle() const { return currentManga ? currentManga->title : QString(); }
 
 signals:
     void downloadStart(const QString &mangaTitle);
@@ -37,7 +38,8 @@ signals:
     void downloadPagesProgress(int completed, int total, int errors);
     void downloadImagesProgress(int completed, int total, int errors);
     void error(const QString &error);
-    void downloadCompleted();
+    void downloadCompleted(const QString &title);
+    void downloadCancelled(const QString &title);
 
 private:
     bool cancelled;

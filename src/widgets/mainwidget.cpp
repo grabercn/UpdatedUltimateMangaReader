@@ -162,6 +162,8 @@ MainWidget::MainWidget(QWidget *parent)
                              else
                              {
                                  downloadQueueWidget->jobFailed(m->title, "Export failed");
+                                 activeDownloadCount = qMax(0, activeDownloadCount - 1);
+                                 updateDownloadBadge();
                                  showErrorMessage("Export failed - download chapters first");
                              }
                          }
@@ -176,6 +178,10 @@ MainWidget::MainWidget(QWidget *parent)
 
     QObject::connect(downloadStatusDialog, &DownloadStatusDialog::abortDownloads,
                      core->mangaChapterDownloadManager, &MangaChapterDownloadManager::cancelDownloads);
+
+    // Also close status dialog on cancel
+    QObject::connect(core->mangaChapterDownloadManager, &MangaChapterDownloadManager::downloadCancelled,
+                     [this](const QString &) { downloadStatusDialog->downloadCompleted(); });
 
     // NetworkManager
 #ifdef KOBO
@@ -220,7 +226,7 @@ MainWidget::MainWidget(QWidget *parent)
                      downloadStatusDialog, &DownloadStatusDialog::downloadImagesProgress);
 
     QObject::connect(core->mangaChapterDownloadManager, &MangaChapterDownloadManager::downloadCompleted,
-                     downloadStatusDialog, &DownloadStatusDialog::downloadCompleted);
+                     [this](const QString &) { downloadStatusDialog->downloadCompleted(); });
 
     // Wire download progress to queue widget
     QObject::connect(core->mangaChapterDownloadManager, &MangaChapterDownloadManager::downloadStart,
@@ -238,7 +244,7 @@ MainWidget::MainWidget(QWidget *parent)
 
     QObject::connect(core->mangaChapterDownloadManager,
                      &MangaChapterDownloadManager::downloadCompleted,
-                     [this]()
+                     [this](const QString &title)
                      {
                          // If a pending export was waiting for download to finish, run it now
                          if (pendingExport.active && pendingExport.manga)
@@ -256,11 +262,21 @@ MainWidget::MainWidget(QWidget *parent)
                                                                  "Export failed");
                              pendingExport = {};
                          }
-                         else if (core->mangaController->currentManga)
+                         else if (!title.isEmpty())
                          {
-                             downloadQueueWidget->jobCompleted(
-                                 core->mangaController->currentManga->title);
+                             downloadQueueWidget->jobCompleted(title);
                          }
+                         activeDownloadCount = qMax(0, activeDownloadCount - 1);
+                         updateDownloadBadge();
+                     });
+
+    // Handle cancellation separately — clear pending export, mark jobs cancelled
+    QObject::connect(core->mangaChapterDownloadManager,
+                     &MangaChapterDownloadManager::downloadCancelled,
+                     [this](const QString &title)
+                     {
+                         pendingExport = {};
+                         downloadQueueWidget->jobCancelled(title);
                          activeDownloadCount = qMax(0, activeDownloadCount - 1);
                          updateDownloadBadge();
                      });
