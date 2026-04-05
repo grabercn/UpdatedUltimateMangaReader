@@ -84,15 +84,15 @@ int main(int argc, char *argv[])
     watchdogThread.detach();
 #endif
 
-    // Stop Nickel's background services to save battery
-    // Nickel stays alive for KFMon recovery but its CPU-heavy children are stopped
+    // Kill Nickel and all its companion daemons to save battery
+    // This is the same approach KOReader and Plato use — cleanly SIGTERM everything,
+    // then restart Nickel from scratch on exit
     QProcess::execute("sh", {"-c",
-        "killall -STOP nickel 2>/dev/null;"         // SIGSTOP freezes Nickel (recoverable)
-        "killall -9 sickel 2>/dev/null;"             // Nickel's sync daemon
-        "killall -9 nickel-sync 2>/dev/null;"        // Sync process
-        "killall -9 fmon 2>/dev/null"                // File monitor (indexing)
+        "killall -q -TERM nickel hindenburg sickel fickel strickel fontickel "
+        "adobehost foxitpdf iink dhcpcd-dbus bluealsa bluetoothd fmon nanoclock.lua 2>/dev/null;"
+        "rm -f /tmp/nickel-hardware-status"  // Remove IPC FIFO to prevent udev handler hangs
     });
-    qDebug() << "Nickel background services stopped";
+    qDebug() << "Nickel and companion daemons stopped";
 
     try
     {
@@ -117,11 +117,12 @@ int main(int argc, char *argv[])
         qCritical() << "Unknown fatal exception";
     }
 
-    // Resume Nickel on exit so Kobo returns to normal e-reader mode
+    // Restart Nickel from scratch so Kobo returns to normal e-reader mode
     QProcess::execute("sh", {"-c",
-        "killall -CONT nickel 2>/dev/null"  // SIGCONT unfreezes Nickel
+        "/mnt/onboard/.adds/UltimateMangaReader/fbdepth -d 32 2>/dev/null;"
+        "LIBC_FATAL_STDERR_=1 /usr/local/Kobo/nickel -platform kobo -skipFontLoad &"
     });
-    qDebug() << "Nickel resumed";
+    qDebug() << "Nickel restarted";
 
 #ifdef DESKTOP
     if (logFile)

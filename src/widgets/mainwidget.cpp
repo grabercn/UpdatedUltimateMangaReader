@@ -226,9 +226,7 @@ MainWidget::MainWidget(QWidget *parent)
     QObject::connect(core->mangaChapterDownloadManager, &MangaChapterDownloadManager::downloadStart,
                      [this](const QString &title)
                      {
-                         // Mark the job as active
-                         for (auto &j : downloadQueueWidget->findChildren<QLabel *>())
-                             Q_UNUSED(j);  // just need the widget reference
+                         downloadQueueWidget->markJobActive(title);
                      });
 
     QObject::connect(core->mangaChapterDownloadManager,
@@ -662,7 +660,7 @@ void MainWidget::showEvent(QShowEvent *event)
         {
             auto lines = QString(markerFile.readAll()).trimmed();
             markerFile.close();
-            QFile::remove(CONF.cacheDir + "update_complete.txt");
+            // Don't delete marker yet — only after user acknowledges
 
             auto parts = lines.split('\n');
             auto version = parts.isEmpty() ? "" : parts.first().trimmed();
@@ -712,6 +710,9 @@ void MainWidget::showEvent(QShowEvent *event)
                 layout->addWidget(okBtn);
 
                 dlg.exec();
+                // Only delete marker after user acknowledges — if app crashes or
+                // reboots before OK, the dialog will show again next launch
+                QFile::remove(CONF.cacheDir + "update_complete.txt");
             });
         }
     }
@@ -829,6 +830,12 @@ void MainWidget::showEvent(QShowEvent *event)
             });
         });
     }
+
+    // Apply saved frontlight immediately on boot (don't wait for delayed onResume)
+#ifdef KOBO
+    if (!WelcomeDialog::shouldShow() && koboDevice.frontlightSettings.hasFrontLight)
+        setupFrontLight();
+#endif
 
     QTimer::singleShot(500, this, &MainWidget::onResume);
 
@@ -1543,10 +1550,10 @@ void MainWidget::menuDialogButtonPressed(MenuButton button)
                 core->aniList->serialize();
 
 #ifdef KOBO
-            // Resume Nickel and restore framebuffer
+            // Restart Nickel from scratch and restore framebuffer
             QProcess::execute("sh", {"-c",
-                "killall -CONT nickel 2>/dev/null;"
-                "/mnt/onboard/.adds/UltimateMangaReader/fbdepth -d 32 2>/dev/null"});
+                "/mnt/onboard/.adds/UltimateMangaReader/fbdepth -d 32 2>/dev/null;"
+                "LIBC_FATAL_STDERR_=1 /usr/local/Kobo/nickel -platform kobo -skipFontLoad &"});
 #endif
 
             // Force quit - don't wait for pending events

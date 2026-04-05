@@ -48,9 +48,12 @@ public:
 
     void addJob(const QString &title, const QString &source, int from, int to,
                 bool toDevice, bool isLN);
+    void markJobActive(const QString &title);
     void updateActiveJob(int completedPages, int totalPages, int currentChapter);
     void jobCompleted(const QString &title);
     void jobFailed(const QString &title, const QString &error);
+    void moveJobUp(int index);
+    void moveJobDown(int index);
 
     void setAniListLinkInfo(int count, qint64 sizeBytes);
     class HomeWidget *homeWidget = nullptr;

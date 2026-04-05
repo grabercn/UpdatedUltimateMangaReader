@@ -188,6 +188,41 @@ DownloadQueueWidget::DownloadQueueWidget(QWidget *parent)
         selectAllBtn->setVisible(showingCached);
     });
 
+    auto *moveUpBtn = new QPushButton("Up", this);
+    moveUpBtn->setFixedHeight(SIZES.buttonSize);
+    moveUpBtn->setFixedWidth(SIZES.buttonSize * 2);
+    connect(moveUpBtn, &QPushButton::clicked, this, [this]()
+    {
+        int row = jobList->currentRow();
+        if (row > 0)
+        {
+            moveJobUp(row);
+            jobList->setCurrentRow(row - 1);
+        }
+    });
+
+    auto *moveDownBtn = new QPushButton("Dn", this);
+    moveDownBtn->setFixedHeight(SIZES.buttonSize);
+    moveDownBtn->setFixedWidth(SIZES.buttonSize * 2);
+    connect(moveDownBtn, &QPushButton::clicked, this, [this]()
+    {
+        int row = jobList->currentRow();
+        if (row >= 0 && row < jobs.size() - 1)
+        {
+            moveJobDown(row);
+            jobList->setCurrentRow(row + 1);
+        }
+    });
+
+    // Toggle visibility with queue/cached view
+    connect(showCachedBtn, &QPushButton::clicked, this, [=]()
+    {
+        moveUpBtn->setVisible(!showingCached);
+        moveDownBtn->setVisible(!showingCached);
+    });
+
+    btnRow->addWidget(moveUpBtn);
+    btnRow->addWidget(moveDownBtn);
     btnRow->addWidget(cancelBtn);
     btnRow->addWidget(clearBtn);
     btnRow->addWidget(selectAllBtn);
@@ -209,6 +244,46 @@ void DownloadQueueWidget::addJob(const QString &title, const QString &source,
     job.state = DownloadJob::Queued;
     jobs.append(job);
     refreshList();
+}
+
+void DownloadQueueWidget::markJobActive(const QString &title)
+{
+    for (auto &j : jobs)
+    {
+        if (j.state == DownloadJob::Queued && j.title == title)
+        {
+            j.state = DownloadJob::Active;
+            break;
+        }
+    }
+    activeProgress->setValue(0);
+    activeProgress->setFormat("Starting...");
+    activeProgress->show();
+    if (!showingCached)
+        refreshList();
+}
+
+void DownloadQueueWidget::moveJobUp(int index)
+{
+    if (index <= 0 || index >= jobs.size())
+        return;
+    // Only move queued jobs
+    if (jobs[index].state != DownloadJob::Queued)
+        return;
+    jobs.swapItemsAt(index, index - 1);
+    if (!showingCached)
+        refreshList();
+}
+
+void DownloadQueueWidget::moveJobDown(int index)
+{
+    if (index < 0 || index >= jobs.size() - 1)
+        return;
+    if (jobs[index].state != DownloadJob::Queued)
+        return;
+    jobs.swapItemsAt(index, index + 1);
+    if (!showingCached)
+        refreshList();
 }
 
 void DownloadQueueWidget::updateActiveJob(int completedPages, int totalPages, int currentChapter)
