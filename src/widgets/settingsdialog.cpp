@@ -512,7 +512,8 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
 
         // Revert to previous version
         auto *revertBtn = new QPushButton("Revert to Previous Version", this);
-        revertBtn->setFixedHeight(SIZES.buttonSize);
+        revertBtn->setMinimumHeight(SIZES.buttonSize);
+        revertBtn->setStyleSheet("text-align: left; padding: 4px 8px;");
         revertBtn->hide();
         scrollLayout->addWidget(revertBtn);
 
@@ -527,7 +528,7 @@ SettingsDialog::SettingsDialog(Settings *settings, AniList *aniList, Updater *up
         {
             revertBtn->setVisible(available);
             if (available)
-                revertBtn->setText("Revert to Previous Stable (v" + this->updater->previousVersion() + ")");
+                revertBtn->setText("Revert to v" + this->updater->previousVersion());
         });
 
         connect(revertBtn, &QPushButton::clicked, this, [this, updateStatusLabel]()
