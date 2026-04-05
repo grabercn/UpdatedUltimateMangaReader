@@ -23,6 +23,12 @@ void DownloadStringJob::downloadFinished()
     QUrl redirect = reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl();
     if (redirect.isValid())
     {
+        if (++redirectCount > maxRedirects)
+        {
+            errorString = "Too many redirects";
+            emit downloadError();
+            return;
+        }
         if (redirect.host() != "")
         {
             this->url = redirect.toString();

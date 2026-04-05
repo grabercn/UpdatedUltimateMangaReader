@@ -93,6 +93,10 @@ QRect getTrimRect(const QByteArray &buffer, int imgWidth, int imgHeight, int str
         bottom = qMax(bottom - extraInset, top);
     }
 
+    // If image is entirely white/blank, return the full image rect (no trimming)
+    if (leftMin >= imgWidth || rightMin <= 0 || top >= imgHeight || bottom < top)
+        return QRect(0, 0, imgWidth, imgHeight);
+
     int width = rightMin - leftMin + 1;
     int height = bottom - top + 1;
     int ntw = qMax(0, width + 4 - width % 4);

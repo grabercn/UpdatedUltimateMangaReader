@@ -11,9 +11,15 @@ MangaPlus::MangaPlus(NetworkManager *dm) : AbstractMangaSource(dm)
     invalidatePagelist();
 }
 
-// encrypiton keys are changing almost daily, we need to invalidate the old ones
+// Encryption keys change frequently, invalidate cached image URLs periodically
 void MangaPlus::invalidatePagelist()
 {
+    // Only invalidate once per day — check timestamp file
+    auto flagPath = CONF.mangasourcedir(this->name) + "pagelist_invalidated.dat";
+    QFileInfo flagInfo(flagPath);
+    if (flagInfo.exists() && flagInfo.lastModified().date() == QDate::currentDate())
+        return;
+
     auto path = CONF.mangasourcedir(this->name);
     QDir dir(path);
     QDir::Filters dirFilters = QDir::Dirs | QDir::NoDotAndDotDot | QDir::System | QDir::Hidden;
@@ -40,6 +46,11 @@ void MangaPlus::invalidatePagelist()
         }
         catch (...) { continue; }
     }
+
+    // Touch flag file so we don't re-run until tomorrow
+    QFile flag(flagPath);
+    flag.open(QIODevice::WriteOnly);
+    flag.close();
 }
 
 bool MangaPlus::updateMangaList(UpdateProgressToken *token)

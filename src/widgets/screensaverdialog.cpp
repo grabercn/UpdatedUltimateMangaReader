@@ -8,7 +8,7 @@
 ScreensaverDialog::ScreensaverDialog(QWidget *parent) : QDialog(parent), ui(new Ui::ScreensaverDialog)
 {
     ui->setupUi(this);
-    setWindowFlags(Qt::Popup);
+    setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
     ui->labelImage->setStyleSheet("QLabel { background-color : white; }");
 }
 
@@ -154,6 +154,6 @@ void ScreensaverDialog::showRandomScreensaver()
     p.end();
 
     ui->labelImage->setPixmap(canvas);
-    ui->labelImage->showFullScreen();
+    setFixedSize(parentWidget->size());
     open();
 }

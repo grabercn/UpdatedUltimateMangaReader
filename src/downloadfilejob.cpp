@@ -72,6 +72,13 @@ void DownloadFileJob::downloadFileFinished()
     QUrl redirect = reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl();
     if (redirect.isValid() && reply->url() != redirect)
     {
+        if (++redirectCount > maxRedirects)
+        {
+            file.remove();
+            errorString = "Too many redirects";
+            emit downloadError();
+            return;
+        }
         this->url = redirect.toString();
         this->restart();
         return;

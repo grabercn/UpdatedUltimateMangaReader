@@ -33,6 +33,7 @@ void WifiDialog::openFullScreen()
     {
         resize(parentWidget()->size());
         move(parentWidget()->pos());
+        setFixedSize(parentWidget()->size());
     }
 
     // Wait for any pending async operations to finish
@@ -214,6 +215,7 @@ void WifiDialog::onNetworkSelected(QListWidgetItem *item)
         return;
 
 #ifdef KOBO
+    QMutexLocker lock(&wifiMutex);
     // Check if already connected to this network
     for (const auto &net : scannedNetworks)
     {
@@ -382,6 +384,7 @@ void WifiDialog::updateStatus()
 
 void WifiDialog::scanNetworks()
 {
+    QMutexLocker lock(&wifiMutex);
     scannedNetworks.clear();
 
 #ifdef KOBO

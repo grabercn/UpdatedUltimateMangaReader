@@ -76,13 +76,19 @@ QDataStream &operator>>(QDataStream &str, MangaList &m)
 
     str >> m.titles >> m.urls >> m.popularityRanks >> m.absoluteUrls >> m.size;
 
+    // Clamp size to actual list sizes to prevent out-of-bounds on corrupt files
+    m.size = qMin(m.size, qMin(m.titles.size(), qMin(m.urls.size(), m.popularityRanks.size())));
+
     // Backwards compat: altTitles added after original fields
     if (!str.atEnd())
         str >> m.altTitles;
 
-    // Pad altTitles to match titles size (old files may not have them)
-    while (m.altTitles.size() < m.titles.size())
+    // Pad altTitles to match size (old files may not have them)
+    while (m.altTitles.size() < m.size)
         m.altTitles.append("");
+    // Trim if altTitles is too long
+    while (m.altTitles.size() > m.size)
+        m.altTitles.removeLast();
 
     return str;
 }

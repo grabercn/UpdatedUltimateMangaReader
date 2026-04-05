@@ -8,6 +8,7 @@
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QtConcurrent/QtConcurrent>
+#include <QMutex>
 #include <atomic>
 
 #include "networkmanager.h"
@@ -49,6 +50,7 @@ private:
     void connectToNetwork(const QString &ssid, const QString &password);
 
     QString wifiInterface = "wlan0";
+    QMutex wifiMutex;  // protects scannedNetworks and wifiInterface
 
     // For Kobo wpa_cli integration
     struct NetworkInfo

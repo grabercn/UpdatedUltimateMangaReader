@@ -33,6 +33,7 @@ DownloadQueue::DownloadQueue(NetworkManager* networkManager, const QList<FileDow
     : QObject(),
       completed(0),
       errors(0),
+      runningJobs(0),
       lastErrorMessage(""),
       cancelOnError(cancelOnError),
       networkManager(networkManager),

@@ -26,6 +26,8 @@ public:
     QString originalUrl;
     bool isCompleted;
     QString errorString;
+    int redirectCount = 0;
+    static constexpr int maxRedirects = 10;
 
     QList<QNetworkCookie> getCookies();
 
