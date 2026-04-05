@@ -360,21 +360,31 @@ void Updater::downloadAndApply()
         }
 
         // Give the UI a moment to show the message, then restart
-        // Note: do NOT change framebuffer depth here — the new instance
-        // will configure it correctly, and changing it mid-process causes
-        // resolution glitches during the handoff
         QThread::sleep(3);
 
-        // Launch new instance first, then hard-kill this one to prevent
-        // dual instances (QCoreApplication::quit can be slow/incomplete)
-        QProcess::startDetached(appPath, QCoreApplication::arguments());
-
 #ifdef KOBO
+        // Restore framebuffer to 32-bit BEFORE launching new instance
+        // This ensures clean display whether the new instance starts or not
+        QProcess::execute("sh", {"-c",
+            "/mnt/onboard/.adds/UltimateMangaReader/fbdepth -d 32 2>/dev/null"});
+
+        // Launch new instance
+        bool launched = QProcess::startDetached(appPath, QCoreApplication::arguments());
+
+        if (!launched)
+        {
+            // New binary failed to start — restart Nickel so the device isn't bricked
+            qDebug() << "Failed to start new UMR binary, restarting Nickel";
+            QProcess::execute("sh", {"-c",
+                "LIBC_FATAL_STDERR_=1 /usr/local/Kobo/nickel -platform kobo -skipFontLoad &"});
+        }
+
         // Force-kill this process to ensure clean handoff
         QProcess::execute("sh", {"-c",
             "kill -9 " + QString::number(QCoreApplication::applicationPid())});
+#else
+        QProcess::startDetached(appPath, QCoreApplication::arguments());
 #endif
-        // Fallback if kill didn't work (e.g. desktop builds)
         _exit(0);
     }
     else

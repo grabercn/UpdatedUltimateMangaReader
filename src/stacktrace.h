@@ -83,9 +83,10 @@ void doBacktrace(int signo)
 
     free(messages);
 
-    // Restore framebuffer depth on Kobo before exiting
-    // The app changes fb depth; if we crash without restoring, Nickel gets wrong resolution
+    // Restore framebuffer and restart Nickel on Kobo before exiting
+    // UMR kills Nickel on startup; if we crash without restarting it, the device has no UI
     system("/mnt/onboard/.adds/UltimateMangaReader/fbdepth -d 32 2>/dev/null");
+    system("LIBC_FATAL_STDERR_=1 /usr/local/Kobo/nickel -platform kobo -skipFontLoad &");
 
     exit(0);
 }

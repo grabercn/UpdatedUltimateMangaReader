@@ -76,7 +76,13 @@ int main(int argc, char *argv[])
             if (watchdogCounter > 6)  // 60 seconds without reset
             {
                 qDebug() << "WATCHDOG: Main thread frozen for 60s, restarting...";
-                QProcess::startDetached(QString::fromLocal8Bit(argv[0]), {});
+                // Restore framebuffer before restart attempt
+                system("/mnt/onboard/.adds/UltimateMangaReader/fbdepth -d 32 2>/dev/null");
+                if (!QProcess::startDetached(QString::fromLocal8Bit(argv[0]), {}))
+                {
+                    // If restart fails, bring back Nickel so device isn't bricked
+                    system("LIBC_FATAL_STDERR_=1 /usr/local/Kobo/nickel -platform kobo -skipFontLoad &");
+                }
                 _exit(1);
             }
         }
