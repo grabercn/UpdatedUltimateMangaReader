@@ -89,6 +89,45 @@ bool NetworkManager::disconnectWifi()
     return true;
 }
 
+bool NetworkManager::isWifiHardwareEnabled()
+{
+#ifdef KOBO
+    QProcess proc;
+    proc.start("sh", {"-c", "ls /sys/class/net/ | grep -E 'wlan|eth'"});
+    proc.waitForFinished(2000);
+    QString iface = proc.readAllStandardOutput().trimmed().split('\n').first();
+    if (iface.isEmpty()) return false;
+
+    QFile file("/sys/class/net/" + iface + "/operstate");
+    if (file.open(QIODevice::ReadOnly))
+    {
+        QString state = file.readAll().trimmed();
+        file.close();
+        return state != "down";
+    }
+#endif
+    return true;
+}
+
+void NetworkManager::setWifiHardwareEnabled(bool enabled)
+{
+#ifdef KOBO
+    if (enabled)
+    {
+        KoboPlatformFunctions::enableWiFiConnection();
+    }
+    else
+    {
+        KoboPlatformFunctions::disableWiFiConnection();
+        // Force kill wpa_supplicant and dhcpcd if they linger
+        QProcess::execute("killall", {"-q", "wpa_supplicant", "dhcpcd", "udhcpc"});
+    }
+    checkInternetConnection();
+#else
+    Q_UNUSED(enabled);
+#endif
+}
+
 bool NetworkManager::checkInternetConnection()
 {
     bool oldstatus = connected;

@@ -45,77 +45,130 @@ void WifiDialog::openFullScreen()
         lastConnection.waitForFinished();
     }
 
-    // Only build UI once - check if we already have widgets
-    if (statusLabel)
+    // Always rebuild UI for simplicity and to ensure fresh state
+    if (layout())
     {
-        updateStatus();
-        exec();
-        return;
+        QLayoutItem *child;
+        while ((child = layout()->takeAt(0)) != nullptr)
+        {
+            if (child->widget())
+                child->widget()->deleteLater();
+            delete child;
+        }
+        delete layout();
     }
 
     auto *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(8, 6, 8, 6);
-    mainLayout->setSpacing(4);
+    mainLayout->setContentsMargins(15, 10, 15, 10);
+    mainLayout->setSpacing(10);
 
     // Header
     auto *headerRow = new QHBoxLayout();
-    // Header row
     closeBtn = new QPushButton("< Back", this);
     closeBtn->setFixedHeight(SIZES.buttonSize);
+    closeBtn->setProperty("type", "borderless");
     QObject::connect(closeBtn, &QPushButton::clicked, this, &WifiDialog::onCloseClicked);
     headerRow->addWidget(closeBtn);
 
-    auto *titleLbl = new QLabel("<b>WiFi</b>", this);
+    auto *titleLbl = new QLabel("<b>Network Settings</b>", this);
     titleLbl->setAlignment(Qt::AlignCenter);
+    titleLbl->setStyleSheet("font-size: 18pt;");
     headerRow->addWidget(titleLbl, 1);
 
-    toggleBtn = new QPushButton("Connect", this);
-    toggleBtn->setFixedHeight(SIZES.buttonSize);
-    QObject::connect(toggleBtn, &QPushButton::clicked, this, &WifiDialog::onToggleClicked);
-    headerRow->addWidget(toggleBtn);
+    auto *placeholder = new QWidget(this);
+    placeholder->setFixedWidth(closeBtn->width());
+    headerRow->addWidget(placeholder);
     mainLayout->addLayout(headerRow);
 
-    // Status
-    statusLabel = new QLabel("Checking...", this);
-    statusLabel->setAlignment(Qt::AlignCenter);
-    statusLabel->setStyleSheet("padding: 4px; color: #555;");
-    mainLayout->addWidget(statusLabel);
+    // Master Toggle Row
+    auto *toggleFrame = new QFrame(this);
+    toggleFrame->setStyleSheet("QFrame { background: #f0f0f0; border-radius: 8px; border: 1px solid #ddd; }");
+    auto *toggleLayout = new QHBoxLayout(toggleFrame);
 
-    // Scan button
+    auto *wifiIcon = new QLabel(this);
+    wifiIcon->setPixmap(QIcon(":/images/icons/wifi.png").pixmap(32, 32));
+    wifiIcon->setStyleSheet("border: none; background: transparent;");
+    toggleLayout->addWidget(wifiIcon);
+
+    auto *toggleText = new QLabel("<b>Enable WiFi Hardware</b>", this);
+    toggleText->setStyleSheet("border: none; background: transparent; font-size: 14pt;");
+    toggleLayout->addWidget(toggleText, 1);
+
+    toggleBtn = new QPushButton(this);
+    toggleBtn->setFixedSize(120, SIZES.buttonSize);
+    QObject::connect(toggleBtn, &QPushButton::clicked, this, &WifiDialog::onHardwareToggleClicked);
+    toggleLayout->addWidget(toggleBtn);
+    mainLayout->addWidget(toggleFrame);
+
+    // Status Area
+    auto *statusFrame = new QFrame(this);
+    statusFrame->setStyleSheet("QFrame { background: white; border: 1px solid #eee; border-radius: 4px; }");
+    auto *statusLayout = new QVBoxLayout(statusFrame);
+    statusLabel = new QLabel("Initializing...", this);
+    statusLabel->setAlignment(Qt::AlignCenter);
+    statusLabel->setStyleSheet("border: none; color: #333; font-size: 12pt;");
+    statusLayout->addWidget(statusLabel);
+    mainLayout->addWidget(statusFrame);
+
+    // Action Buttons Row
+    auto *actionRow = new QHBoxLayout();
     scanBtn = new QPushButton("Scan for Networks", this);
     scanBtn->setFixedHeight(SIZES.buttonSize);
     QObject::connect(scanBtn, &QPushButton::clicked, this, &WifiDialog::onScanClicked);
-    mainLayout->addWidget(scanBtn);
+    actionRow->addWidget(scanBtn, 1);
+
+    auto *disconnectAllBtn = new QPushButton("Disconnect All", this);
+    disconnectAllBtn->setFixedHeight(SIZES.buttonSize);
+    QObject::connect(disconnectAllBtn, &QPushButton::clicked, this, &WifiDialog::onToggleClicked);
+    actionRow->addWidget(disconnectAllBtn, 1);
+    mainLayout->addLayout(actionRow);
 
     // Network list
     networkList = new QListWidget(this);
     networkList->setStyleSheet(
-        "QListWidget { border: 1px solid #ddd; }"
-        "QListWidget::item { padding: 6px 4px; border-bottom: 1px solid #eee; min-height: "
-        + QString::number(SIZES.buttonSize) + "px; }");
+        "QListWidget { border: 1px solid #ddd; background: white; outline: none; }"
+        "QListWidget::item { padding: 12px 8px; border-bottom: 1px solid #eee; }"
+        "QListWidget::item:selected { background: #eee; color: black; }");
     networkList->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     networkList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     networkList->setFocusPolicy(Qt::NoFocus);
-    networkList->setSelectionMode(QAbstractItemView::NoSelection);
     activateScroller(networkList);
     QObject::connect(networkList, &QListWidget::itemClicked, this, &WifiDialog::onNetworkSelected);
     mainLayout->addWidget(networkList, 1);
 
-    // Remove unused members
-    statusIcon = nullptr;
-    infoLabel = nullptr;
-
     updateStatus();
     exec();
+}
+
+void WifiDialog::onHardwareToggleClicked()
+{
+    bool currentlyEnabled = networkManager->isWifiHardwareEnabled();
+    bool target = !currentlyEnabled;
+
+    if (statusLabel)
+        statusLabel->setText(target ? "Enabling WiFi Hardware..." : "Disabling WiFi Hardware...");
+    if (toggleBtn)
+        toggleBtn->setEnabled(false);
+
+    lastConnection = QtConcurrent::run([this, target]() {
+        networkManager->setWifiHardwareEnabled(target);
+
+        if (destroying) return;
+        QMetaObject::invokeMethod(this, [this, target]() {
+            if (destroying) return;
+            updateStatus();
+            if (toggleBtn) toggleBtn->setEnabled(true);
+            if (target)
+                onScanClicked(); // Auto-scan when enabling
+        }, Qt::QueuedConnection);
+    });
 }
 
 void WifiDialog::connect()
 {
     if (statusLabel)
         statusLabel->setText("Connecting...");
-    if (toggleBtn)
-        toggleBtn->setEnabled(false);
-
+    
     lastConnection = QtConcurrent::run([this]() {
         networkManager->connectWifi();
         if (destroying)
@@ -124,10 +177,7 @@ void WifiDialog::connect()
         {
             if (destroying)
                 return;
-            if (statusLabel)
-                updateStatus();
-            if (toggleBtn)
-                toggleBtn->setEnabled(true);
+            updateStatus();
         }, Qt::QueuedConnection);
     });
 }
@@ -135,34 +185,31 @@ void WifiDialog::connect()
 void WifiDialog::onToggleClicked()
 {
     if (destroying) return;
-    if (networkManager->connected)
-    {
-        // Disconnect
-        if (statusLabel) statusLabel->setText("Disconnecting...");
-        if (toggleBtn) toggleBtn->setEnabled(false);
-        lastConnection = QtConcurrent::run([this]() {
-            networkManager->disconnectWifi();
+    if (!networkManager->isWifiHardwareEnabled()) return;
+
+    if (statusLabel) statusLabel->setText("Disconnecting all networks...");
+
+    lastConnection = QtConcurrent::run([this]() {
+        networkManager->disconnectWifi();
+        if (destroying) return;
+        QMetaObject::invokeMethod(this, [this]() {
             if (destroying) return;
-            QMetaObject::invokeMethod(this, [this]() {
-                if (destroying) return;
-                updateStatus();
-                if (toggleBtn) toggleBtn->setEnabled(true);
-            }, Qt::QueuedConnection);
-        });
-    }
-    else
-    {
-        connect();
-    }
+            updateStatus();
+            onScanClicked(); // Refresh list to show disconnection
+        }, Qt::QueuedConnection);
+    });
 }
 
 void WifiDialog::onScanClicked()
 {
 #ifdef KOBO
     if (destroying || !scanBtn || !networkList) return;
+    if (!networkManager->isWifiHardwareEnabled()) return;
+
     scanBtn->setText("Scanning...");
     scanBtn->setEnabled(false);
     networkList->clear();
+    networkList->addItem("Searching for nearby networks...");
 
     lastScan = QtConcurrent::run([this]() {
         scanNetworks();
@@ -175,35 +222,53 @@ void WifiDialog::onScanClicked()
             networkList->clear();
             for (const auto &net : scannedNetworks)
             {
-                QString text = net.ssid;
-                if (net.connected)
-                    text += "  [Connected]";
+                // Signal bars string
+                QString bars = " [";
+                if (net.signal > 80) bars += "||||";
+                else if (net.signal > 60) bars += "|||";
+                else if (net.signal > 40) bars += "||";
+                else bars += "|";
+                bars += "]";
 
-                // Signal bars
-                QString bars;
-                if (net.signal > 75) bars = "||||";
-                else if (net.signal > 50) bars = "|||";
-                else if (net.signal > 25) bars = "||";
-                else bars = "|";
+                auto *item = new QListWidgetItem(networkList);
+                auto *widget = new QWidget(networkList);
+                auto *layout = new QHBoxLayout(widget);
+                layout->setContentsMargins(10, 5, 10, 5);
 
-                text += "  " + bars;
+                QString labelText = "<b>" + net.ssid + "</b>";
+                if (net.connected) labelText += " <small>(Connected)</small>";
+
+                auto *labelSSID = new QLabel(labelText, widget);
+                labelSSID->setStyleSheet("font-size: 14pt; border: none; background: transparent;");
+                layout->addWidget(labelSSID, 1);
+
                 if (net.secured)
-                    text += "  [Secured]";
+                {
+                    auto *lockIcon = new QLabel("🔒", widget);
+                    lockIcon->setStyleSheet("border: none; background: transparent;");
+                    layout->addWidget(lockIcon);
+                }
 
-                auto *item = new QListWidgetItem(text, networkList);
+                auto *labelSignal = new QLabel(bars, widget);
+                labelSignal->setStyleSheet("color: #666; font-family: monospace; border: none; background: transparent;");
+                layout->addWidget(labelSignal);
+
+                item->setSizeHint(widget->sizeHint());
                 item->setData(Qt::UserRole, net.ssid);
+                networkList->addItem(item);
+                networkList->setItemWidget(item, widget);
+
                 if (net.connected)
-                    item->setForeground(QColor(0, 100, 0));
+                    labelSSID->setStyleSheet("font-size: 14pt; color: #006600; font-weight: bold; border: none; background: transparent;");
             }
 
             if (scannedNetworks.isEmpty())
-                networkList->addItem("No networks found");
+                networkList->addItem("No networks found. Check your hardware or try scanning again.");
         }, Qt::QueuedConnection);
     });
 #else
     networkList->clear();
     networkList->addItem("Network scanning not available on desktop");
-    networkList->addItem("WiFi is managed by your operating system");
 #endif
 }
 
@@ -213,7 +278,7 @@ void WifiDialog::onNetworkSelected(QListWidgetItem *item)
         return;
 
     auto ssid = item->data(Qt::UserRole).toString();
-    if (ssid.isEmpty())
+    if (ssid.isEmpty() || ssid.startsWith("No networks") || ssid.startsWith("Searching"))
         return;
 
 #ifdef KOBO
@@ -257,19 +322,18 @@ void WifiDialog::onNetworkSelected(QListWidgetItem *item)
         pwDialog.resize(this->size());
         pwDialog.move(this->pos());
 
-        // Install MainWidget's event filter on the password dialog so
-        // CLineEdit's custom keyboard events reach the virtual keyboard
+        // Install MainWidget's event filter on the password dialog
         pwDialog.installEventFilter(this->parentWidget());
 
         auto *pwLayout = new QVBoxLayout(&pwDialog);
-        pwLayout->setContentsMargins(10, 8, 10, 8);
-        pwLayout->setSpacing(6);
+        pwLayout->setContentsMargins(15, 10, 15, 10);
+        pwLayout->setSpacing(10);
 
         auto *pwTitle = new QLabel("<b>Connect to " + ssid + "</b>", &pwDialog);
         pwTitle->setAlignment(Qt::AlignCenter);
+        pwTitle->setStyleSheet("font-size: 16pt;");
         pwLayout->addWidget(pwTitle);
 
-        // Put password field near top (above keyboard when it shows)
         pwLayout->addSpacing(20);
 
         auto *pwLabel = new QLabel("Enter WiFi password:", &pwDialog);
@@ -277,7 +341,7 @@ void WifiDialog::onNetworkSelected(QListWidgetItem *item)
 
         auto *pwEdit = new CLineEdit(&pwDialog);
         pwEdit->setEchoMode(QLineEdit::Password);
-        pwEdit->setPlaceholderText("Tap here to type password...");
+        pwEdit->setPlaceholderText("Tap to type...");
         pwEdit->setFixedHeight(SIZES.buttonSize);
         pwLayout->addWidget(pwEdit);
 
@@ -287,7 +351,7 @@ void WifiDialog::onNetworkSelected(QListWidgetItem *item)
         });
         pwLayout->addWidget(showPwCheck);
 
-        pwLayout->addSpacing(10);
+        pwLayout->addSpacing(20);
 
         auto *pwBtnRow = new QHBoxLayout();
         auto *pwCancel = new QPushButton("Cancel", &pwDialog);
@@ -296,7 +360,7 @@ void WifiDialog::onNetworkSelected(QListWidgetItem *item)
 
         auto *pwConnect = new QPushButton("Connect", &pwDialog);
         pwConnect->setFixedHeight(SIZES.buttonSize);
-        pwConnect->setStyleSheet("font-weight: bold;");
+        pwConnect->setStyleSheet("font-weight: bold; background: #eee;");
         QObject::connect(pwConnect, &QPushButton::clicked, &pwDialog, &QDialog::accept);
 
         pwBtnRow->addWidget(pwCancel);
@@ -330,7 +394,6 @@ void WifiDialog::connectToNetwork(const QString &ssid, const QString &password)
 {
 #ifdef KOBO
     if (statusLabel) statusLabel->setText("Connecting to " + ssid + "...");
-    if (toggleBtn) toggleBtn->setEnabled(false);
 
     lastConnection = QtConcurrent::run([this, ssid, password]() {
         // Copy wifiInterface under lock for thread safety
@@ -355,8 +418,7 @@ void WifiDialog::connectToNetwork(const QString &ssid, const QString &password)
             if (destroying) return;
             QMetaObject::invokeMethod(this, [this]() {
                 if (destroying) return;
-                if (statusLabel) statusLabel->setText("Failed to add network (wpa_supplicant error)");
-                if (toggleBtn) toggleBtn->setEnabled(true);
+                if (statusLabel) statusLabel->setText("Error: wpa_supplicant failed to add network");
             }, Qt::QueuedConnection);
             return;
         }
@@ -368,12 +430,10 @@ void WifiDialog::connectToNetwork(const QString &ssid, const QString &password)
 
         if (password.isEmpty())
         {
-            // Open network
             QProcess::execute("wpa_cli", {"-i", iface, "set_network", netId, "key_mgmt", "NONE"});
         }
         else
         {
-            // WPA/WPA2 with password
             QProcess::execute("wpa_cli", {"-i", iface, "set_network", netId,
                               "psk", QString("\"%1\"").arg(password)});
         }
@@ -391,14 +451,14 @@ void WifiDialog::connectToNetwork(const QString &ssid, const QString &password)
         QMetaObject::invokeMethod(this, [this, ssid]() {
             if (destroying) return;
             updateStatus();
-            if (toggleBtn) toggleBtn->setEnabled(true);
             if (statusLabel)
             {
                 if (networkManager->connected)
                     statusLabel->setText("Connected to " + ssid);
                 else
-                    statusLabel->setText("Failed to connect to " + ssid);
+                    statusLabel->setText("Connection failed. Check password.");
             }
+            onScanClicked(); // Update list
         }, Qt::QueuedConnection);
     });
 #else
@@ -408,17 +468,38 @@ void WifiDialog::connectToNetwork(const QString &ssid, const QString &password)
 
 void WifiDialog::updateStatus()
 {
+    bool hwEnabled = networkManager->isWifiHardwareEnabled();
+
+    if (toggleBtn)
+    {
+        toggleBtn->setText(hwEnabled ? "Turn OFF" : "Turn ON");
+        toggleBtn->setStyleSheet(hwEnabled ? "background: #eee; border: 1px solid #ccc; border-radius: 4px;" 
+                                          : "background: #ddd; font-weight: bold; border: 1px solid #bbb; border-radius: 4px;");
+    }
+
+    if (!hwEnabled)
+    {
+        if (statusLabel) statusLabel->setText("WiFi Hardware: DISABLED");
+        if (scanBtn) scanBtn->setEnabled(false);
+        if (networkList)
+        {
+            networkList->setEnabled(false);
+            networkList->clear();
+            networkList->addItem("Enable WiFi hardware above to scan for networks.");
+        }
+        return;
+    }
+
+    if (scanBtn) scanBtn->setEnabled(true);
+    if (networkList) networkList->setEnabled(true);
+
     if (networkManager->connected)
     {
-        if (statusIcon) statusIcon->setText("*");
-        if (statusLabel) statusLabel->setText("Connected");
-        if (toggleBtn) toggleBtn->setText("Disconnect");
+        if (statusLabel) statusLabel->setText("Status: Connected to Internet");
     }
     else
     {
-        if (statusIcon) statusIcon->setText("-");
-        if (statusLabel) statusLabel->setText("Not connected");
-        if (toggleBtn) toggleBtn->setText("Connect");
+        if (statusLabel) statusLabel->setText("Status: WiFi Hardware Enabled");
     }
 }
 
@@ -444,7 +525,6 @@ void WifiDialog::scanNetworks()
         if (!detected.isEmpty())
             wifiInterface = detected;
     }
-    qDebug() << "WiFi scan: using interface" << wifiInterface;
 
     // Ensure wpa_supplicant is running
     {
@@ -468,16 +548,14 @@ void WifiDialog::scanNetworks()
         QProcess scanProc;
         scanProc.start("wpa_cli", {"-i", wifiInterface, "scan"});
         scanProc.waitForFinished(5000);
-        qDebug() << "WiFi scan trigger:" << scanProc.readAllStandardOutput().trimmed();
     }
-    QThread::sleep(3);  // Wait for scan to complete
+    QThread::sleep(3);
 
     // Get results
     QProcess proc;
     proc.start("wpa_cli", {"-i", wifiInterface, "scan_results"});
     proc.waitForFinished(5000);
     auto output = proc.readAllStandardOutput();
-    qDebug() << "WiFi scan results:" << output.left(500);
 
     // Get current network
     QProcess statusProc;
@@ -491,87 +569,25 @@ void WifiDialog::scanNetworks()
             currentSSID = QString(line.mid(5)).trimmed();
     }
 
-    // Fallback: if wpa_cli returned nothing, try iwlist
-    if (output.trimmed().split('\n').size() <= 1)
-    {
-        qDebug() << "wpa_cli scan empty, trying iwlist...";
-        QProcess iwProc;
-        iwProc.start("sh", {"-c", "iwlist " + wifiInterface + " scan 2>/dev/null"});
-        iwProc.waitForFinished(10000);
-        auto iwOutput = iwProc.readAllStandardOutput();
-        qDebug() << "iwlist output:" << iwOutput.left(500);
-
-        // Parse iwlist output
-        QString currentCell;
-        int currentSignal = 0;
-        bool currentSecured = false;
-
-        for (const auto &rawLine : iwOutput.split('\n'))
-        {
-            auto line = QString(rawLine).trimmed();
-            if (line.contains("Cell "))
-            {
-                if (!currentCell.isEmpty())
-                {
-                    NetworkInfo net;
-                    net.ssid = currentCell;
-                    net.signal = currentSignal;
-                    net.secured = currentSecured;
-                    net.connected = (currentCell == currentSSID && networkManager->connected);
-                    scannedNetworks.append(net);
-                }
-                currentCell.clear();
-                currentSignal = 0;
-                currentSecured = false;
-            }
-            if (line.startsWith("ESSID:"))
-                currentCell = line.mid(7).chopped(1);  // Remove quotes
-            if (line.contains("Signal level="))
-            {
-                auto idx = line.indexOf("Signal level=") + 13;
-                auto val = line.mid(idx).split(' ').first().split('/').first();
-                int dbm = val.toInt();
-                if (dbm < 0)
-                    currentSignal = qBound(0, 2 * (dbm + 100), 100);
-                else
-                    currentSignal = qBound(0, dbm, 100);
-            }
-            if (line.contains("WPA") || line.contains("WEP"))
-                currentSecured = true;
-        }
-        if (!currentCell.isEmpty())
-        {
-            NetworkInfo net;
-            net.ssid = currentCell;
-            net.signal = currentSignal;
-            net.secured = currentSecured;
-            net.connected = (currentCell == currentSSID && networkManager->connected);
-            scannedNetworks.append(net);
-        }
-    }
-
-    // Parse wpa_cli scan results: bssid / frequency / signal level / flags / ssid
+    // Parse wpa_cli scan results
     for (const auto &line : output.split('\n'))
     {
         auto parts = QString(line).split('\t');
         if (parts.size() < 5)
             continue;
         if (parts[0].startsWith("bssid"))
-            continue;  // header line
+            continue;
 
         NetworkInfo net;
         net.ssid = parts[4].trimmed();
         if (net.ssid.isEmpty())
             continue;
 
-        // Signal: wpa_cli gives dBm, convert to 0-100
         int dbm = parts[2].toInt();
         net.signal = qBound(0, 2 * (dbm + 100), 100);
-
         net.secured = parts[3].contains("WPA") || parts[3].contains("WEP");
         net.connected = (net.ssid == currentSSID && networkManager->connected);
 
-        // Deduplicate (same SSID, keep strongest)
         bool found = false;
         for (auto &existing : scannedNetworks)
         {
@@ -589,7 +605,6 @@ void WifiDialog::scanNetworks()
             scannedNetworks.append(net);
     }
 
-    // Sort: connected first, then by signal strength
     std::sort(scannedNetworks.begin(), scannedNetworks.end(),
               [](const NetworkInfo &a, const NetworkInfo &b) {
                   if (a.connected != b.connected) return a.connected;

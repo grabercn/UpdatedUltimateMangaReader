@@ -35,6 +35,9 @@ public:
     bool connectWifi();
     bool disconnectWifi();
 
+    bool isWifiHardwareEnabled();
+    void setWifiHardwareEnabled(bool enabled);
+
     static void loadCertificates(const QString &certsPath);
     bool urlExists(const QString &url);
 

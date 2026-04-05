@@ -27,6 +27,7 @@ public:
 
 private slots:
     void onToggleClicked();
+    void onHardwareToggleClicked();
     void onScanClicked();
     void onNetworkSelected(QListWidgetItem *item);
     void onCloseClicked();
