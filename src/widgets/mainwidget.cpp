@@ -157,17 +157,21 @@ MainWidget::MainWidget(QWidget *parent)
                                  downloadQueueWidget->jobCompleted(m->title);
                                  activeDownloadCount = qMax(0, activeDownloadCount - 1);
                                  updateDownloadBadge();
+                                 showErrorMessage("Novel exported to Kobo library!");
                              }
                              else
+                             {
                                  downloadQueueWidget->jobFailed(m->title, "Export failed");
+                                 showErrorMessage("Export failed - download chapters first");
+                             }
                          }
                          else
                          {
-                             // Manga download is async — progress shown via downloadStatusDialog
+                             // Download images first, then export on completion
+                             pendingExport = {m, f, t, true};
                              core->mangaChapterDownloadManager->downloadMangaChapters(m, f, t);
+                             showErrorMessage("Downloading for export - check Downloads page");
                          }
-
-                         showErrorMessage("Check Downloads page for progress");
                      });
 
     QObject::connect(downloadStatusDialog, &DownloadStatusDialog::abortDownloads,
@@ -238,9 +242,27 @@ MainWidget::MainWidget(QWidget *parent)
                      &MangaChapterDownloadManager::downloadCompleted,
                      [this]()
                      {
-                         if (core->mangaController->currentManga)
+                         // If a pending export was waiting for download to finish, run it now
+                         if (pendingExport.active && pendingExport.manga)
+                         {
+                             bool ok = core->exportMangaAsCBZ(pendingExport.manga,
+                                                               pendingExport.fromChapter,
+                                                               pendingExport.toChapter);
+                             if (ok)
+                             {
+                                 downloadQueueWidget->jobCompleted(pendingExport.manga->title);
+                                 showErrorMessage("Exported to Kobo library!");
+                             }
+                             else
+                                 downloadQueueWidget->jobFailed(pendingExport.manga->title,
+                                                                 "Export failed");
+                             pendingExport = {};
+                         }
+                         else if (core->mangaController->currentManga)
+                         {
                              downloadQueueWidget->jobCompleted(
                                  core->mangaController->currentManga->title);
+                         }
                          activeDownloadCount = qMax(0, activeDownloadCount - 1);
                          updateDownloadBadge();
                      });

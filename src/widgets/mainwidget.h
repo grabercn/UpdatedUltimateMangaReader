@@ -115,6 +115,15 @@ private:
     SpinnerWidget *spinner;
     QToolButton *downloadHeaderBtn;
     int activeDownloadCount;
+
+    // Pending manga export (download first, then export on completion)
+    struct PendingExport {
+        QSharedPointer<MangaInfo> manga;
+        int fromChapter = 0;
+        int toChapter = 0;
+        bool active = false;
+    };
+    PendingExport pendingExport;
     void showLoadingIndicator();
     void updateDownloadBadge();
     void hideLoadingIndicator();
