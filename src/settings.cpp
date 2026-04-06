@@ -16,6 +16,13 @@ Settings::Settings()
       manhwaMode(true),
       ditheringMode(SWDithering),
       colorMode(false),  // greyscale by default for fast page loading
+      preloadEnabled(true),
+      preloadPages(3),
+      preloadChapters(2),
+      autoBootEnabled(false),
+      offlineMode(false),
+      autoSuspendMinutes(15),
+      wifiAutoDisconnect(true),
       iaGeneralBooksEnabled(false),
       debugScreenshots(false),
       usbNetworkMode(false),
@@ -24,13 +31,6 @@ Settings::Settings()
       bedtimeEnabled(false),
       bedtimeStartMinutes(22 * 60),  // 10:00 PM
       bedtimeEndMinutes(7 * 60),     // 7:00 AM
-      preloadEnabled(true),
-      preloadPages(3),
-      preloadChapters(2),
-      autoBootEnabled(false),
-      offlineMode(false),
-      autoSuspendMinutes(15),
-      wifiAutoDisconnect(true),
       timer()
 {
     QObject::connect(&timer, &QTimer::timeout, [this]() { this->serialize(); });

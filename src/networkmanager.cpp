@@ -181,8 +181,8 @@ QSharedPointer<DownloadStringJob> NetworkManager::downloadAsString(const QString
     auto job = QSharedPointer<DownloadStringJob>(
         new DownloadStringJob(networkManager, urlf, timeout, postData, headers), &QObject::deleteLater);
 
-    connect(job.get(), &DownloadStringJob::completed, this, [this, url, timeout, postData, headers, maxRetries, job](bool success) {
-        if (!success && maxRetries > 0) {
+    connect(job.get(), &DownloadStringJob::downloadError, this, [this, url, timeout, postData, headers, maxRetries]() {
+        if (maxRetries > 0) {
             qDebug() << "Download failed, retrying" << url << "(" << maxRetries << "retries left)";
             QTimer::singleShot(1000, this, [this, url, timeout, postData, headers, maxRetries]() {
                 downloadAsString(url, timeout, postData, headers, maxRetries - 1);
@@ -207,8 +207,8 @@ QSharedPointer<DownloadBufferJob> NetworkManager::downloadToBuffer(const QString
     auto job = QSharedPointer<DownloadBufferJob>(
         new DownloadBufferJob(networkManager, urlf, timeout, postData), &QObject::deleteLater);
 
-    connect(job.get(), &DownloadBufferJob::completed, this, [this, url, timeout, postData, maxRetries, job](bool success) {
-        if (!success && maxRetries > 0) {
+    connect(job.get(), &DownloadBufferJob::downloadError, this, [this, url, timeout, postData, maxRetries]() {
+        if (maxRetries > 0) {
             qDebug() << "Download buffer failed, retrying" << url << "(" << maxRetries << "retries left)";
             QTimer::singleShot(1000, this, [this, url, timeout, postData, maxRetries]() {
                 downloadToBuffer(url, timeout, postData, maxRetries - 1);
@@ -252,8 +252,8 @@ QSharedPointer<DownloadFileJob> NetworkManager::downloadAsFile(const QString &ur
             j->deleteLater();
         });
 
-    connect(job.get(), &DownloadFileJob::completed, this, [this, url, localPath, maxRetries, job](bool success) {
-        if (!success && maxRetries > 0) {
+    connect(job.get(), &DownloadFileJob::downloadError, this, [this, url, localPath, maxRetries]() {
+        if (maxRetries > 0) {
             qDebug() << "Download file failed, retrying" << url << "(" << maxRetries << "retries left)";
             QTimer::singleShot(1000, this, [this, url, localPath, maxRetries]() {
                 downloadAsFile(url, localPath, maxRetries - 1);
@@ -319,8 +319,8 @@ QSharedPointer<DownloadFileJob> NetworkManager::downloadAsScaledImage(const QStr
             j->deleteLater();
         });
 
-    connect(job.get(), &DownloadFileJob::completed, this, [this, url, localPath, maxRetries, job](bool success) {
-        if (!success && maxRetries > 0) {
+    connect(job.get(), &DownloadFileJob::downloadError, this, [this, url, localPath, maxRetries]() {
+        if (maxRetries > 0) {
             qDebug() << "Download scaled image failed, retrying" << url << "(" << maxRetries << "retries left)";
             QTimer::singleShot(1000, this, [this, url, localPath, maxRetries]() {
                 downloadAsScaledImage(url, localPath, maxRetries - 1);
