@@ -42,11 +42,28 @@ class TapGestureRecognizer : public QGestureRecognizer
     QPointF position;
     bool pressed;
     QElapsedTimer timer;
-    static const int TIMEOUT = 3000;
-    static const int TAPRADIUS = 20;
+    static const int MAX_TAP_TIME = 400; // ms
+    static const int TAP_RADIUS = 30;    // pixels
 
 public:
     TapGestureRecognizer();
+
+    QGesture *create(QObject *) override;
+    QGestureRecognizer::Result recognize(QGesture *state, QObject *watched, QEvent *event) override;
+    void reset(QGesture *state) override;
+};
+
+class LongPressGestureRecognizer : public QGestureRecognizer
+{
+    QPointF position;
+    bool pressed;
+    bool triggered;
+    QElapsedTimer timer;
+    static const int MIN_HOLD_TIME = 800; // ms
+    static const int MOVE_THRESHOLD = 20; // pixels
+
+public:
+    LongPressGestureRecognizer();
 
     QGesture *create(QObject *) override;
     QGestureRecognizer::Result recognize(QGesture *state, QObject *watched, QEvent *event) override;

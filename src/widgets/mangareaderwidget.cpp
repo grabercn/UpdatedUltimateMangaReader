@@ -107,8 +107,10 @@ MangaReaderWidget::MangaReaderWidget(QWidget *parent)
 #endif
 
     QGestureRecognizer::registerRecognizer(new SwipeGestureRecognizer());
+    QGestureRecognizer::registerRecognizer(new LongPressGestureRecognizer());
     grabGesture(Qt::GestureType::TapGesture);
     grabGesture(Qt::GestureType::SwipeGesture);
+    grabGesture(Qt::GestureType::TapAndHoldGesture);
 }
 
 MangaReaderWidget::~MangaReaderWidget()
@@ -236,6 +238,9 @@ bool MangaReaderWidget::gestureEvent(QGestureEvent *event)
         auto pos = this->mapFromGlobal(gesture->hotSpot().toPoint());
         auto angle = swipe->swipeAngle();
 
+        // Improved swipe detection: require a minimum "fast" movement
+        // (velocity logic handled in recognizer, here we just filter by angle)
+
         if (ui->readerNavigationBar->isVisible())
         {
             if (pos.y() > this->height() * SIZES.readerBottomMenuThreshold * 2)
@@ -302,6 +307,15 @@ bool MangaReaderWidget::gestureEvent(QGestureEvent *event)
             auto tabSide = pos.x() < this->width() / 2 ? Left : Right;
 
             emit advancPageClicked(conditionalReverse(Forward, settings->tabAdvance != tabSide));
+        }
+    }
+    else if (QGesture *gesture = event->gesture(Qt::TapAndHoldGesture))
+    {
+        if (gesture->state() == Qt::GestureFinished)
+        {
+            // Long press = toggle bookmark
+            qDebug() << "Long press detected - toggling bookmark";
+            emit bookmarkRequested();
         }
     }
 
@@ -526,13 +540,12 @@ void MangaReaderWidget::showImage(const QString &path)
 
 void MangaReaderWidget::checkMem()
 {
-    while (imgcache.size() > 1 && !enoughFreeSystemMemory())
+    // Be more aggressive on e-ink devices with limited RAM
+    // If free memory is below 100MB, clear cache until only the current image remains
+    while (imgcache.size() > 1 && (!enoughFreeSystemMemory() || getFreeSystemMemory() < 100 * 1024 * 1024))
     {
-        //        int free = getFreeSystemMemory() / 1024 / 1024;
-        //        qDebug() << "Free(MB):" << free;
+        qDebug() << "Low memory detected, clearing reader cache. Current size:" << imgcache.size();
         imgcache.removeLast();
-        //        free = getFreeSystemMemory() / 1024 / 1024;
-        //        qDebug() << "Freed memory!" << free;
     }
 }
 

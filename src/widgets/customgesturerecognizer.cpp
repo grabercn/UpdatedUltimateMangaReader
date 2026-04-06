@@ -165,10 +165,7 @@ QGestureRecognizer::Result TapGestureRecognizer::recognize(QGesture *state,
                                                            QEvent *event)
 {
     QTapGesture *q = static_cast<QTapGesture *>(state);
-
     const QMouseEvent *ev = static_cast<const QMouseEvent *>(event);
-
-    QGestureRecognizer::Result result = QGestureRecognizer::CancelGesture;
 
     switch (event->type())
     {
@@ -178,42 +175,123 @@ QGestureRecognizer::Result TapGestureRecognizer::recognize(QGesture *state,
             q->setHotSpot(this->position);
             timer.start();
             this->pressed = true;
-            result = QGestureRecognizer::MayBeGesture;
-            //        qDebug() << "pressed!" << this->position;
-            break;
+            return QGestureRecognizer::MayBeGesture;
         }
         case QEvent::MouseMove:
-            break;
-        case QEvent::MouseButtonRelease:
         {
-            if (q->state() == Qt::NoGesture && this->pressed)
+            if (this->pressed)
             {
-                this->pressed = false;
-                //            qDebug() << "released!";
                 auto p = ev->globalPos();
-                QPoint delta = p - this->position.toPoint();
-                if (delta.manhattanLength() <= TAPRADIUS &&
-                    timer.elapsed() < TIMEOUT)
+                QPointF delta = p - this->position;
+                if (delta.manhattanLength() > TAP_RADIUS)
                 {
-                    result = QGestureRecognizer::FinishGesture;
-                    //                qDebug() << "released!";
+                    this->pressed = false;
+                    return QGestureRecognizer::CancelGesture;
                 }
-                else
-                    result = QGestureRecognizer::CancelGesture;
+                return QGestureRecognizer::MayBeGesture;
             }
             break;
         }
+        case QEvent::MouseButtonRelease:
+        {
+            if (this->pressed)
+            {
+                this->pressed = false;
+                auto p = ev->globalPos();
+                QPointF delta = p - this->position;
+                if (delta.manhattanLength() <= TAP_RADIUS &&
+                    timer.elapsed() < MAX_TAP_TIME)
+                {
+                    return QGestureRecognizer::FinishGesture;
+                }
+            }
+            return QGestureRecognizer::CancelGesture;
+        }
         default:
-            result = QGestureRecognizer::Ignore;
             break;
     }
-    return result;
+    return QGestureRecognizer::Ignore;
 }
 
 void TapGestureRecognizer::reset(QGesture *state)
 {
     this->pressed = false;
     this->position = QPointF();
-
     QGestureRecognizer::reset(state);
 }
+
+LongPressGestureRecognizer::LongPressGestureRecognizer()
+    : pressed(false), triggered(false) {}
+
+QGesture *LongPressGestureRecognizer::create(QObject *)
+{
+    // Use QTapAndHoldGesture as it is a standard Qt gesture type
+    return new QTapAndHoldGesture;
+}
+
+QGestureRecognizer::Result LongPressGestureRecognizer::recognize(QGesture *state,
+                                                                 QObject *,
+                                                                 QEvent *event)
+{
+    QTapAndHoldGesture *q = static_cast<QTapAndHoldGesture *>(state);
+    const QMouseEvent *ev = static_cast<const QMouseEvent *>(event);
+
+    switch (event->type())
+    {
+        case QEvent::MouseButtonPress:
+        {
+            this->position = ev->globalPos();
+            q->setHotSpot(this->position);
+            timer.start();
+            this->pressed = true;
+            this->triggered = false;
+            return QGestureRecognizer::MayBeGesture;
+        }
+        case QEvent::MouseMove:
+        {
+            if (this->pressed && !this->triggered)
+            {
+                auto p = ev->globalPos();
+                QPointF delta = p - this->position;
+                if (delta.manhattanLength() > MOVE_THRESHOLD)
+                {
+                    this->pressed = false;
+                    return QGestureRecognizer::CancelGesture;
+                }
+                if (timer.elapsed() >= MIN_HOLD_TIME)
+                {
+                    this->triggered = true;
+                    return QGestureRecognizer::FinishGesture;
+                }
+                return QGestureRecognizer::MayBeGesture;
+            }
+            break;
+        }
+        case QEvent::MouseButtonRelease:
+        {
+            if (this->pressed && !this->triggered)
+            {
+                if (timer.elapsed() >= MIN_HOLD_TIME)
+                {
+                    this->triggered = true;
+                    this->pressed = false;
+                    return QGestureRecognizer::FinishGesture;
+                }
+            }
+            this->pressed = false;
+            return QGestureRecognizer::CancelGesture;
+        }
+        default:
+            break;
+    }
+    return QGestureRecognizer::Ignore;
+}
+
+void LongPressGestureRecognizer::reset(QGesture *state)
+{
+    this->pressed = false;
+    this->triggered = false;
+    this->position = QPointF();
+    QGestureRecognizer::reset(state);
+}
+

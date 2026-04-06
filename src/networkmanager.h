@@ -20,11 +20,15 @@ public:
 
     QSharedPointer<DownloadStringJob> downloadAsString(const QString &url, int timeout = 6000,
                                                        const QByteArray &postData = QByteArray(),
-                                                       const QList<std::tuple<const char *, const char *>> &headers = {});
+                                                       const QList<std::tuple<const char *, const char *>> &headers = {},
+                                                       int maxRetries = 2);
     QSharedPointer<DownloadBufferJob> downloadToBuffer(const QString &url, int timeout = 6000,
-                                                       const QByteArray &postData = QByteArray());
-    QSharedPointer<DownloadFileJob> downloadAsFile(const QString &url, const QString &localPath);
-    QSharedPointer<DownloadFileJob> downloadAsScaledImage(const QString &url, const QString &localPath);
+                                                       const QByteArray &postData = QByteArray(),
+                                                       int maxRetries = 2);
+    QSharedPointer<DownloadFileJob> downloadAsFile(const QString &url, const QString &localPath,
+                                                   int maxRetries = 2);
+    QSharedPointer<DownloadFileJob> downloadAsScaledImage(const QString &url, const QString &localPath,
+                                                          int maxRetries = 2);
 
     void setDownloadSettings(const QSize &size, Settings *settings);
 
